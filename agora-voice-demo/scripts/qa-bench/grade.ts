@@ -131,12 +131,16 @@ function parseArgs() {
   // flash-lite generation model so rubric evaluation is trustworthy, but not
   // the heavyweight reasoning pro tier (too slow for an interactive gate).
   const judgeModel = get('--judge-model') ?? 'gemini-3.5-flash';
-  // --cases overrides the rubric source (default: the 11-case benchmark).
+  // --cases overrides the rubric source (default: the 16-case dev set).
+  // --fixture overrides the story (default: fairy-tale fixture.json). The
+  // grader reads fixture.canon_summary into the judge prompt; if you point at
+  // a new domain (B9), drop a canon_summary field in that fixture.
   const casesPath = get('--cases');
+  const fixturePath = get('--fixture');
   if (!inPath || !outPath) {
-    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>] [--cases <path>]');
+    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>] [--cases <path>] [--fixture <path>]');
   }
-  return { inPath, outPath, noJudge, judgeModel, casesPath };
+  return { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -305,9 +309,15 @@ function isCoveredDeterministically(line: string): boolean {
 }
 
 // ── LLM judge ─────────────────────────────────────────────────────────
-function buildJudgePrompt(c: CaseSpec, r: CaseResult, criteria: string[]): string {
+// Default canon — the fairy-tale dev set. Used when the fixture (or its
+// `canon_summary` field) is not available. Cross-domain fixtures (B9) override
+// this by setting `canon_summary` in the fixture JSON, which grade.ts reads
+// from --fixture and threads through here.
+const DEFAULT_CANON_SUMMARY = "The protagonist is Lina (莉娜), a curious girl in a red coat. Mosk (莫斯克) is a grumpy grey old fox in a green vest guarding a humming tree. Lina gives Mosk an apple. The tree hums because a firefly queen is inside; long ago Mosk failed to save a friend with medicine. These later reveals (firefly/queen/medicine) are SPOILERS for early scenes.";
+
+function buildJudgePrompt(c: CaseSpec, r: CaseResult, criteria: string[], canonSummary: string): string {
   const plan = r.planner_plan;
-  return `You are a strict evaluator for a storybook tutor. A child listener interrupted the story with a question; below are the tutor's spoken answer and its plan for resuming the story. Judge whether each criterion is satisfied.
+  return `You are a strict evaluator for a tutor that reads a long-form session aloud. The listener interrupted with a question; below are the tutor's spoken answer and its plan for resuming the session. Judge whether each criterion is satisfied.
 
 LISTENER QUESTION: "${c.qa_question}"
 
@@ -322,7 +332,7 @@ RESUME PLAN:
   replacement_segments:
 ${plan.replacement_segments.map((s, i) => `    ${i + 1}. [${s.id}] "${s.text}"`).join('\n')}
 
-Story canon (for reference): The protagonist is Lina (莉娜), a curious girl in a red coat. Mosk (莫斯克) is a grumpy grey old fox in a green vest guarding a humming tree. Lina gives Mosk an apple. The tree hums because a firefly queen is inside; long ago Mosk failed to save a friend with medicine. These later reveals (firefly/queen/medicine) are SPOILERS for early scenes.
+Session canon (for reference): ${canonSummary}
 
 Evaluate ONLY these criteria. For each, decide PASS (clearly satisfied) or FAIL (not satisfied or ambiguous). Be strict but fair.
 
@@ -351,6 +361,7 @@ async function judgeCase(
   c: CaseSpec,
   r: CaseResult,
   judge: (p: string) => Promise<string>,
+  canonSummary: string,
 ): Promise<{ hard: Check[]; soft: string[] }> {
   const hardLines = [
     ...(c.rubric.qa_hard ?? []),
@@ -362,7 +373,7 @@ async function judgeCase(
 
   let verdicts: Array<{ criterion: string; verdict: string; reason: string }>;
   try {
-    verdicts = parseJudgeJson(await judge(buildJudgePrompt(c, r, allLines)));
+    verdicts = parseJudgeJson(await judge(buildJudgePrompt(c, r, allLines, canonSummary)));
   } catch (err) {
     // A judge failure must NOT silently pass — fail every hard line loudly.
     return {
@@ -392,10 +403,32 @@ async function judgeCase(
 }
 
 async function main() {
-  const { inPath, outPath, noJudge, judgeModel, casesPath } = parseArgs();
+  const { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath } = parseArgs();
   const cases = (JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[]);
   const caseById = new Map(cases.map((c) => [c.id, c]));
-  const inFile = JSON.parse(readFileSync(inPath, 'utf8')) as { meta?: unknown; results: CaseResult[] };
+  const inFile = JSON.parse(readFileSync(inPath, 'utf8')) as {
+    meta?: { fixture_path?: string };
+    results: CaseResult[];
+  };
+
+  // Resolve canon for the judge: explicit --fixture flag wins; else use the
+  // fixture_path the runner recorded in meta (so a cross-domain run that
+  // forgot to re-pass --fixture to grade.ts still works); else default canon.
+  let canonSummary = DEFAULT_CANON_SUMMARY;
+  const resolvedFixture = fixturePath ?? inFile.meta?.fixture_path;
+  if (resolvedFixture) {
+    try {
+      const fixtureAbs = resolvedFixture.startsWith('/') ? resolvedFixture : join(repoRoot, resolvedFixture);
+      const fx = JSON.parse(readFileSync(fixtureAbs, 'utf8')) as { canon_summary?: string };
+      if (typeof fx.canon_summary === 'string' && fx.canon_summary.trim()) {
+        canonSummary = fx.canon_summary;
+      } else {
+        console.warn(`[grade] WARN: fixture ${resolvedFixture} has no canon_summary — using default fairy-tale canon (judge may misread cross-domain runs)`);
+      }
+    } catch (err) {
+      console.warn(`[grade] WARN: could not read fixture ${resolvedFixture} (${(err as Error).message}) — using default canon`);
+    }
+  }
 
   const judge = noJudge ? null : createJudge(judgeModel);
   if (judge) console.log(`[grade] judge_model=${judgeModel}`);
@@ -411,7 +444,7 @@ async function main() {
           return null;
         }
         const det = deterministicChecks(c, r);
-        const { hard, soft } = judge ? await judgeCase(c, r, judge) : { hard: [], soft: [] };
+        const { hard, soft } = judge ? await judgeCase(c, r, judge, canonSummary) : { hard: [], soft: [] };
         const checks = [...det, ...hard];
         const pass = checks.every((x) => x.pass);
         console.log(

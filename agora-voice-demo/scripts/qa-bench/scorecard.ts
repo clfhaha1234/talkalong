@@ -86,6 +86,11 @@ const CATEGORY_EXACT: Record<string, string> = {
 };
 // Held-out test sets coin their own labels (one per experiment). Prefix-match
 // to keep the table maintainable without a 50-line exact map.
+//
+// Cross-domain (B9) labels follow the form `crossdomain-<fixture>-<axis>` so
+// we can roll up by axis (transfer test) AND by fixture (which domain is
+// weakest). The axis suffix is matched here; the fixture is surfaced
+// separately in the scorecard's per_case array.
 const CATEGORY_PREFIX: Array<[string, string]> = [
   ['climax-', 'spoiler-defence'],
   ['spoiler-', 'spoiler-defence'],
@@ -95,9 +100,18 @@ const CATEGORY_PREFIX: Array<[string, string]> = [
   ['refuse-offtopic-', 'off-topic'],
   ['language-', 'language-switch'],
 ];
+// Suffix matcher for cross-domain labels. Tried after EXACT and PREFIX.
+const CATEGORY_SUFFIX: Array<[string, string]> = [
+  ['-domain-explain', 'domain-explain'],
+  ['-strategy-choice', 'strategy-choice'],
+  ['-empathy', 'empathy'],
+  ['-spoiler-defence', 'spoiler-defence'],
+  ['-persona-stability', 'persona-stability'],
+];
 function categoryFor(label: string): string {
   if (CATEGORY_EXACT[label]) return CATEGORY_EXACT[label];
   for (const [pfx, cat] of CATEGORY_PREFIX) if (label.startsWith(pfx)) return cat;
+  for (const [sfx, cat] of CATEGORY_SUFFIX) if (label.endsWith(sfx)) return cat;
   return 'other';
 }
 

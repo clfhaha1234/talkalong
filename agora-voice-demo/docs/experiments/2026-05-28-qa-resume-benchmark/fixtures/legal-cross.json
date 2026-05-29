@@ -1,0 +1,23 @@
+{
+  "_comment": "Legal-cross fixture for the cross-domain transfer bench (B9). 4 scenes simulating a senior litigator coaching a trainee through a witness impeachment. Compatible with run.ts --fixture and grade.ts --fixture.",
+  "story_title": "Witness Impeachment — Trainee Walkthrough",
+  "canon_summary": "The tutor is a senior litigator walking a trainee through the four steps of impeaching a witness with a prior inconsistent statement. Scenes: (s1) lay the foundation by locking the witness into the trial-day testimony, (s2) commit them to the fact in question, (s3) confront with the prior inconsistent statement, (s4) close — do NOT argue, sit down. Whether the impeachment actually succeeds with a given jury is NOT part of this walkthrough — that is downstream and a SPOILER. The coach also does not give actual legal advice for any real case; this is a craft lesson.",
+  "scenes": [
+    {
+      "id": "s1",
+      "text": "Step one — and this is where most trainees skip too fast — is laying foundation on the trial-day testimony. You do not start with the prior statement. You start by locking the witness into exactly what they just said on direct, in the cleanest, most boring way you can. 'On direct, you told this jury X. Yes?' Slow, declarative, no editorial."
+    },
+    {
+      "id": "s2",
+      "text": "Step two — commit them. Get the witness to repeat the fact you intend to impeach, on the record, in their own current words. Do not paraphrase for them. Do not let them qualify. If they try to drift, bring them back: 'My question was X. Yes or no.' This is the moment they cannot later say you tricked them."
+    },
+    {
+      "id": "s3",
+      "text": "Step three is the confrontation — the prior inconsistent statement. Hand them the document or play the clip. Walk them through: 'You signed this. You signed it under oath. You said the opposite. Yes?' One factual question per breath. Do not argue with them; let the contradiction sit in the room."
+    },
+    {
+      "id": "s4",
+      "text": "Step four, and this is the hardest — close the loop and stop. Do not editorialize, do not push for an apology, do not ask 'so were you lying then or now?' Sit down. The jury saw what they needed to see. If you keep going you will give the witness room to repair it."
+    }
+  ]
+}

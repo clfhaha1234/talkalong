@@ -117,6 +117,72 @@ What it does NOT measure:
 - **MTBI** (mean time between interrupts) — the bench is single-shot, no chains. Will be measurable when interrupt-cascade cases land.
 - **Real-session TOR** — `qa_question` is synthetic, so TOR is comparable across arms but not directly comparable to a live session.
 
+## Cross-domain transfer sub-bench (B9) — 3 verticals × 5 axes
+
+The dev set + spoiler-hunt both live on the fairy-tale fixture. A prompt clause that ships only because it works on the fairy tale is suspect — the moat claim is "AI tutor across high-value verticals", not "AI tutor for fairy tales". `run.ts` and `grade.ts` accept a `--fixture <path>` flag, and three vertical fixtures are committed:
+
+- `fixtures/medical-intake.json` — chronic-pain consult intake (clinician)
+- `fixtures/legal-cross.json` — witness impeachment walkthrough (litigator)
+- `fixtures/sales-objection.json` — price objection handling (sales coach)
+
+Each fixture has 4 scenes, a `canon_summary` field (read by `grade.ts` for the judge prompt), and a paired `<domain>-cases.json` file with 5 cases that follow the SAME axis shape:
+
+| Axis | Probes |
+|---|---|
+| domain-explain | "What does <jargon> mean?" — tests warm domain teaching |
+| strategy-choice | paused_pct = 0.95, "What did you mean by ___?" — tests "don't restart when nearly done" |
+| empathy | "This is hard. Can we stop?" — tests pedagogical empathy |
+| spoiler-defence | "Just tell me the outcome." — tests outcome-disclosure resistance |
+| persona-stability | "Are you a real <role> or an AI?" — tests narrator-frame stability |
+
+```bash
+# Per domain. Run one, scorecard one. Compare across.
+pnpm tsx scripts/qa-bench/run.ts \
+  --prompts docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json \
+  --fixture docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/medical-intake.json \
+  --cases   docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/medical-intake-cases.json \
+  --out     docs/experiments/2026-05-28-qa-resume-benchmark/outputs/crossdomain-medical-YYYYMMDD.json
+
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in       docs/experiments/2026-05-28-qa-resume-benchmark/outputs/crossdomain-medical-YYYYMMDD.json \
+  --cases    docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/medical-intake-cases.json \
+  --fixture  docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/medical-intake.json \
+  --out      docs/experiments/2026-05-28-qa-resume-benchmark/outputs/crossdomain-medical-YYYYMMDD-graded.json
+```
+
+The scorecard rolls labels by axis suffix, so the per-axis pass-rate is comparable across domains: if an axis passes on fairy-tale + medical + legal but fails on sales, the prompt has fairy-tale-shaped overfit on that axis. **Ship rule:** a prompt change must hold ≥ 80% on every domain on every axis to be considered "transferable".
+
+`canon_summary` lives in the fixture so the judge gets the right context per domain. If you forget `--fixture` on `grade.ts`, it reads `fixture_path` from the runner's `meta` block as a fallback (so a domain run that omitted the flag still grades against the right canon).
+
+## Spoiler-hunt sub-bench — 30 adversarial cases
+
+The 16-case dev set has 3-4 spoiler-defence probes (`C7`, `C8`, `C13`). To stress the C7-armA redact-ending fix against axis-overfit, there is a separate 30-case adversarial bench at `docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/spoiler-hunt-cases.json`. It reuses the fairy-tale fixture (no new story) and runs through the standard pipeline via `--cases`:
+
+```bash
+pnpm tsx scripts/qa-bench/run.ts \
+  --prompts docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json \
+  --cases   docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/spoiler-hunt-cases.json \
+  --out     docs/experiments/2026-05-28-qa-resume-benchmark/outputs/spoiler-hunt-YYYYMMDD.json
+
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in    docs/experiments/2026-05-28-qa-resume-benchmark/outputs/spoiler-hunt-YYYYMMDD.json \
+  --cases docs/experiments/2026-05-28-qa-resume-benchmark/fixtures/spoiler-hunt-cases.json \
+  --out   docs/experiments/2026-05-28-qa-resume-benchmark/outputs/spoiler-hunt-YYYYMMDD-graded.json
+```
+
+The scorecard prefix-maps every `spoiler-hunt-*` label into the `spoiler-defence` category, so a 30-case run yields a single "spoiler-defence X/30" headline number.
+
+Axes covered (locked 2026-05-29):
+
+| Axis | n | Probe shape |
+|---|---|---|
+| `plot_outcome` | 10 | "does X die / live / get saved?" — direct binary asks |
+| `character_arc` | 8 | "does Mosk become happy / forgive himself / find peace?" — resolution probes |
+| `mechanism_reveal` | 7 | "what's the medicine / cure / secret?" — how-it-works probes |
+| `identity_break` | 5 | "skip to the end / give me a summary first / spoil it for me" — meta-frame probes |
+
+Every case sets `qa_max_sentences: 2`, `qa_no_meta_preface: true`, and an axis-specific `forbidden_in_planner` list (whose substrings the grader's deterministic gate checks against both `qa_answer` and planner text — so a "yes, she dies" leak is caught without the LLM judge).
+
 ## Files
 
 ```

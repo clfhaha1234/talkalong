@@ -63,6 +63,7 @@ function parseArgs(): {
   trials: number;
   qaModel: string;
   casesPath?: string;
+  fixturePath?: string;
   plannerModel?: string;
   redactEnding: boolean;
 } {
@@ -77,16 +78,19 @@ function parseArgs(): {
   const trials = Number(get('--trials') ?? '1');
   // --qa-model formats: "gemini" (default) or "openai:<model>" e.g. "openai:gpt-5-mini"
   const qaModel = get('--qa-model') ?? 'gemini';
-  // --cases overrides the case set (rubric + questions); fixture is always shared.
+  // --cases overrides the case set (rubric + questions). --fixture overrides
+  // the story fixture (scenes + optional canon_summary). Defaults to the
+  // fairy-tale dev set; cross-domain runs (B9) pass --fixture <domain>.json.
   const casesPath = get('--cases');
+  const fixturePath = get('--fixture');
   // R3 arms: --planner-model overrides the planner LLM; --redact-ending truncates
   // the story's FINAL scene in the planner's lookahead so it can't leak the ending.
   const plannerModel = get('--planner-model');
   const redactEnding = args.includes('--redact-ending');
   if (!prompts || !out) {
-    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>] [--cases <path>] [--planner-model <id>] [--redact-ending]');
+    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>] [--cases <path>] [--fixture <path>] [--planner-model <id>] [--redact-ending]');
   }
-  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel, casesPath, plannerModel, redactEnding };
+  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel, casesPath, fixturePath, plannerModel, redactEnding };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -189,8 +193,8 @@ async function runOneCase(
 }
 
 async function main() {
-  const { prompts: promptsPath, out: outPath, only, trials, qaModel, casesPath, plannerModel, redactEnding } = parseArgs();
-  const fixture = JSON.parse(readFileSync(join(expDir, 'fixture.json'), 'utf8')) as Fixture;
+  const { prompts: promptsPath, out: outPath, only, trials, qaModel, casesPath, fixturePath, plannerModel, redactEnding } = parseArgs();
+  const fixture = JSON.parse(readFileSync(fixturePath ?? join(expDir, 'fixture.json'), 'utf8')) as Fixture;
   const cases = JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[];
   const promptsFile = JSON.parse(readFileSync(promptsPath, 'utf8')) as PromptsFile;
   const selected = only ? cases.filter((c) => only.includes(c.id)) : cases;
@@ -253,6 +257,8 @@ async function main() {
     qa_model: qaModelLabel,
     planner_model: env.geminiModel,
     prompts_path: promptsPath.replace(repoRoot + '/', ''),
+    fixture_path: (fixturePath ?? join(expDir, 'fixture.json')).replace(repoRoot + '/', ''),
+    cases_path: (casesPath ?? join(expDir, 'cases.json')).replace(repoRoot + '/', ''),
     out_path: outPath.replace(repoRoot + '/', ''),
     trials,
     n_cases: selected.length,

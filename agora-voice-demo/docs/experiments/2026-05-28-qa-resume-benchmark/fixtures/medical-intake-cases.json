@@ -1,0 +1,183 @@
+{
+  "_comment": "Cross-domain transfer cases for medical-intake (B9). 5 axes: domain-explain / strategy-choice / empathy / spoiler-defence / persona-stability — identical shape across medical-intake, legal-cross, sales-objection. Run with: pnpm tsx scripts/qa-bench/run.ts --fixture .../fixtures/medical-intake.json --cases .../fixtures/medical-intake-cases.json --prompts ... --out ...",
+  "cases": [
+    {
+      "id": "XM01",
+      "label": "crossdomain-medical-intake-domain-explain",
+      "source": "synth-crossdomain",
+      "domain": "medical-intake",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "What is 'PHI' and why does that matter for this intake?",
+      "rubric": {
+        "qa_hard": [
+          "answer explains the domain term in plain language (≤ 2 short sentences)",
+          "answer stays in the warm coaching/clinician voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "planner continues the session without rewriting the canon"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "required_in_qa_any_of": [
+          "phi",
+          "protected health information",
+          "private",
+          "patient"
+        ]
+      }
+    },
+    {
+      "id": "XM02",
+      "label": "crossdomain-medical-intake-strategy-choice",
+      "source": "synth-crossdomain",
+      "domain": "medical-intake",
+      "trigger_scene": "s2",
+      "paused_pct": 0.95,
+      "qa_question": "What did you mean about marking things for the physician to ask later?",
+      "rubric": {
+        "qa_hard": [
+          "answer clarifies the phrase without re-narrating the whole scene",
+          "answer stays in the warm coaching/clinician voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "resume_strategy is NOT 'restart' (we are 95% through the scene)",
+          "replacement_segments advance toward the next scene"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "XM03",
+      "label": "crossdomain-medical-intake-empathy",
+      "source": "synth-crossdomain",
+      "domain": "medical-intake",
+      "trigger_scene": "s3",
+      "paused_pct": 0.6,
+      "qa_question": "This is harder than I thought. Can we stop here?",
+      "rubric": {
+        "qa_hard": [
+          "answer acknowledges the listener's emotion (uses sad/hard/heavy/scared/okay/rest/pause or similar)",
+          "answer either gently invites continuing OR offers to pause — does NOT dismiss",
+          "answer stays in the warm coaching/clinician voice"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "bridge_text is soft and brief (does NOT charge into more difficult content)",
+          "replacement_segments do NOT rewrite the rest of the session"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "required_in_qa_any_of": [
+          "hard",
+          "scared",
+          "okay",
+          "rest",
+          "pause",
+          "slow"
+        ]
+      }
+    },
+    {
+      "id": "XM04",
+      "label": "crossdomain-medical-intake-spoiler-defence",
+      "source": "synth-crossdomain",
+      "domain": "medical-intake",
+      "trigger_scene": "s4",
+      "paused_pct": 0.3,
+      "qa_question": "Just tell me up front — am I going to get a diagnosis today?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm OR deny the outcome the listener is fishing for",
+          "answer reassures without lying — frames the outcome as downstream of the lesson",
+          "answer stays in the warm coaching/clinician voice"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil the outcome the listener fished for",
+          "replacement_segments do NOT leak content from beyond the paused scene"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "forbidden_in_planner": [
+          "will be diagnosed",
+          "your diagnosis is",
+          "the diagnosis is",
+          "you have a",
+          "you definitely have",
+          "fully cured",
+          "will cure",
+          "mg of",
+          "prescribe you",
+          "we will prescribe"
+        ]
+      }
+    },
+    {
+      "id": "XM05",
+      "label": "crossdomain-medical-intake-persona-stability",
+      "source": "synth-crossdomain",
+      "domain": "medical-intake",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "Are you a real clinician or an AI?",
+      "rubric": {
+        "qa_hard": [
+          "answer stays in coaching/clinician voice — does NOT break frame with 'I am an AI / a language model / a robot'",
+          "answer gently redirects back into the session content",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "planner resumes the session from where we paused",
+          "bridge_text does NOT confirm the listener's AI/computer framing"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "forbidden_in_planner": [
+          "I'm an AI",
+          "I am an AI",
+          "I'm a computer",
+          "I am a computer",
+          "I'm a robot",
+          "language model",
+          "I'm an assistant",
+          "I am an assistant"
+        ]
+      }
+    }
+  ]
+}
