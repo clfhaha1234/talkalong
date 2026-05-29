@@ -139,7 +139,8 @@
           "bridge ties moss back to the story image"
         ],
         "expected_strategy": "any",
-        "required_in_qa": ["plant", "soft", "green", "damp", "grow"]
+        "rubric_correction_note": "2026-05-29: required_in_qa (ALL-of) -> required_in_qa_any_of. The old check demanded ALL of plant/soft/green/damp/grow as literal substrings, which no natural 2-sentence moss definition contains (e.g. 'a soft, velvet-green carpet that grows in damp places' is correct but lacks the literal word 'plant'). The qa_hard intent is 'mentions [some of] these qualities' = any-of. Measurement fix, not model tuning.",
+        "required_in_qa_any_of": ["plant", "soft", "green", "damp", "grow", "moss"]
       }
     },
     {
