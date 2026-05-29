@@ -1,0 +1,9 @@
+{
+  "id": "onboard", "title": "New-hire onboarding (mixed deliver + elicit)",
+  "segments": [
+    { "id": "d1", "kind": "deliver", "text": "Welcome aboard. Two ground rules first: we deploy behind feature flags, and every change needs a green CI before merge.", "load_bearing": true },
+    { "id": "q1", "kind": "elicit", "question": "Just to check it landed — what are the two ground rules I just mentioned?", "target": "both feature flags AND green-CI-before-merge", "load_bearing": true },
+    { "id": "d2", "kind": "deliver", "text": "Good. Your first week, you'll pair with a buddy and ship one tiny doc fix end-to-end to learn the pipeline.", "load_bearing": true },
+    { "id": "q2", "kind": "elicit", "question": "What's the goal of that first-week tiny fix?", "target": "to learn/practice the end-to-end pipeline (not the fix itself mattering)", "load_bearing": true }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "story", "title": "Lina and the Hollow Tree (deliver-only)",
+  "segments": [
+    { "id": "s1", "kind": "deliver", "text": "On the edge of the wool-grey village stood a hollow tree taller than the church, and every winter night a low humming drifted from its bark.", "load_bearing": true },
+    { "id": "s2", "kind": "deliver", "text": "The night her grandmother fell asleep mid-story, Lina put on her red coat and crossed the frosty field to listen.", "load_bearing": true },
+    { "id": "s3", "kind": "deliver", "text": "Inside, a curl of stairs went down, and at the top step sat an old grey fox in a patched green vest named Mosk.", "load_bearing": true },
+    { "id": "s4", "kind": "deliver", "text": "Lina set the last apple of the season on the step; Mosk stared a long while, then tied his vest and stepped down without a word.", "load_bearing": true }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "hr", "title": "HR screening interview (elicit-only)",
+  "segments": [
+    { "id": "q1", "kind": "elicit", "question": "What drew you to apply for this role?", "target": "a concrete, specific motivation tied to this role or company (not a generic platitude)", "load_bearing": true },
+    { "id": "q2", "kind": "elicit", "question": "Tell me about a project you're proud of and your specific contribution.", "target": "a real project AND the candidate's own concrete role/impact in it", "load_bearing": true },
+    { "id": "q3", "kind": "elicit", "question": "Describe a time you disagreed with a teammate. How did it resolve?", "target": "a real conflict, the candidate's approach, and the outcome", "load_bearing": true },
+    { "id": "q4", "kind": "elicit", "question": "Where do you want to grow in the next year?", "target": "a specific skill or area, not just 'be better'", "load_bearing": false }
+  ]
+}
