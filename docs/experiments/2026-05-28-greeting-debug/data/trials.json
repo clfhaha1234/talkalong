@@ -1,0 +1,119 @@
+[
+  {
+    "arm_id": "baseline",
+    "trial_index": 0,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "baseline",
+    "trial_index": 1,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "baseline",
+    "trial_index": 2,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_a_empty",
+    "trial_index": 0,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_a_empty",
+    "trial_index": 1,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_a_empty",
+    "trial_index": 2,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_b_inline",
+    "trial_index": 0,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_b_inline",
+    "trial_index": 1,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  },
+  {
+    "arm_id": "arm_b_inline",
+    "trial_index": 2,
+    "turn_type_sequence": [
+      "api_speak",
+      "api_speak"
+    ],
+    "first_turn_type": "api_speak",
+    "first_is_scene1_not_greeting": true,
+    "first_turn_playback_ms": null,
+    "greeting_turn_count": 0,
+    "api_speak_turn_count": 2
+  }
+]

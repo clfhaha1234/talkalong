@@ -1,0 +1,883 @@
+'use client';
+
+// Storybook tutor page.
+//
+// Three-stage state machine driven by the /api/lesson/start SSE stream:
+//
+//   input    — user picks a topic; Begin posts to /api/lesson/start
+//   loading  — script_drafted → scenes_composed → image_ready × N → all_images_ready
+//   story    — flips on session_started; word-by-word reveal + mic interrupt
+//   done     — narration_complete
+//   error    — SSE error event or fetch failure
+//
+// All of the Phase 3 audio + RTM machinery from the previous TutorPage is
+// preserved verbatim:
+//   - AgoraRTCProvider + lazy AgoraRTC.createClient (StrictMode-safe)
+//   - useJoin / useLocalMicrophoneTrack / usePublish / useRemoteUsers
+//   - useClientEvent('user-published', …) → manual subscribe + audioTrack.play()
+//   - RTM client login + AgoraVoiceAI.init for AGENT_STATE_CHANGED / TRANSCRIPT_UPDATED
+//   - End-of-Q&A silence-timer detector that POSTs /api/tutor/qa-ended
+//
+// What changed: the visual surface is the storybook (Input/Loading/Story
+// components in ./tutor/) and we drive it off `/api/lesson/start` instead of
+// `/api/tutor/start` so we get scenes + image URLs along with the narration
+// session.
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import AgoraRTC, {
+  AgoraRTCProvider,
+  useClientEvent,
+  useJoin,
+  useLocalMicrophoneTrack,
+  usePublish,
+  useRTCClient,
+  useRemoteUsers,
+  type IAgoraRTCClient,
+  type IAgoraRTCRemoteUser,
+} from 'agora-rtc-react';
+import {
+  AgoraVoiceAI,
+  AgoraVoiceAIEvents,
+  TranscriptHelperMode,
+  TurnStatus,
+  type AgentTranscription,
+  type ModuleError,
+  type StateChangeEvent,
+  type TranscriptHelperItem,
+  type UserTranscription,
+} from 'agora-agent-client-toolkit';
+import type { RTMClient } from 'agora-rtm';
+
+import { ScalingStage } from './tutor/ScalingStage';
+import { InputScreen, PRESETS } from './tutor/InputScreen';
+import { LoadingScreen, type LoadingState } from './tutor/LoadingScreen';
+import { StoryScreen } from './tutor/StoryScreen';
+import { T, F_HEAD } from './tutor/theme';
+import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
+
+// Phase 3 end-of-Q&A detector tunable. The silence window is the gap we wait
+// after the agent stops speaking before we treat the Q&A as concluded and
+// POST /api/tutor/qa-ended. Mirrors the legacy value.
+const SILENCE_TIMEOUT_MS = 2000;
+
+type Stage = 'input' | 'loading' | 'story' | 'error';
+
+interface SessionInfo {
+  channel: string;
+  agent_id: string;
+  rtc_token: string;
+  rtm_token: string;
+  uid: number;
+}
+
+interface QaEntry {
+  q: string;
+  a: string;
+}
+
+interface TutorPageProps {
+  agoraAppId: string;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Inner component — runs inside <AgoraRTCProvider> so it can call the
+// agora-rtc-react hooks.
+
+function TutorPageInner({ agoraAppId }: TutorPageProps) {
+  const client = useRTCClient();
+
+  // ── stage machine ─────────────────────────────────────────
+  const [stage, setStage] = useState<Stage>('input');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [inputText, setInputText] = useState<string>(PRESETS[0].prefill);
+
+  // ── loading-screen progress state ─────────────────────────
+  const [loading, setLoading] = useState<LoadingState>({
+    scriptDrafted: false,
+    scenesComposed: false,
+    imagesReady: 0,
+    totalScenes: 0,
+    allImagesReady: false,
+    videosReady: 0,
+  });
+
+  // ── scene + narration state ───────────────────────────────
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  // The orchestrator emits segment_started / segment_completed using the
+  // scene's id as the segment_id (one segment per scene). We track the
+  // active scene index so StoryScreen can flip pages on segment_completed.
+  const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
+  // True once narration_complete fires — we stay on the story's last spread
+  // (like the closing page of a book) instead of switching to a terminal card.
+  const [finished, setFinished] = useState<boolean>(false);
+  // BRANCH visual state — flipped by branch_started / branch_ended SSE events.
+  const [inBranch, setInBranch] = useState<boolean>(false);
+  // Per-scene QA history derived from the RTM transcript stream during
+  // BRANCH. We append to the scene the branch is paused on.
+  const [qaHistoryByScene, setQaHistoryByScene] = useState<
+    Record<number, QaEntry[]>
+  >({});
+
+  // ── Agora session lifecycle ───────────────────────────────
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
+  const [rtmClient, setRtmClient] = useState<RTMClient | null>(null);
+
+  // ── Phase 3 detector refs (not state to avoid re-renders) ─
+  const sessionIdRef = useRef<string | null>(null);
+  const qaTurnCountRef = useRef(0);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevAgentStateRef = useRef<string>('idle');
+  const inBranchRef = useRef(false);
+  // Scene index the BRANCH paused us on — so we know where to drop the
+  // QA marginalia even if the orchestrator has already started the
+  // bridge segment for the next scene by the time RTM gives us the
+  // committed transcript.
+  const branchAnchorRef = useRef<number>(0);
+
+  const [agentState, setAgentState] = useState<string>('idle');
+  const [qaTranscript, setQaTranscript] = useState<
+    Array<{ role: 'user' | 'agent'; text: string; ts: number }>
+  >([]);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Whenever the SSE-side QA transcript advances during a real BRANCH, fold
+  // it into the per-scene QA history. We dedupe by the last (q,a) tuple so
+  // we don't keep growing the visible history on the same exchange.
+  useEffect(() => {
+    if (!inBranchRef.current) return;
+    // Reduce the transcript into ordered (q,a) tuples (user → agent pair).
+    const pairs: QaEntry[] = [];
+    let pendingQ: string | null = null;
+    for (const t of qaTranscript) {
+      if (t.role === 'user') {
+        if (pendingQ !== null) {
+          pairs.push({ q: pendingQ, a: '' });
+        }
+        pendingQ = t.text;
+      } else if (t.role === 'agent') {
+        pairs.push({ q: pendingQ ?? '', a: t.text });
+        pendingQ = null;
+      }
+    }
+    if (pendingQ !== null) {
+      pairs.push({ q: pendingQ, a: '' });
+    }
+    setQaHistoryByScene((prev) => ({
+      ...prev,
+      [branchAnchorRef.current]: pairs.slice(-4),
+    }));
+  }, [qaTranscript]);
+
+  // ── StrictMode guard ──────────────────────────────────────
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const id = setTimeout(() => {
+      if (!cancelled) setIsReady(true);
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+      setIsReady(false);
+    };
+  }, []);
+
+  // ── useJoin / mic publish ─────────────────────────────────
+  const joinConfig = useMemo(
+    () => ({
+      appid: agoraAppId,
+      channel: sessionInfo?.channel ?? '',
+      token: sessionInfo?.rtc_token ?? '',
+      uid: sessionInfo?.uid ?? 0,
+    }),
+    [agoraAppId, sessionInfo],
+  );
+
+  const { isConnected: joinSuccess } = useJoin(
+    joinConfig,
+    Boolean(isReady && sessionInfo),
+  );
+
+  // Lazy mic acquisition: we don't ask the browser for microphone permission
+  // until the user actually clicks the mic button. This avoids the noisy
+  // `PERMISSION_DENIED` console error that fires on page load when the
+  // listener hasn't expressed any intent to speak yet. micRequested flips to
+  // true on the first onToggleMic call (below); once true, the hook acquires
+  // the track and from then on we use setEnabled() for mute/unmute toggles.
+  const [micRequested, setMicRequested] = useState(false);
+  // True when the browser refused mic access (permission denied / no device).
+  // Surfaced in the story footer so the user isn't left wondering why tapping
+  // the mic did nothing. Cleared when they tap again to retry.
+  const [micDenied, setMicDenied] = useState(false);
+  const { localMicrophoneTrack, error: micError } = useLocalMicrophoneTrack(
+    isReady && joinSuccess && micRequested,
+  );
+  usePublish([localMicrophoneTrack]);
+  useEffect(() => {
+    if (micError) {
+      console.warn('[tutor] mic acquisition failed', micError.message);
+      setMicDenied(true);
+    }
+  }, [micError]);
+
+  useRemoteUsers(); // present for parity; we manage subscribe via the event below.
+
+  // Manual subscribe+play — see legacy notes: <RemoteUser playAudio> doesn't
+  // reliably create the hidden <audio> in this config.
+  useClientEvent(
+    client,
+    'user-published',
+    async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+      if (mediaType !== 'audio') return;
+      try {
+        await client.subscribe(user, mediaType);
+        const track = user.audioTrack;
+        if (!track) return;
+        try {
+          await track.play();
+        } catch (playErr) {
+          console.warn('[tutor] audioTrack.play() rejected', playErr);
+        }
+      } catch (subErr) {
+        console.warn('[tutor] subscribe failed', subErr);
+      }
+    },
+  );
+  useClientEvent(
+    client,
+    'user-unpublished',
+    (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
+      if (mediaType === 'audio') user.audioTrack?.stop();
+    },
+  );
+
+  // Local mute helper — the mic button in StoryScreen toggles this. Keeps
+  // the track lifecycle owned by useLocalMicrophoneTrack (no manual close).
+  //
+  // PUSH-TO-TALK: mic defaults to MUTED. Otherwise any background noise
+  // (siblings, pets, doorbells, the user's own breathing) above Agora's VAD
+  // threshold triggers a false barge-in and stops the story. The user must
+  // tap the central mic button to enable, then tap again to mute. This
+  // matches the visual affordance the designer already drew (big mic button
+  // = "tap to talk"). Tracked state is the source of truth; the effect below
+  // syncs it to the AgoraRTC track via setEnabled().
+  const [micMuted, setMicMuted] = useState(true);
+  useEffect(() => {
+    if (!localMicrophoneTrack) return;
+    // ignore the promise; setEnabled is idempotent and the SDK queues it
+    void localMicrophoneTrack.setEnabled(!micMuted);
+  }, [localMicrophoneTrack, micMuted]);
+  const onToggleMic = useCallback(() => {
+    // Tapping clears any prior denial so the browser can re-prompt (e.g. the
+    // user fixed a blocked permission and wants to retry).
+    setMicDenied(false);
+    // First click on the mic button is the user's explicit "I want to talk"
+    // signal — trigger the browser permission prompt now and unmute so they
+    // can speak immediately if they grant access. Subsequent clicks just
+    // toggle mute on the already-acquired track.
+    if (!micRequested) {
+      setMicRequested(true);
+      setMicMuted(false);
+      return;
+    }
+    setMicMuted((m) => !m);
+  }, [micRequested]);
+
+  // ── RTM client lifecycle ──────────────────────────────────
+  useEffect(() => {
+    if (!sessionInfo) {
+      setRtmClient(null);
+      return;
+    }
+    let cancelled = false;
+    let createdClient: RTMClient | null = null;
+    (async () => {
+      try {
+        const { default: AgoraRTM } = await import('agora-rtm');
+        const c: RTMClient = new AgoraRTM.RTM(
+          agoraAppId,
+          String(sessionInfo.uid),
+        );
+        await c.login({ token: sessionInfo.rtm_token });
+        await c.subscribe(sessionInfo.channel);
+        if (cancelled) {
+          try {
+            await c.logout();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        createdClient = c;
+        setRtmClient(c);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[tutor] rtm login failed', err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (createdClient) {
+        createdClient.logout().catch(() => {
+          // ignore
+        });
+      }
+      setRtmClient(null);
+    };
+  }, [sessionInfo, agoraAppId]);
+
+  // ── AgoraVoiceAI subscriptions ────────────────────────────
+  useEffect(() => {
+    if (!isReady || !joinSuccess || !rtmClient || !sessionInfo) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const ai = await AgoraVoiceAI.init({
+          rtcEngine: client,
+          rtmConfig: { rtmEngine: rtmClient },
+          renderMode: TranscriptHelperMode.TEXT,
+          enableLog: false,
+        });
+
+        if (cancelled) {
+          try {
+            if (AgoraVoiceAI.getInstance() === ai) {
+              ai.unsubscribe();
+              ai.destroy();
+            }
+          } catch {
+            // ignore
+          }
+          return;
+        }
+
+        ai.on(
+          AgoraVoiceAIEvents.AGENT_STATE_CHANGED,
+          (_agentUserId: string, event: StateChangeEvent) => {
+            setAgentState(String(event.state));
+          },
+        );
+
+        const localUid = String(sessionInfo.uid);
+        ai.on(
+          AgoraVoiceAIEvents.TRANSCRIPT_UPDATED,
+          (
+            items: TranscriptHelperItem<
+              Partial<UserTranscription | AgentTranscription>
+            >[],
+          ) => {
+            const committed = items
+              .filter((item) => item.status !== TurnStatus.IN_PROGRESS)
+              .map((item) => {
+                const isUser = item.uid === '0' || item.uid === localUid;
+                return {
+                  role: (isUser ? 'user' : 'agent') as 'user' | 'agent',
+                  text: item.text,
+                  ts: item._time,
+                };
+              })
+              .filter((t) => t.text && t.text.trim().length > 0);
+            setQaTranscript(committed.slice(-20));
+          },
+        );
+
+        ai.on(
+          AgoraVoiceAIEvents.AGENT_ERROR,
+          (_agentUserId: string, error: ModuleError) => {
+            console.warn(
+              '[tutor] agent-error',
+              error.type,
+              error.code,
+              error.message,
+            );
+          },
+        );
+
+        ai.subscribeMessage(sessionInfo.channel);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[tutor] AgoraVoiceAI init failed', err);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try {
+        const ai = AgoraVoiceAI.getInstance();
+        if (ai) {
+          ai.unsubscribe();
+          ai.destroy();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, joinSuccess, rtmClient, sessionInfo]);
+
+  // ── End-of-Q&A detector ───────────────────────────────────
+  useEffect(() => {
+    const prev = prevAgentStateRef.current;
+    const cur = agentState;
+    prevAgentStateRef.current = cur;
+
+    if (!sessionInfo || !sessionIdRef.current) return;
+
+    // 1. BARGE-IN
+    if (!inBranchRef.current && prev === 'speaking' && cur === 'listening') {
+      inBranchRef.current = true;
+      qaTurnCountRef.current = 0;
+      branchAnchorRef.current = activeSceneIndex;
+      setInBranch(true);
+    }
+
+    // 2. AGENT ANSWER ENDED → start silence countdown
+    if (
+      inBranchRef.current &&
+      prev === 'speaking' &&
+      (cur === 'idle' || cur === 'silent')
+    ) {
+      qaTurnCountRef.current++;
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        const snapshot = qaTranscript.slice(-10);
+        void fetch('/api/tutor/qa-ended', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionIdRef.current,
+            qa_history: snapshot,
+          }),
+        }).catch((err) =>
+          console.warn('[tutor] /qa-ended fetch error', err),
+        );
+        inBranchRef.current = false;
+        silenceTimerRef.current = null;
+      }, SILENCE_TIMEOUT_MS);
+    }
+
+    // 3. USER FOLLOW-UP — cancel timer
+    if (
+      inBranchRef.current &&
+      cur === 'listening' &&
+      silenceTimerRef.current
+    ) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, [agentState, sessionInfo, qaTranscript, activeSceneIndex]);
+
+  // ── teardown ──────────────────────────────────────────────
+  const teardownSession = useCallback(() => {
+    setSessionInfo(null);
+    sessionIdRef.current = null;
+    setAgentState('idle');
+    setQaTranscript([]);
+    inBranchRef.current = false;
+    qaTurnCountRef.current = 0;
+    setInBranch(false);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // ── SSE event handling ────────────────────────────────────
+  const handleEvent = useCallback(
+    (e: ServerEvent) => {
+      switch (e.type) {
+        case 'script_drafted':
+          setLoading((s) => ({ ...s, scriptDrafted: true }));
+          return;
+
+        case 'scenes_composed':
+          setLoading((s) => ({
+            ...s,
+            scenesComposed: true,
+            totalScenes: e.scenes.length,
+          }));
+          setScenes(
+            e.scenes.map((sc) => ({
+              ...sc,
+              // Normalize so headline is always a tuple even if the
+              // backend ever ships a single-string variant.
+              headline: [
+                sc.headline?.[0] ?? '',
+                sc.headline?.[1] ?? '',
+              ] as [string, string],
+            })),
+          );
+          return;
+
+        case 'image_ready':
+          setScenes((prev) =>
+            prev.map((sc) =>
+              sc.id === e.scene_id ? { ...sc, image_url: e.image_url } : sc,
+            ),
+          );
+          setLoading((s) => ({ ...s, imagesReady: s.imagesReady + 1 }));
+          return;
+
+        case 'image_failed':
+          console.warn('[tutor] image_failed', e.scene_id, e.error);
+          // Bump the counter so the LoadingScreen step closes even if some
+          // images failed — we don't want to wedge forever waiting for a
+          // success that won't come. The scene just renders the placeholder.
+          setLoading((s) => ({ ...s, imagesReady: s.imagesReady + 1 }));
+          return;
+
+        case 'all_images_ready':
+          setLoading((s) => ({ ...s, allImagesReady: true }));
+          return;
+
+        case 'video_ready':
+          // Hot-swap the scene's still image for its animated clip. Scene 1
+          // arrives before the story stage; scenes 2..N stream in during
+          // narration and replace the <img> mid-read with no interruption.
+          setScenes((prev) =>
+            prev.map((sc) =>
+              sc.id === e.scene_id ? { ...sc, video_url: e.video_url } : sc,
+            ),
+          );
+          setLoading((s) => ({ ...s, videosReady: s.videosReady + 1 }));
+          return;
+
+        case 'video_failed':
+          // Non-fatal — the scene keeps its static illustration.
+          console.warn('[tutor] video_failed', e.scene_id, e.error);
+          return;
+
+        case 'all_videos_ready':
+          return;
+
+        case 'session_started': {
+          const uidNumber = parseInt(e.client_uid, 10);
+          if (!Number.isFinite(uidNumber)) {
+            setStage('error');
+            setErrorMsg(
+              `client_uid is not a valid numeric string: ${e.client_uid}`,
+            );
+            return;
+          }
+          setSessionInfo({
+            channel: e.channel,
+            agent_id: e.agent_id,
+            rtc_token: e.rtc_token,
+            rtm_token: e.rtm_token,
+            uid: uidNumber,
+          });
+          // Flip into story stage — the session is up. Audio will start
+          // flowing as soon as Agora joins; the page is already on the
+          // book spread so the very first words feel responsive.
+          setStage('story');
+          return;
+        }
+
+        case 'snapshot': {
+          const snapshot: ProgressSnapshot = e.snapshot;
+          if (!sessionIdRef.current) {
+            sessionIdRef.current = snapshot.session_id;
+          }
+          // If the orchestrator already advanced past the first scene
+          // before our UI mounted, jump the visible spread to match.
+          if (snapshot.main_line.current_segment_id) {
+            setActiveSceneIndex((curr) => {
+              const idx = scenes.findIndex(
+                (sc) => sc.id === snapshot.main_line.current_segment_id,
+              );
+              return idx >= 0 ? idx : curr;
+            });
+          }
+          return;
+        }
+
+        case 'segment_started': {
+          setActiveSceneIndex((curr) => {
+            // Prefer matching by id (segment_id == scene.id under the
+            // current orchestrator), fall back to the numeric index.
+            const idx = scenes.findIndex((sc) => sc.id === e.segment_id);
+            if (idx >= 0) return idx;
+            if (Number.isFinite(e.segment_index)) return e.segment_index;
+            return curr;
+          });
+          return;
+        }
+
+        case 'segment_completed': {
+          // Auto-advance: bump the index so the next scene is visible.
+          // We clamp to within scenes.length in the StoryScreen itself.
+          setActiveSceneIndex((curr) => {
+            const idx = scenes.findIndex((sc) => sc.id === e.segment_id);
+            const advanceFrom = idx >= 0 ? idx : curr;
+            return advanceFrom + 1;
+          });
+          return;
+        }
+
+        case 'narration_complete':
+          // Stay on the story stage — the last spread becomes the closing
+          // page. We only tear down the live Agora connection and flag done.
+          setFinished(true);
+          teardownSession();
+          return;
+
+        case 'branch_started':
+          setInBranch(true);
+          inBranchRef.current = true;
+          branchAnchorRef.current = activeSceneIndex;
+          return;
+
+        case 'branch_ended':
+          setInBranch(false);
+          inBranchRef.current = false;
+          return;
+
+        case 'active_scene_changed': {
+          // The resume planner just decided which scene to be on after Q&A —
+          // could rewind (restart), stay (continue), or advance (skip).
+          // Authoritative override of activeSceneIndex.
+          const idx = scenes.findIndex((sc) => sc.id === e.scene_id);
+          if (idx >= 0) {
+            setActiveSceneIndex(idx);
+          }
+          return;
+        }
+
+        case 'bridge_started':
+        case 'bridge_completed':
+        case 'comprehension_changed':
+          // Informational. Nothing visual to do.
+          return;
+
+        case 'error':
+          setStage('error');
+          setErrorMsg(e.message);
+          teardownSession();
+          return;
+
+        default: {
+          // Exhaustiveness check — TypeScript will flag any new SSE event
+          // type that we forget to handle.
+          const _exhaustive: never = e;
+          void _exhaustive;
+        }
+      }
+    },
+    [scenes, activeSceneIndex, teardownSession],
+  );
+
+  // ── start the SSE pipeline ────────────────────────────────
+  const onBegin = useCallback(
+    async (text: string) => {
+      setInputText(text);
+      setStage('loading');
+      setErrorMsg(null);
+      setLoading({
+        scriptDrafted: false,
+        scenesComposed: false,
+        imagesReady: 0,
+        totalScenes: 0,
+        allImagesReady: false,
+        videosReady: 0,
+      });
+      setScenes([]);
+      setActiveSceneIndex(0);
+      setQaHistoryByScene({});
+      setFinished(false);
+      setInBranch(false);
+      teardownSession();
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const res = await fetch('/api/lesson/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input_text: text }),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          const err = await res.text();
+          setStage('error');
+          setErrorMsg(`Start failed (${res.status}): ${err.slice(0, 200)}`);
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            try {
+              const parsed = JSON.parse(trimmed.slice(6)) as ServerEvent;
+              handleEvent(parsed);
+            } catch (err) {
+              console.warn('[tutor] bad SSE line', trimmed, err);
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        setStage('error');
+        setErrorMsg((err as Error).message);
+      } finally {
+        abortRef.current = null;
+      }
+    },
+    [handleEvent, teardownSession],
+  );
+
+  const onExit = useCallback(() => {
+    abortRef.current?.abort();
+    teardownSession();
+    setStage('input');
+    setErrorMsg(null);
+  }, [teardownSession]);
+
+  // ── render ────────────────────────────────────────────────
+  return (
+    <ScalingStage>
+      <div
+        key={stage}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          animation: 'stageFade 0.55s ease',
+        }}
+      >
+        {stage === 'input' && (
+          <InputScreen onBegin={onBegin} initialText={inputText} />
+        )}
+        {stage === 'loading' && <LoadingScreen state={loading} />}
+        {stage === 'story' && (
+          <StoryScreen
+            scenes={scenes}
+            activeSceneIndex={activeSceneIndex}
+            inBranch={inBranch}
+            finished={finished}
+            qaHistoryByScene={qaHistoryByScene}
+            micMuted={micMuted}
+            micDenied={micDenied}
+            onToggleMic={onToggleMic}
+            onExit={onExit}
+          />
+        )}
+        {stage === 'error' && (
+          <ErrorScreen message={errorMsg ?? 'something went wrong'} onExit={onExit} />
+        )}
+      </div>
+      <style>{`@keyframes stageFade { from { opacity: 0; } to { opacity: 1; } }`}</style>
+    </ScalingStage>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Terminal error screen. (There is no terminal "done" screen — when narration
+// finishes we stay on the story's last spread, like the closing page of a
+// book; see StoryScreen's `finished` prop.)
+
+function ErrorScreen({
+  message,
+  onExit,
+}: {
+  message: string;
+  onExit: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: T.paper,
+        color: T.ink,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 16,
+        padding: 40,
+        fontFamily: F_HEAD,
+        textAlign: 'center',
+      }}
+    >
+      <h2
+        style={{
+          fontFamily: F_HEAD,
+          fontStyle: 'italic',
+          fontWeight: 500,
+          fontSize: 36,
+          margin: 0,
+          color: T.rose,
+        }}
+      >
+        Something interrupted the story.
+      </h2>
+      <p
+        style={{
+          fontStyle: 'italic',
+          color: T.inkSoft,
+          margin: 0,
+          maxWidth: 560,
+          fontSize: 16,
+        }}
+      >
+        {message}
+      </p>
+      <button
+        type="button"
+        onClick={onExit}
+        style={{
+          background: T.ink,
+          color: T.paper,
+          border: 'none',
+          padding: '10px 22px',
+          fontFamily: F_HEAD,
+          fontStyle: 'italic',
+          fontSize: 16,
+          cursor: 'pointer',
+          borderRadius: 2,
+        }}
+      >
+        ← back to start
+      </button>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Outer wrapper — owns the RTC client lifetime. useState lazy initializer is
+// StrictMode-safe (useMemo is not — see AGENTS.md).
+
+export default function TutorPage(props: TutorPageProps) {
+  const [client] = useState<IAgoraRTCClient>(() =>
+    AgoraRTC.createClient({ codec: 'vp8', mode: 'rtc' }),
+  );
+  return (
+    <AgoraRTCProvider client={client}>
+      <TutorPageInner {...props} />
+    </AgoraRTCProvider>
+  );
+}

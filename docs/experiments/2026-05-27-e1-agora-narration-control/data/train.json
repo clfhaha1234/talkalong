@@ -1,0 +1,16 @@
+{
+  "set": "train",
+  "purpose": "scratch — arm development + instrumentation debug. Read freely.",
+  "rows": [
+    {"row_id": "tr_001", "length": "short",   "category": "exposition",       "text": "This paper has three main contributions."},
+    {"row_id": "tr_002", "length": "short",   "category": "question_bearing", "text": "Why do you think they used this baseline?"},
+    {"row_id": "tr_003", "length": "short",   "category": "numbers_symbols",  "text": "Their model has 175 billion parameters and a context window of 128k tokens."},
+    {"row_id": "tr_004", "length": "short",   "category": "quoted_speech",    "text": "She said, \"that's not possible,\" and slammed the door."},
+    {"row_id": "tr_005", "length": "short",   "category": "long_compound",    "text": "Although the data is noisy, the authors argue that with enough scale the noise averages out."},
+    {"row_id": "tr_006", "length": "mid",     "category": "exposition",       "text": "The third step is where things get interesting. The authors prune attention heads selectively based on their gradient contribution. They prune the bottom thirty percent."},
+    {"row_id": "tr_007", "length": "mid",     "category": "question_bearing", "text": "Here's something worth pausing on. The authors claim their method is faster than previous work, but they only test on small inputs. Do you trust that claim at scale?"},
+    {"row_id": "tr_008", "length": "mid",     "category": "numbers_symbols",  "text": "They evaluated on three benchmarks. On the first, accuracy was eighty-two point four percent. On the second it was seventy-nine point one percent. On the third, only sixty-eight point seven."},
+    {"row_id": "tr_009", "length": "long",    "category": "exposition",       "text": "Let me set up the problem. Transformer models are getting bigger every year, but the cost of running them in production scales roughly linearly with parameter count. So the natural question is whether we can prune them after training without losing too much quality. Previous work mostly pruned weights, which is fine for sparse compute but doesn't help on dense hardware. This paper takes a different angle: prune entire attention heads."},
+    {"row_id": "tr_010", "length": "long",    "category": "long_compound",    "text": "If you have a model with sixteen attention heads per layer, and the bottom thirty percent of heads by gradient contribution turn out to be redundant on the training distribution, then pruning them at inference time should give you a thirty percent speedup with almost no quality loss, which is the central claim, and the rest of the paper is essentially evidence for or against this claim."}
+  ]
+}

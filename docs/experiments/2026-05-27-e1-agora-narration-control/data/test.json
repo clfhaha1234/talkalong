@@ -1,0 +1,29 @@
+{
+  "set": "test",
+  "purpose": "SEALED — opened ONCE at Phase 5 for the verdict. Do not read raw rows before Phase 5.",
+  "sealed_at": "2026-05-27",
+  "do_not_open_until": "Phase 5",
+  "stratification": {
+    "by_length": {"short": 5, "mid": 7, "long": 3},
+    "by_category": {"exposition": 3, "question_bearing": 3, "numbers_symbols": 3, "quoted_speech": 3, "long_compound": 3}
+  },
+  "rows": [
+    {"row_id": "test_001", "length": "short", "category": "exposition",       "text": "Sparsity helps the model generalize to longer sequences."},
+    {"row_id": "test_002", "length": "short", "category": "question_bearing", "text": "What part of this surprises you the most?"},
+    {"row_id": "test_003", "length": "short", "category": "numbers_symbols",  "text": "The throughput improved by 2.3 times at batch size 64."},
+    {"row_id": "test_004", "length": "short", "category": "quoted_speech",    "text": "The conclusion claims, \"this is a fundamental shift,\" though most reviewers disagreed."},
+    {"row_id": "test_005", "length": "short", "category": "long_compound",    "text": "While the method is elegant, the engineering cost is not negligible and the production gain may not justify it."},
+
+    {"row_id": "test_006", "length": "mid",   "category": "exposition",       "text": "Now to the storybook. Once upon a time, in a forest where the trees whispered to each other, there lived a small rabbit named Pip. Pip had one ear that always tilted forward and one ear that always tilted back, as if she were listening to two stories at once."},
+    {"row_id": "test_007", "length": "mid",   "category": "question_bearing", "text": "Pip looked at the path ahead and the path behind. Both were quiet. Both were dark. Which way do you think she should go? And what would you do if you were her?"},
+    {"row_id": "test_008", "length": "mid",   "category": "numbers_symbols",  "text": "On the second day, she walked for 4 hours and stopped at the third stream. The water was cold, about 12 degrees Celsius, and she could see her reflection clearly. She counted to twelve before stepping in."},
+    {"row_id": "test_009", "length": "mid",   "category": "quoted_speech",    "text": "The old owl said, \"the path you fear is the one you must walk,\" and Pip didn't understand at first. \"Why must I walk the scary one?\" she asked. The owl only blinked twice."},
+    {"row_id": "test_010", "length": "mid",   "category": "long_compound",    "text": "Although the moon was bright and the wind was soft, Pip felt as if something in the forest was watching her, and she couldn't decide whether it was a friendly something or a not-so-friendly something, so she sat down by the roots of an old oak and waited for morning."},
+    {"row_id": "test_011", "length": "mid",   "category": "exposition",       "text": "The morning came slower than expected. First the air went grey, then a little pink, then bright. Pip stood up, shook the dew from her ears, and decided that the path with the louder birdsong was probably the safer one."},
+    {"row_id": "test_012", "length": "mid",   "category": "question_bearing", "text": "Now here's a thing to wonder about. Pip didn't actually know whether louder birdsong meant safer or more dangerous. She just guessed. Have you ever picked the louder path? Did it turn out the way you thought?"},
+
+    {"row_id": "test_013", "length": "long",  "category": "exposition",       "text": "Let me set the scene more carefully. The paper introduces what they call selective head retention, abbreviated SHR. The intuition is simple. During training, each attention head accumulates gradient signals, and the magnitude of those signals tells you how much each head contributed to reducing the loss. Heads with consistently small gradient contributions are likely redundant, because removing them would have changed the loss by very little. So at inference time, you can selectively drop those heads. The implementation is just a binary mask over the head dimension."},
+    {"row_id": "test_014", "length": "long",  "category": "numbers_symbols",  "text": "The results table is worth slowing down for. On GLUE, the unpruned baseline scores 87.2. With 20 percent of heads pruned, the score is 86.9, a drop of 0.3 points. With 30 percent pruned, the score is 85.7, a drop of 1.5 points. With 40 percent pruned, the score collapses to 81.3, a drop of nearly 6 points. So the sweet spot is somewhere between 20 and 30 percent."},
+    {"row_id": "test_015", "length": "long",  "category": "long_compound",    "text": "If you take SHR seriously, the implication is that we've been carrying twenty to thirty percent dead weight in our models since the original transformer paper, which would mean that the entire field has been over-spending on compute by a similar margin, and if that's true then the question of whether to apply SHR is not really an optimization question at all but more like a question of whether you want to keep paying that margin or stop paying it, and there's no good reason to keep paying it once you have the option not to."}
+  ]
+}

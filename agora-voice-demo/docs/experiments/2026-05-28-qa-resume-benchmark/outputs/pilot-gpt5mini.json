@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "run_at": "2026-05-28T23:55:04.219Z",
+    "qa_model": "openai:gpt-5-mini",
+    "planner_model": "gemini-3.1-flash-lite",
+    "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json",
+    "out_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/pilot-gpt5mini.json",
+    "trials": 1,
+    "n_cases": 1,
+    "n_results": 1
+  },
+  "results": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "",
+      "qa_latency_ms": 241,
+      "qa_error": "openai 401: {\n    \"error\": {\n        \"message\": \"Incorrect API key provided: CRi3KWav************************************************************************4Oa7. You can find your API key at https://platform.openai.com/account/api-keys.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": null,\n        ",
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "Lina adjusted her red coat, the frosty air nipping at her nose, and decided that since the ancient fox spoke in a language woven from whispers and old magic, she would listen to his secrets in the rhythm of our own familiar words.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s1",
+            "text": "Lina pushed through the creaking bark, finding a hidden curl of stairs winding deep into the earth. At the very top step sat a grey fox wearing a vest of mossy green. His name was Mosk, and his voice sounded like dry autumn leaves skittering on stone. He warned her that the tree was a place of secrets, not for visitors, and that she should return home to the warmth of her hearth."
+          },
+          {
+            "id": "s2",
+            "text": "Lina stood tall, her boots crunching softly on the wood. She explained that she could not leave when the story of the humming remained unfinished. Mosk pointed a trembling paw toward the door, his eyes dark with caution. Lina reached into her pocket, pulling out the final, crisp apple of the season, and placed it on the step as a gesture of peace for the long journey down."
+          }
+        ],
+        "active_scene_id": "s1"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1869,
+      "planner_raw": "{\n  \"bridge_text\": \"Lina adjusted her red coat, the frosty air nipping at her nose, and decided that since the ancient fox spoke in a language woven from whispers and old magic, she would listen to his secrets in the rhythm of our own familiar words.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s1\",\n      \"text\": \"Lina pushed through the creaking bark, finding a hidden curl of stairs winding deep into the earth. At the very top step sat a grey fox wearing a vest of mossy green. His name was Mosk, and his voice sounded like dry autumn leaves skittering on stone. He warned her that the tree was a place of secrets, not for visitors, and that she should return home to the warmth of her hearth.\"\n    },\n    {\n      \"id\": \"s2\",\n      \"text\": \"Lina stood tall, her boots crunching softly on the wood. She explained that she could not leave when the story of the humming remained unfinished. Mosk pointed a trembling paw toward the door, his eyes dark with caution. Lina reached into her pocket, pulling out the final, crisp apple of the season, and placed it on the step as a gesture of peace for the long journey down.\"\n    }\n  ],\n  \"active_scene_id\": \"s1\"\n}"
+    }
+  ]
+}

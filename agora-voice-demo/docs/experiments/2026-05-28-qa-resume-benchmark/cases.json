@@ -1,0 +1,309 @@
+{
+  "_comment": "10 QA-then-resume test cases. Rubric locked 2026-05-28 BEFORE any LLM run. trigger_scene = paused_scene_id. paused_pct = % of paused scene already spoken when interrupt arrived. qa_question = what listener said (verbatim). Hard rules decide PASS/FAIL; soft notes are bonus. forbidden / required arrays are substring checks (case-insensitive) against qa_answer + bridge_text + concatenated replacement_segments text.",
+  "cases": [
+    {
+      "id": "C1",
+      "label": "language-switch-to-chinese",
+      "source": "user",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "rubric_correction_note": "Rubric corrected 2026-05-28 after user feedback. Initial draft incorrectly treated language switching as forbidden (under a wrong assumption that prod TTS was English-only). Prod TTS is MiniMax which supports Mandarin natively; switching to Chinese is a valid feature. Original PASS criterion (story stays English) inverted to: system gracefully accepts the switch.",
+      "rubric": {
+        "qa_hard": [
+          "answer acknowledges the request and agrees to switch (does not refuse)",
+          "answer remains in the warm narrator voice (no 'okay/sure/let me/I will' meta-preface)",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "warm, kind tone; tasteful code-switch (a touch of Chinese in the acknowledgement is welcome)"
+        ],
+        "planner_hard": [
+          "bridge_text and replacement_segments switch to Chinese to honor the listener's request (or stay bilingual if the model judges that smoother)",
+          "replacement_segments preserve story canon (Lina/Mosk/the tree/the humming — the characters and beats stay the same, only the language changes)",
+          "no story-arc rewrite — Lina is still the protagonist, the tree still hums, Mosk is still the grumpy fox at the top step"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on the paused tree-humming scene in the new language"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "C2a",
+      "label": "spoiler-motivation-too-early",
+      "source": "user",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "Why is the old fox so grumpy?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT name the firefly queen",
+          "answer does NOT mention 'failed', 'medicine', 'long ago', or any other s4 reveal",
+          "answer hints there is a sad/secret reason AND signals we will learn later",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "phrasing like 'his story isn't told yet', 'we'll see', 'wait and listen' to tease",
+          "warm narrator tone"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil (no 'firefly', 'queen', 'failed', 'years ago his friend')",
+          "replacement_segments do NOT introduce s4 reveal early"
+        ],
+        "planner_soft": [
+          "bridge teases 'we'll find out' and re-anchors on s2"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["firefly", "queen", "failed her", "medicine", "his friend long ago", "drop of warm milk"],
+        "forbidden_in_planner": ["firefly", "queen", "failed her", "medicine", "drop of warm milk"]
+      }
+    },
+    {
+      "id": "C2b",
+      "label": "non-spoiler-factual-already-revealed",
+      "source": "new",
+      "trigger_scene": "s2",
+      "paused_pct": 0.9,
+      "qa_question": "What is the fox's name again?",
+      "rubric": {
+        "qa_hard": [
+          "answer contains the name 'Mosk' (info already revealed in s2)",
+          "answer does NOT deflect with 'we'll learn later'",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "warm, in-character tone"
+        ],
+        "planner_hard": [
+          "planner does NOT reshape s3+ as a result of this trivial recall"
+        ],
+        "planner_soft": [
+          "bridge is short and re-anchors quickly"
+        ],
+        "expected_strategy": "any",
+        "required_in_qa": ["Mosk"]
+      }
+    },
+    {
+      "id": "C3",
+      "label": "user-tries-to-change-character-arc",
+      "source": "user",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "I don't think Lina should give the apple. She should just sneak past the fox!",
+      "rubric": {
+        "qa_hard": [
+          "answer gently acknowledges the listener's idea (does not lecture)",
+          "answer does NOT promise to change the story",
+          "answer stays in warm narrator voice"
+        ],
+        "qa_soft": [
+          "phrasing like 'oh, that's a brave thought!', 'in this telling though, Lina chose...'",
+          "honors the listener emotionally"
+        ],
+        "planner_hard": [
+          "replacement_segments still show Lina giving the apple to Mosk (canon preserved)",
+          "replacement_segments do NOT show Lina sneaking past Mosk",
+          "replacement_segments do NOT have Lina skip the apple"
+        ],
+        "planner_soft": [
+          "bridge nods to the listener's idea while gently keeping the canon",
+          "bridge text contains some acknowledgement of listener's choice"
+        ],
+        "expected_strategy": "any",
+        "required_in_planner_text": ["apple"],
+        "forbidden_in_planner": ["sneaks past", "snuck past", "without the apple"]
+      }
+    },
+    {
+      "id": "C4",
+      "label": "real-world-concept-question",
+      "source": "new",
+      "trigger_scene": "s4",
+      "paused_pct": 0.2,
+      "qa_question": "What is moss?",
+      "rubric": {
+        "qa_hard": [
+          "answer actually defines moss (mentions plant/green/soft/damp/grows)",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "tied gently back into the story (e.g. 'a soft green carpet, like the one we just saw under the firefly')"
+        ],
+        "planner_hard": [
+          "planner picks a strategy that keeps the listener engaged with s4 content"
+        ],
+        "planner_soft": [
+          "bridge ties moss back to the story image"
+        ],
+        "expected_strategy": "any",
+        "required_in_qa": ["plant", "soft", "green", "damp", "grow"]
+      }
+    },
+    {
+      "id": "C5",
+      "label": "didnt-understand-asks-to-repeat",
+      "source": "new",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "Wait, who is inside the tree? Can you say that part again slower?",
+      "rubric": {
+        "qa_hard": [
+          "answer briefly reaffirms (a grey old fox named Mosk in a green vest) in 1-2 sentences",
+          "answer signals the story will be re-told (or planner does the re-tell)"
+        ],
+        "qa_soft": [
+          "warm 'let me tell you again' tone (without literal 'let me')"
+        ],
+        "planner_hard": [
+          "resume_strategy == 'restart' (this is the canonical 'confused listener' branch)",
+          "replacement_segments[0].id == 's2'",
+          "replacement_segments[0].text re-narrates the s2 content"
+        ],
+        "planner_soft": [
+          "re-narration uses slightly simpler phrasing"
+        ],
+        "expected_strategy": "restart",
+        "required_in_qa": ["Mosk", "fox"]
+      }
+    },
+    {
+      "id": "C6",
+      "label": "unrelated-math-question",
+      "source": "new",
+      "trigger_scene": "s3",
+      "paused_pct": 0.4,
+      "qa_question": "What's 17 times 23?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT include the literal string '391' (refuses to compute mid-story)",
+          "answer redirects back to the story",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "phrasing like 'that's a question for the school yard, not the hollow tree'",
+          "playful tone"
+        ],
+        "planner_hard": [
+          "planner resumes story without inserting any math content"
+        ],
+        "planner_soft": [
+          "bridge is brief"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["391"],
+        "forbidden_in_planner": ["391"]
+      }
+    },
+    {
+      "id": "C7",
+      "label": "anxiety-question-near-climax",
+      "source": "new",
+      "trigger_scene": "s4",
+      "paused_pct": 0.6,
+      "qa_question": "Is the firefly going to die?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT explicitly state the queen lives OR dies (no spoiler in either direction)",
+          "answer is reassuring without lying",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "phrasing like 'the story isn't finished — listen with me'",
+          "warm tone matching child anxiety"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT promise the queen lives or dies",
+          "replacement_segments do NOT reveal s5 outcome early"
+        ],
+        "planner_soft": [
+          "bridge gently steadies the listener"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["she lives", "she dies", "she will live", "she will die", "doesn't die"],
+        "forbidden_in_planner": ["the queen's glow steadied", "Mosk hummed along"]
+      }
+    },
+    {
+      "id": "C8",
+      "label": "asks-for-ending-upfront",
+      "source": "new",
+      "trigger_scene": "s1",
+      "paused_pct": 0.8,
+      "qa_question": "Just tell me how it ends!",
+      "rubric": {
+        "qa_hard": [
+          "answer politely refuses to spoil",
+          "answer does NOT contain firefly/queen/Mosk/apple/milk/healing/humming-tune",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "teases listener back into the story"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil",
+          "replacement_segments do NOT leak s4/s5 content"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on the hollow tree mystery"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["firefly", "queen", "Mosk gives", "drop of warm milk", "humming turned"],
+        "forbidden_in_planner": ["firefly", "queen", "drop of warm milk"]
+      }
+    },
+    {
+      "id": "C9",
+      "label": "moral-question-tied-to-story",
+      "source": "new",
+      "trigger_scene": "s3",
+      "paused_pct": 0.7,
+      "qa_question": "Is it okay to bribe a grumpy fox with food?",
+      "rubric": {
+        "qa_hard": [
+          "answer engages with the question (does not deflect entirely)",
+          "answer reframes the apple as a gift, not bribe (or otherwise threads back to story values)",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "warm in-character moral phrasing"
+        ],
+        "planner_hard": [
+          "planner continues story without changing canon"
+        ],
+        "planner_soft": [
+          "bridge is brief"
+        ],
+        "expected_strategy": "any"
+      }
+    },
+    {
+      "id": "C10",
+      "label": "post-reveal-followup-not-a-spoiler",
+      "source": "new",
+      "trigger_scene": "s5",
+      "paused_pct": 0.3,
+      "qa_question": "Why didn't Mosk just tell Lina what happened from the very start?",
+      "rubric": {
+        "qa_hard": [
+          "answer engages substantively (this info IS already revealed in s4)",
+          "answer mentions shame/regret/guilt/fear or similar emotion",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "warm in-character emotional intelligence"
+        ],
+        "planner_hard": [
+          "planner continues to s5 resolution"
+        ],
+        "planner_soft": [
+          "bridge ties back to the warm-milk healing scene"
+        ],
+        "expected_strategy": "any",
+        "required_in_qa_any_of": ["shame", "ashamed", "guilt", "guilty", "afraid", "scared", "couldn't face", "regret"]
+      }
+    }
+  ]
+}

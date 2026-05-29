@@ -1,0 +1,326 @@
+[
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p1_followup",
+    "trial": 1,
+    "ttft_ms": 2627,
+    "total_ms": 2656,
+    "output_chars": 57,
+    "response": "They prune them at inference time, meaning they train the"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p1_followup",
+    "trial": 2,
+    "ttft_ms": 2389,
+    "total_ms": 2394,
+    "output_chars": 57,
+    "response": "It happens at inference time, meaning they identify and \""
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p2_why",
+    "trial": 1,
+    "ttft_ms": 2442,
+    "total_ms": 2443,
+    "output_chars": 79,
+    "response": "Language models often have more redundancy because many attention heads perform"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p2_why",
+    "trial": 2,
+    "ttft_ms": 2301,
+    "total_ms": 2302,
+    "output_chars": 62,
+    "response": "Language models tend to have more structural redundancy, where"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p3_compare",
+    "trial": 1,
+    "ttft_ms": 3014,
+    "total_ms": 3015,
+    "output_chars": 38,
+    "response": "Instead of cutting individual weights,"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p3_compare",
+    "trial": 2,
+    "ttft_ms": 2395,
+    "total_ms": 2462,
+    "output_chars": 58,
+    "response": "Draft 2:* Traditional pruning cuts individual connections,"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p4_eli15",
+    "trial": 1,
+    "ttft_ms": 3198,
+    "total_ms": 3201,
+    "output_chars": 61,
+    "response": "Imagine each word in a sentence looking around at every other"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p4_eli15",
+    "trial": 2,
+    "ttft_ms": 2296,
+    "total_ms": 2297,
+    "output_chars": 45,
+    "response": "Think of attention as each word in a sentence"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p5_deploy",
+    "trial": 1,
+    "ttft_ms": 2631,
+    "total_ms": 2633,
+    "output_chars": 50,
+    "response": "While many companies experiment with pruning, it's"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p5_deploy",
+    "trial": 2,
+    "ttft_ms": 2462,
+    "total_ms": 2493,
+    "output_chars": 53,
+    "response": "It's rarely used in big production systems exactly as"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p6_confused",
+    "trial": 1,
+    "ttft_ms": 2472,
+    "total_ms": 2605,
+    "output_chars": 61,
+    "response": "They used gradient-based scoring because it measures how much"
+  },
+  {
+    "model": "gemini-3-flash-preview",
+    "prompt_id": "p6_confused",
+    "trial": 2,
+    "ttft_ms": 2271,
+    "total_ms": 2274,
+    "output_chars": 47,
+    "response": "They likely used magnitude-based pruning as the"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p1_followup",
+    "trial": 1,
+    "ttft_ms": 1877,
+    "total_ms": 1958,
+    "output_chars": 199,
+    "response": "It's done at inference time, so the heads are fully trained but then disabled when you actually run the model. This lets them cut the bottom thirty percent of heads with just a tiny drop in accuracy."
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p1_followup",
+    "trial": 2,
+    "ttft_ms": 1811,
+    "total_ms": 1964,
+    "output_chars": 217,
+    "response": "They prune them at inference time, meaning they train the model normally and then disable the least useful heads when actually running it. Would you like to know how they figure out which heads are the \"least useful\"?"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p2_why",
+    "trial": 1,
+    "ttft_ms": 2301,
+    "total_ms": 2363,
+    "output_chars": 52,
+    "response": "Language models often have a lot of redundancy, with"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p2_why",
+    "trial": 2,
+    "ttft_ms": 2328,
+    "total_ms": 2332,
+    "output_chars": 56,
+    "response": "Language models typically have a lot of redundancy, with"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p3_compare",
+    "trial": 1,
+    "ttft_ms": 2188,
+    "total_ms": 2218,
+    "output_chars": 73,
+    "response": "Regular weight pruning cuts out individual connections based on how small"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p3_compare",
+    "trial": 2,
+    "ttft_ms": 3430,
+    "total_ms": 3495,
+    "output_chars": 24,
+    "response": "\n    *   *Refining for 1"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p4_eli15",
+    "trial": 1,
+    "ttft_ms": 2335,
+    "total_ms": 2341,
+    "output_chars": 57,
+    "response": "Think of attention as a spotlight that helps the AI focus"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p4_eli15",
+    "trial": 2,
+    "ttft_ms": 2133,
+    "total_ms": 2142,
+    "output_chars": 53,
+    "response": "Think of attention as a way for a computer to Connect"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p5_deploy",
+    "trial": 1,
+    "ttft_ms": 2265,
+    "total_ms": 2273,
+    "output_chars": 40,
+    "response": "To be honest, it's rarely used in actual"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p5_deploy",
+    "trial": 2,
+    "ttft_ms": 2345,
+    "total_ms": 2350,
+    "output_chars": 44,
+    "response": "Not in its exact form, because standard GPUs"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p6_confused",
+    "trial": 1,
+    "ttft_ms": 2446,
+    "total_ms": 2448,
+    "output_chars": 43,
+    "response": "They likely compared it to the original, un"
+  },
+  {
+    "model": "gemini-3.5-flash",
+    "prompt_id": "p6_confused",
+    "trial": 2,
+    "ttft_ms": 2162,
+    "total_ms": 2171,
+    "output_chars": 55,
+    "response": "They likely compared it to random pruning or magnitude-"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p1_followup",
+    "trial": 1,
+    "ttft_ms": 549,
+    "total_ms": 759,
+    "output_chars": 241,
+    "response": "It’s just at inference time, so the model stays intact while you simply skip the least important heads to make it faster. Does it surprise you that you can throw away nearly a third of the model's \"brain\" and still keep most of the accuracy?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p1_followup",
+    "trial": 2,
+    "ttft_ms": 670,
+    "total_ms": 790,
+    "output_chars": 236,
+    "response": "It's just for inference, so the model stays fully trained but runs faster by ignoring the least important 30% of its attention heads. Does it surprise you that you can ditch nearly a third of the brainpower without losing much accuracy?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p2_why",
+    "trial": 1,
+    "ttft_ms": 599,
+    "total_ms": 751,
+    "output_chars": 285,
+    "response": "Language models often have more redundant attention heads than vision models, which makes them easier to prune without losing critical information. Do you think this suggests that the way language models build context is naturally more repetitive than how vision models process images?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p2_why",
+    "trial": 2,
+    "ttft_ms": 601,
+    "total_ms": 878,
+    "output_chars": 343,
+    "response": "Language models rely more heavily on specific, redundant attention pathways that are easier to trim without losing core meaning, whereas vision transformers often require a more holistic, dense integration of spatial features. Do you think the structural difference in how these models process data makes pruning inherently riskier for images?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p3_compare",
+    "trial": 1,
+    "ttft_ms": 1621,
+    "total_ms": 1967,
+    "output_chars": 423,
+    "response": "Regular weight pruning cuts individual connections inside the neural network, but this method removes entire \"attention heads,\" which act like specific, high-level processing modules. It’s the difference between snipping individual wires in a computer and simply unplugging the entire graphics card to save power. Does that distinction make sense, or would you like to know how they decide which heads are the least useful?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p3_compare",
+    "trial": 2,
+    "ttft_ms": 635,
+    "total_ms": 838,
+    "output_chars": 278,
+    "response": "Weight pruning chops individual parameters, whereas this method removes entire attention heads, which preserves the model’s structural efficiency and makes it run much faster on standard hardware. Would you like to know how they decide which specific heads are the \"bottom\" 30%?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p4_eli15",
+    "trial": 1,
+    "ttft_ms": 482,
+    "total_ms": 804,
+    "output_chars": 434,
+    "response": "Think of attention as a way for a model to decide which words in a sentence are most relevant to each other, like highlighting the subject while reading a long, complex paragraph. This paper suggests that many of those \"highlighters\" are actually redundant, so they prune the least useful ones to make the model faster without losing much accuracy. Does that make sense, or should we look closer at how they decide which heads to cut?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p4_eli15",
+    "trial": 2,
+    "ttft_ms": 731,
+    "total_ms": 990,
+    "output_chars": 340,
+    "response": "Think of attention as a way for a model to decide which words in a sentence are most important to focus on when trying to understand a specific word. In this paper, the researchers found that 30% of these \"focusing mechanisms\" actually contribute so little to the final result that you can safely turn them off to make the model run faster."
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p5_deploy",
+    "trial": 1,
+    "ttft_ms": 581,
+    "total_ms": 837,
+    "output_chars": 318,
+    "response": "While this specific gradient-based pruning method is a powerful research technique, production systems usually favor simpler approaches like weight quantization or distillation because they offer more predictable performance gains. Are you asking because you're trying to optimize a model for a real-world application?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p5_deploy",
+    "trial": 2,
+    "ttft_ms": 584,
+    "total_ms": 830,
+    "output_chars": 210,
+    "response": "Most production systems prioritize reliability and simplicity over this specific pruning method, so it’s rarely used as-is. Do you think a 1.5% accuracy trade-off is worth the speed boost for your own projects?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p6_confused",
+    "trial": 1,
+    "ttft_ms": 403,
+    "total_ms": 633,
+    "output_chars": 268,
+    "response": "They likely chose the bottom 30% because it’s a sweet spot where you get a significant speedup while keeping the accuracy drop small enough to remain competitive. Does it surprise you that cutting out nearly a third of the model barely moves the needle on performance?"
+  },
+  {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_id": "p6_confused",
+    "trial": 2,
+    "ttft_ms": 602,
+    "total_ms": 823,
+    "output_chars": 256,
+    "response": "They likely chose it because it’s a standard, rigorous benchmark for showing that you can strip away nearly a third of a model's brain while keeping performance nearly identical. Do you think a 1.5% drop is a fair price to pay for that kind of speed boost?"
+  }
+]

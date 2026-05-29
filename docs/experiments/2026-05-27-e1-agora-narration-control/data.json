@@ -1,0 +1,174 @@
+{
+  "experiment": {
+    "name": "e1-agora-narration-control",
+    "question": "Of three candidate methods for getting Agora's ConvoAI agent to speak our pre-scripted narration with reliable mid-utterance barge-in, which one best satisfies the proactive-tutor experience requirements?",
+    "metric": "Composite pass-rate per cycle: C1 (interrupt -> silence < 300ms) AND C2 (speak -> first audio < 800ms) AND C3 (token-Jaccard transcript vs requested >= 0.9).",
+    "threshold_pct": 90,
+    "threshold_rule": ">= 90% test-set pass-rate AND no length slice < 80%. Effect must be >= 2x within-arm variance to count as differentiator; latency tiebreaker if multiple arms pass.",
+    "test_set_n": 75,
+    "trials_per_arm": 3
+  },
+  "arms": [
+    {
+      "id": "baseline",
+      "name": "baseline (native LLM, no orchestrator drive)",
+      "cost_per_1k_usd": 0
+    },
+    {
+      "id": "arm1",
+      "name": "arm1: /speak + /interrupt (text-injection)",
+      "cost_per_1k_usd": 1
+    },
+    {
+      "id": "arm2",
+      "name": "arm2: Gemini-2.5-flash LLM + /speak + /interrupt",
+      "cost_per_1k_usd": 0.7
+    }
+  ],
+  "slices": [
+    {
+      "id": "short",
+      "name": "Short segments (1 sentence)"
+    },
+    {
+      "id": "mid",
+      "name": "Mid segments (3-5 sentences)"
+    },
+    {
+      "id": "long",
+      "name": "Long segments (8+ sentences)"
+    }
+  ],
+  "variance_trials": {
+    "baseline": [
+      0,
+      0
+    ],
+    "arm1": [
+      1,
+      0.97,
+      1
+    ],
+    "arm2": [
+      0.99,
+      0.9866666666666667
+    ]
+  },
+  "test_set_aggregate": {
+    "baseline": 0,
+    "arm1": 0.9866666666666667,
+    "arm2": 0.9866666666666667
+  },
+  "test_set_per_slice": {
+    "baseline": {
+      "short": 0,
+      "mid": 0,
+      "long": 0
+    },
+    "arm1": {
+      "short": 0.96,
+      "mid": 1,
+      "long": 1
+    },
+    "arm2": {
+      "short": 1,
+      "mid": 0.9714285714285714,
+      "long": 1
+    }
+  },
+  "effect_sizes": {
+    "arm1": {
+      "aggregate": {
+        "delta": 0.9866666666666667,
+        "ci_low": 0.9282646257525621,
+        "ci_high": 0.9976425095668631
+      },
+      "per_slice": {
+        "short": {
+          "delta": 0.96,
+          "ci_low": 0.8045552759497747,
+          "ci_high": 0.9929039496133009
+        },
+        "mid": {
+          "delta": 1,
+          "ci_low": 0.9010957324106112,
+          "ci_high": 1
+        },
+        "long": {
+          "delta": 1,
+          "ci_low": 0.7961107336956521,
+          "ci_high": 1
+        }
+      }
+    },
+    "arm2": {
+      "aggregate": {
+        "delta": 0.9866666666666667,
+        "ci_low": 0.9282646257525621,
+        "ci_high": 0.9976425095668631
+      },
+      "per_slice": {
+        "short": {
+          "delta": 1,
+          "ci_low": 0.8668035060468212,
+          "ci_high": 1
+        },
+        "mid": {
+          "delta": 0.9714285714285714,
+          "ci_low": 0.8546659090672867,
+          "ci_high": 0.9949386386341464
+        },
+        "long": {
+          "delta": 1,
+          "ci_low": 0.7961107336956521,
+          "ci_high": 1
+        }
+      }
+    }
+  },
+  "latency_stats": {
+    "baseline": {
+      "n_cycles": 75,
+      "c1_mean_ms": null,
+      "c1_stdev_ms": null,
+      "c1_max_ms": null,
+      "c2_mean_ms": null,
+      "c2_stdev_ms": null,
+      "c2_max_ms": null,
+      "tts_ttfb_mean_ms": null
+    },
+    "arm1": {
+      "n_cycles": 75,
+      "c1_mean_ms": 213.28,
+      "c1_stdev_ms": 30.659666259356687,
+      "c1_max_ms": 375,
+      "c2_mean_ms": 191.61333333333334,
+      "c2_stdev_ms": 27.73518271727015,
+      "c2_max_ms": 272,
+      "tts_ttfb_mean_ms": 184.88
+    },
+    "arm2": {
+      "n_cycles": 75,
+      "c1_mean_ms": 241.85333333333332,
+      "c1_stdev_ms": 166.47316911753688,
+      "c1_max_ms": 1649,
+      "c2_mean_ms": 212.22666666666666,
+      "c2_stdev_ms": 43.30082495104963,
+      "c2_max_ms": 488,
+      "tts_ttfb_mean_ms": 549.5866666666667
+    }
+  },
+  "verdict": {
+    "winner": "arm1",
+    "runner_up": "arm2",
+    "killed": [
+      "baseline"
+    ],
+    "arm1_passes_aggregate": true,
+    "arm2_passes_aggregate": true,
+    "arm1_passes_all_slices": true,
+    "arm2_passes_all_slices": true,
+    "tiebreaker_used": "latency (lower c1_max + tts_ttfb_mean wins)",
+    "rationale": "Filled by post-aggregation review; see conclusion.md."
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "run_at": "2026-05-28T23:37:40.419Z",
+    "model": "gemini-3.1-flash-lite",
+    "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json",
+    "out_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/pilot.json",
+    "trials": 1,
+    "n_cases": 1,
+    "n_results": 1
+  },
+  "results": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "当然可以，我亲爱的小听众，我们就用你的语言继续这段奇妙的旅程。\n\n那棵古老的大树在寒风中微微摇晃，仿佛在轻声呼唤着莉娜，她紧了紧红色的羊毛大衣，屏住呼吸，一步步走进了那片低沉的嗡嗡声中。",
+      "qa_latency_ms": 1000,
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "正如你所说，这寒风中的嗡嗡声确实藏着秘密，莉娜的心跳比风声还要响。现在，让我们跟着她踏入那棵树，看看里面究竟藏着什么。",
+        "resume_strategy": "restart",
+        "replacement_segments": [
+          {
+            "id": "s1",
+            "text": "在莉娜居住的羊毛灰色村庄边缘，矗立着一棵比教堂还要高大的空心树。每当冬夜降临，树皮中就会传出低沉的嗡嗡声，大人们总是告诫她不要靠近。但那天晚上，奶奶还没讲完故事就睡着了，莉娜披上红色羊毛大衣，穿过结霜的田野，决定去听听那树里的歌声。她紧了紧衣领，屏住呼吸，一步步走进了那低沉的鸣响之中。"
+          }
+        ],
+        "active_scene_id": "s1"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1263,
+      "planner_raw": "{\n  \"bridge_text\": \"正如你所说，这寒风中的嗡嗡声确实藏着秘密，莉娜的心跳比风声还要响。现在，让我们跟着她踏入那棵树，看看里面究竟藏着什么。\",\n  \"resume_strategy\": \"restart\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s1\",\n      \"text\": \"在莉娜居住的羊毛灰色村庄边缘，矗立着一棵比教堂还要高大的空心树。每当冬夜降临，树皮中就会传出低沉的嗡嗡声，大人们总是告诫她不要靠近。但那天晚上，奶奶还没讲完故事就睡着了，莉娜披上红色羊毛大衣，穿过结霜的田野，决定去听听那树里的歌声。她紧了紧衣领，屏住呼吸，一步步走进了那低沉的鸣响之中。\"\n    }\n  ],\n  \"active_scene_id\": \"s1\"\n}"
+    }
+  ]
+}

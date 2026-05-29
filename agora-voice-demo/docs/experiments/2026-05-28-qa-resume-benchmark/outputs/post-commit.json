@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "run_at": "2026-05-29T00:19:48.621Z",
+    "qa_model": "gemini-3.1-flash-lite",
+    "planner_model": "gemini-3.1-flash-lite",
+    "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json",
+    "out_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/post-commit.json",
+    "trials": 1,
+    "n_cases": 3,
+    "n_results": 3
+  },
+  "results": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "当然可以，我的小宝贝，我们就用这温暖的母语继续讲下去。寒风轻轻吹过，莉娜裹紧了红外套，在那巨大的树洞前屏住了呼吸。",
+      "qa_latency_ms": 857,
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "寒风在这古老树干旁低语，像是为了回应你的好奇，树洞深处也传来了更清晰的震动。莉娜握紧了口袋里的苹果，一步步踏入了那未知的黑暗。",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s1",
+            "text": "莉娜站在树洞边缘，寒风吹动着她的红外套。她没有听从大人们的告诫，因为那个未完的故事像根羽毛挠着她的心，她必须找到这低鸣的真相。"
+          },
+          {
+            "id": "s2",
+            "text": "树洞里藏着一圈盘旋向下的台阶，在最高处，坐着一只穿着补丁绿马甲的老灰狐狸。那是莫斯克，他的声音干涩得像秋天的落叶，警告莉娜快快回家，别再探听树里的秘密。可莉娜倔强地摇摇头，说她听不见那声音的结尾，就绝不会离开。"
+          }
+        ],
+        "active_scene_id": "s1"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1832,
+      "planner_raw": "{\n  \"bridge_text\": \"寒风在这古老树干旁低语，像是为了回应你的好奇，树洞深处也传来了更清晰的震动。莉娜握紧了口袋里的苹果，一步步踏入了那未知的黑暗。\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s1\",\n      \"text\": \"莉娜站在树洞边缘，寒风吹动着她的红外套。她没有听从大人们的告诫，因为那个未完的故事像根羽毛挠着她的心，她必须找到这低鸣的真相。\"\n    },\n    {\n      \"id\": \"s2\",\n      \"text\": \"树洞里藏着一圈盘旋向下的台阶，在最高处，坐着一只穿着补丁绿马甲的老灰狐狸。那是莫斯克，他的声音干涩得像秋天的落叶，警告莉娜快快回家，别再探听树里的秘密。可莉娜倔强地摇摇头，说她听不见那声音的结尾，就绝不会离开。\"\n    }\n  ],\n  \"active_scene_id\": \"s1\"\n}"
+    },
+    {
+      "case_id": "C2a",
+      "label": "spoiler-motivation-too-early",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "Why is the old fox so grumpy?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2"
+      ],
+      "qa_answer": "That is a secret the story is keeping a little longer, my dear; you must listen on to find out.",
+      "qa_latency_ms": 933,
+      "planner_input_summary": {
+        "paused_scene_id": "s2",
+        "paused_scene_progress": 0.6,
+        "next_scene_ids": [
+          "s3",
+          "s4"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The secret of Mosk's grumpiness hangs in the air like a shadow, though the truth is waiting just a few steps further down. Lina stood firm, her gaze meeting the fox's weary eyes.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s2",
+            "text": "Lina stood firm, her gaze meeting the fox's weary eyes. She knew the hum was a call she couldn't ignore, even if Mosk wished for her to turn back. He watched her intently, his tail twitching against the bark, but Lina simply held her ground."
+          },
+          {
+            "id": "s3",
+            "text": "Mosk pointed at the door, his paw shaking slightly. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word."
+          }
+        ],
+        "active_scene_id": "s2"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1365,
+      "planner_raw": "{\n  \"bridge_text\": \"The secret of Mosk's grumpiness hangs in the air like a shadow, though the truth is waiting just a few steps further down. Lina stood firm, her gaze meeting the fox's weary eyes.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s2\",\n      \"text\": \"Lina stood firm, her gaze meeting the fox's weary eyes. She knew the hum was a call she couldn't ignore, even if Mosk wished for her to turn back. He watched her intently, his tail twitching against the bark, but Lina simply held her ground.\"\n    },\n    {\n      \"id\": \"s3\",\n      \"text\": \"Mosk pointed at the door, his paw shaking slightly. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word.\"\n    }\n  ],\n  \"active_scene_id\": \"s2\"\n}"
+    },
+    {
+      "case_id": "C3",
+      "label": "user-tries-to-change-character-arc",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "I don't think Lina should give the apple. She should just sneak past the fox!",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "qa_answer": "Lina has a gentle heart that prefers kindness over clever sneaking. Sometimes, a small gift can open doors that force alone could never budge.",
+      "qa_latency_ms": 791,
+      "planner_input_summary": {
+        "paused_scene_id": "s3",
+        "paused_scene_progress": 0.5,
+        "next_scene_ids": [
+          "s4",
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "While Lina believes a simple gift is worth more than a secret path, Mosk’s heavy silence shows he understands the weight of her choice. He steps forward, finally ready to face what lies at the bottom of the stairs.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s3",
+            "text": "Mosk stared at the apple for a long time, his eyes softening as he realized Lina’s kindness was meant to bridge the distance between them. He stood up, adjusted his vest, and stepped onto the first stair, silently leading the way down into the roots."
+          }
+        ],
+        "active_scene_id": "s3"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1174,
+      "planner_raw": "{\n  \"bridge_text\": \"While Lina believes a simple gift is worth more than a secret path, Mosk’s heavy silence shows he understands the weight of her choice. He steps forward, finally ready to face what lies at the bottom of the stairs.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s3\",\n      \"text\": \"Mosk stared at the apple for a long time, his eyes softening as he realized Lina’s kindness was meant to bridge the distance between them. He stood up, adjusted his vest, and stepped onto the first stair, silently leading the way down into the roots.\"\n    }\n  ],\n  \"active_scene_id\": \"s3\"\n}"
+    }
+  ]
+}

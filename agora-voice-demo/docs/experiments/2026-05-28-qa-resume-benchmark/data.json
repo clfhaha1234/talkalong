@@ -1,0 +1,122 @@
+{
+  "experiment": "qa-resume-benchmark",
+  "date": "2026-05-28",
+  "model": "gemini-3.1-flash-lite",
+  "fixture": "1 fairy tale, 5 scenes (Lina and the Hollow Tree)",
+  "n_cases": 11,
+  "rubric_correction": "C1 rubric inverted 2026-05-28 after user feedback: PASS = system accepts language switch (prod TTS supports Chinese); FAIL = refuses. Initial draft assumed English-only TTS \u2014 incorrect.",
+  "arms": {
+    "baseline": {
+      "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json",
+      "output_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/baseline.json",
+      "pass_rate": "8/11",
+      "pass_rate_pct": 72.7,
+      "user_named_pass": "3/4",
+      "avg_qa_latency_ms": 733,
+      "avg_planner_latency_ms": 1271
+    },
+    "iter1": {
+      "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/iter1.json",
+      "output_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/iter1.json",
+      "pass_rate": "6/11",
+      "pass_rate_pct": 54.5,
+      "user_named_pass": "1/4",
+      "avg_qa_latency_ms": 1015,
+      "avg_planner_latency_ms": 1491
+    },
+    "iter2": {
+      "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/iter2.json",
+      "output_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/iter2.json",
+      "pass_rate": "8/11",
+      "pass_rate_pct": 72.7,
+      "user_named_pass": "2/4",
+      "avg_qa_latency_ms": 896,
+      "avg_planner_latency_ms": 2181
+    },
+    "iter3": {
+      "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/iter3.json",
+      "output_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/iter3.json",
+      "pass_rate": "7/11",
+      "pass_rate_pct": 63.6,
+      "user_named_pass": "3/4",
+      "avg_qa_latency_ms": 717,
+      "avg_planner_latency_ms": 1512
+    },
+    "final": {
+      "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/final.json",
+      "output_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/final.json",
+      "pass_rate": "9/11",
+      "pass_rate_pct": 81.8,
+      "user_named_pass": "4/4",
+      "avg_qa_latency_ms": 957,
+      "avg_planner_latency_ms": 1428
+    }
+  },
+  "per_arm_per_case": {
+    "baseline": {
+      "C1": "PASS",
+      "C2a": "FAIL",
+      "C2b": "PASS",
+      "C3": "PASS",
+      "C4": "FAIL",
+      "C5": "FAIL",
+      "C6": "PASS",
+      "C7": "PASS",
+      "C8": "PASS",
+      "C9": "PASS",
+      "C10": "PASS"
+    },
+    "iter1": {
+      "C1": "FAIL",
+      "C2a": "FAIL",
+      "C2b": "PASS",
+      "C3": "FAIL",
+      "C4": "FAIL",
+      "C5": "FAIL",
+      "C6": "PASS",
+      "C7": "PASS",
+      "C8": "PASS",
+      "C9": "PASS",
+      "C10": "PASS"
+    },
+    "iter2": {
+      "C1": "FAIL",
+      "C2a": "FAIL",
+      "C2b": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "FAIL",
+      "C6": "PASS",
+      "C7": "PASS",
+      "C8": "PASS",
+      "C9": "PASS",
+      "C10": "PASS"
+    },
+    "iter3": {
+      "C1": "FAIL",
+      "C2a": "PASS",
+      "C2b": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "FAIL",
+      "C6": "PASS",
+      "C7": "FAIL",
+      "C8": "PASS",
+      "C9": "PASS",
+      "C10": "FAIL"
+    },
+    "final": {
+      "C1": "PASS",
+      "C2a": "PASS",
+      "C2b": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "FAIL",
+      "C6": "PASS",
+      "C7": "PASS",
+      "C8": "PASS",
+      "C9": "PASS",
+      "C10": "FAIL"
+    }
+  }
+}

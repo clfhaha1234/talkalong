@@ -1,0 +1,26 @@
+{
+  "name": "story-img-to-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Progressive illustration animation: turn a hand-drawn picture-book image into a breathing bedtime video.",
+  "scripts": {
+    "preprocess": "tsx src/preprocess.ts",
+    "render": "remotion render src/index.ts BookPage out/video.mp4",
+    "preview": "remotion studio src/index.ts",
+    "generate": "npm run preprocess -- demo_img.jpeg && npm run render"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "potrace": "2.1.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.290",
+    "sharp": "0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.0",
+    "@types/react": "18.3.3",
+    "typescript": "5.5.3",
+    "tsx": "4.19.0"
+  }
+}

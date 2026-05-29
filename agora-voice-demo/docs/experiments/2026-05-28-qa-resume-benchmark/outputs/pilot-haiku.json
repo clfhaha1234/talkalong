@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "run_at": "2026-05-29T00:00:22.321Z",
+    "qa_model": "anthropic:claude-haiku-4-5-20251001",
+    "planner_model": "gemini-3.1-flash-lite",
+    "prompts_path": "docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json",
+    "out_path": "docs/experiments/2026-05-28-qa-resume-benchmark/outputs/pilot-haiku.json",
+    "trials": 1,
+    "n_cases": 1,
+    "n_results": 1
+  },
+  "results": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "I speak only in English, little one, but the story of Lina and her hollow tree is just as magical in this voice. Shall we see what she finds when she reaches it?",
+      "qa_latency_ms": 1357,
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The magic of these woods speaks only in the language of whispers and wind, but you have the sharp ears of a listener who is ready to hear what happens next. Lina reaches the hollow trunk, her red coat bright against the winter frost.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s1",
+            "text": "Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard."
+          }
+        ],
+        "active_scene_id": "s1"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 2299,
+      "planner_raw": "{\n  \"bridge_text\": \"The magic of these woods speaks only in the language of whispers and wind, but you have the sharp ears of a listener who is ready to hear what happens next. Lina reaches the hollow trunk, her red coat bright against the winter frost.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s1\",\n      \"text\": \"Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard.\"\n    }\n  ],\n  \"active_scene_id\": \"s1\"\n}"
+    }
+  ]
+}

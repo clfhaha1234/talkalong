@@ -1,0 +1,32 @@
+{
+  "set": "dev",
+  "purpose": "scoring + Phase 4 iteration. Read scores, NOT raw rows, to tune.",
+  "stratification": {
+    "by_length": {"short": 5, "mid": 10, "long": 5},
+    "by_category": {"exposition": 4, "question_bearing": 4, "numbers_symbols": 4, "quoted_speech": 4, "long_compound": 4}
+  },
+  "rows": [
+    {"row_id": "dev_001", "length": "short", "category": "exposition",       "text": "The architecture has two encoders and one decoder."},
+    {"row_id": "dev_002", "length": "short", "category": "question_bearing", "text": "What do you notice about the loss curve in Figure 3?"},
+    {"row_id": "dev_003", "length": "short", "category": "numbers_symbols",  "text": "The learning rate starts at 3e-4 and decays exponentially."},
+    {"row_id": "dev_004", "length": "short", "category": "quoted_speech",    "text": "The reviewer wrote, \"this isn't novel,\" which the authors dispute."},
+    {"row_id": "dev_005", "length": "short", "category": "long_compound",    "text": "Even though the baseline is weak, the gap is large enough that it matters."},
+
+    {"row_id": "dev_006", "length": "mid",   "category": "exposition",       "text": "Let me walk you through the encoder block. It has self-attention, then a feed-forward layer, with residual connections around both. Layer norm is applied before each sublayer in this variant."},
+    {"row_id": "dev_007", "length": "mid",   "category": "exposition",       "text": "The training loop is straightforward. Sample a batch, forward pass, compute loss, backprop, step the optimizer. They use AdamW with weight decay zero point one."},
+    {"row_id": "dev_008", "length": "mid",   "category": "question_bearing", "text": "Here's a question worth holding onto as we continue. The paper claims their method works for any transformer, but they only test on encoders. Should we believe it transfers to decoders too?"},
+    {"row_id": "dev_009", "length": "mid",   "category": "question_bearing", "text": "Take a second. They say the technique is parameter-free, meaning no new weights are introduced. But it does add compute. So is it really free?"},
+    {"row_id": "dev_010", "length": "mid",   "category": "numbers_symbols",  "text": "The configuration is twelve layers deep, with sixteen attention heads each, dimension seven hundred sixty-eight per head, totaling one hundred twenty-five million parameters."},
+    {"row_id": "dev_011", "length": "mid",   "category": "numbers_symbols",  "text": "They report results across three seeds. Seed one was eighty-four point two percent accuracy, seed two was eighty-three point seven, and seed three was eighty-five point one, averaging eighty-four point three."},
+    {"row_id": "dev_012", "length": "mid",   "category": "quoted_speech",    "text": "In the conclusion the authors say, \"we believe this opens a new direction,\" though the empirical evidence is limited to one task family."},
+    {"row_id": "dev_013", "length": "mid",   "category": "quoted_speech",    "text": "One reviewer commented, \"the ablation is incomplete\", which prompted the authors to add three additional experiments in the rebuttal."},
+    {"row_id": "dev_014", "length": "mid",   "category": "long_compound",    "text": "Although they argue the technique is general, the experiments are limited to one architecture and one dataset, so generalization beyond that is unclear, and you'd want to see at least vision and audio benchmarks before believing the universal claim."},
+    {"row_id": "dev_015", "length": "mid",   "category": "long_compound",    "text": "Once you accept that the bottom-thirty heuristic works, the next question is whether the cut-off is exactly thirty percent or whether you could prune even more aggressively without losing quality, and the paper has surprisingly little to say about that."},
+
+    {"row_id": "dev_016", "length": "long",  "category": "exposition",       "text": "Let me set up the problem properly. Modern transformer models have many attention heads per layer, often sixteen or thirty-two. Each head learns to attend to different patterns. The question this paper asks is whether all of those heads are actually useful. The authors suspect that many of them learn redundant patterns, and that you could remove the redundant ones at inference time without changing the model's outputs much. To test this, they propose a scoring function that ranks heads by their contribution to the gradient flow during training."},
+    {"row_id": "dev_017", "length": "long",  "category": "question_bearing", "text": "Now here's where the paper gets interesting. They benchmark against three prior pruning methods and beat all of them on the speed-quality trade-off curve. But take a moment to look at Figure 4. Why do you think the gap is largest on smaller models and shrinks on bigger ones? Does the conclusion still hold if you only care about huge production models?"},
+    {"row_id": "dev_018", "length": "long",  "category": "numbers_symbols",  "text": "The experimental setup is dense. They train on one hundred billion tokens, batch size four million, with sequence length two thousand forty-eight. The optimizer is AdamW with beta one of zero point nine and beta two of zero point nine five, learning rate three e-minus four with cosine decay, and weight decay zero point one. Validation perplexity at the end is twelve point eight."},
+    {"row_id": "dev_019", "length": "long",  "category": "quoted_speech",    "text": "The authors are careful with their language. They write, \"we do not claim this is the optimal pruning strategy,\" only that it is competitive with prior art at lower compute cost. And later they note, \"future work should extend this to decoder-only architectures,\" which is a polite way of admitting the current evidence is limited."},
+    {"row_id": "dev_020", "length": "long",  "category": "long_compound",    "text": "If you take the paper at face value, the implication is that we've been wasting compute by running every attention head on every input, when really only the top-ranked seventy percent matter for most queries, and the bottom thirty percent are essentially dead weight that you can safely skip, which if true would suggest similar ideas might work for feed-forward layers, mixture-of-experts gating, and other parts of the network that we currently treat as monolithic."}
+  ]
+}
