@@ -24,7 +24,7 @@ async function main() {
 
   const actuator = new TranscriptActuator();
   const spec: PersonaSpec = personaKind === 'meta' ? { kind: 'meta', metaUtterance } : { kind: personaKind } as PersonaSpec;
-  const persona = makePersona(spec, llm, actuator);
+  const persona = makePersona(spec, llm, () => actuator.spoken.at(-1) ?? '');
 
   const t0 = Date.now();
   const result = await runAgenda(agenda, actuator, persona, llm, { maxAttempts: 2, maxTurns: 8 });

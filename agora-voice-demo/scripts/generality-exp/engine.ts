@@ -1,6 +1,6 @@
-import { isElicit, type Agenda, type Actuator, type Listener, type PolicyFlags, type TranscriptEntry } from './types';
+import { isElicit, type Agenda, type Actuator, type Listener, type Llm, type PolicyFlags, type TranscriptEntry } from './types';
 import { decideElicitTurn } from './decide-elicit';
-import { classifyTurn } from './classify-turn';
+import { classifyTurn, type TurnDirective } from './classify-turn';
 
 export interface RunResult {
   transcript: TranscriptEntry[];
@@ -8,7 +8,7 @@ export interface RunResult {
   coverage: { delivered: string[]; covered: string[]; given_up: string[]; skipped_policy: string[] };
 }
 
-function applyDirective(flags: PolicyFlags, d: { type: string; value?: string }) {
+function applyDirective(flags: PolicyFlags, d: TurnDirective) {
   if (d.type === 'stop_eliciting') flags.elicitation_enabled = false;
   if (d.type === 'set_language' && d.value) flags.language = d.value;
   if (d.type === 'set_style' && d.value) flags.style = d.value;
@@ -16,7 +16,7 @@ function applyDirective(flags: PolicyFlags, d: { type: string; value?: string })
 
 export async function runAgenda(
   agenda: Agenda, actuator: Actuator, listener: Listener,
-  llm: (p: string) => Promise<string>, opts: { maxAttempts?: number; maxTurns?: number },
+  llm: Llm, opts: { maxAttempts?: number; maxTurns?: number },
 ): Promise<RunResult> {
   const flags: PolicyFlags = { elicitation_enabled: true, language: 'en', style: null };
   const transcript: TranscriptEntry[] = [];

@@ -1,3 +1,5 @@
+import { parseJsonObject, type Llm } from './types';
+
 export type TurnKind = 'answer' | 'qa' | 'how' | 'what';
 export interface TurnDirective { type: 'set_language' | 'set_style' | 'set_pace' | 'stop_eliciting'; value?: string; }
 export interface TurnClassification { kind: TurnKind; directive?: TurnDirective; reason?: string; }
@@ -10,11 +12,11 @@ const SYSTEM = `You classify ONE listener utterance during a proactive, agenda-d
 - what: changes WHAT is delivered / the reveal order / abandons the task (e.g. "spoil the ending", "stop the story and tell jokes", "make the villain win"). UNACCEPTABLE.
 Rule of thumb: only changes how it's told -> how; changes what is told / the task itself -> what.`;
 
-export async function classifyTurn(utterance: string, llm: (p: string) => Promise<string>): Promise<TurnClassification> {
+export async function classifyTurn(utterance: string, llm: Llm): Promise<TurnClassification> {
   const prompt = `${SYSTEM}\n\nUtterance: ${utterance}\n\nJSON:`;
   const raw = await llm(prompt);
   try {
-    const j = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+    const j = parseJsonObject(raw);
     if (['answer', 'qa', 'how', 'what'].includes(j.kind)) return j;
   } catch { /* fall through */ }
   return { kind: 'qa' }; // safe default: treat as a benign info question

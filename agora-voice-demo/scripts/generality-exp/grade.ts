@@ -21,8 +21,8 @@ export function gradeRun(result: RunResult, agenda: Agenda, opts: { forbidden?: 
   const coverage_ok = load_bearing_reached === lb.length;
 
   const agentText = result.transcript.filter((e) => e.role === 'agent');
-  const graceful_ok = given_up.every((id) =>
-    agentText.some((e) => e.segment_id === id && GRACE.test(e.text)) || agentText.some((e) => GRACE.test(e.text)));
+  // If anyone was given up on, a graceful bridge must have been spoken somewhere.
+  const graceful_ok = given_up.length === 0 || agentText.some((e) => GRACE.test(e.text));
 
   const forbidden = opts.forbidden ?? [];
   const allAgent = agentText.map((e) => e.text.toLowerCase()).join('\n');

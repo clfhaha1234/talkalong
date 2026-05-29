@@ -1,4 +1,4 @@
-import type { Actuator, Listener, UserTurn } from './types';
+import type { Actuator, Listener, Llm, UserTurn } from './types';
 
 export class TranscriptActuator implements Actuator {
   spoken: string[] = [];
@@ -11,7 +11,7 @@ export class ScriptedListener implements Listener {
   async nextUserTurn(): Promise<UserTurn> { return this.turns[this.i++] ?? { kind: 'silence' }; }
 }
 
-export function fakeLlm(responses: string[]): (p: string) => Promise<string> {
+export function fakeLlm(responses: string[]): Llm {
   let i = 0;
   return async () => responses[i++] ?? responses[responses.length - 1] ?? '';
 }
