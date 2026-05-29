@@ -38,7 +38,7 @@ We're building the **orchestration brain** of a proactive AI teacher. It owns:
 We **rent**, not build:
 
 - ASR + LLM + TTS pipeline and barge-in detection from **Agora Conversational AI Engine**.
-- Illustration-to-video animation from the existing **storyImgToVideo Remotion pipeline** (`video_story_README.md`).
+- Illustration-to-video animation from the existing **talkalong Remotion pipeline** (`video_story_README.md`).
 
 ### Architecture lock (decided in E1, 2026-05-28)
 
@@ -521,7 +521,7 @@ This is **doable but worth Phase-0 measurement** because Agora's TTS startup lat
 | Orchestrator (state machine + barge-in scheduler) | New | `apps/orchestrator/` (TS, runs inside Next.js server) |
 | Agora session wrapper | Mostly existing — extends `agora-voice-demo` | `agora-voice-demo/app/api/{invite-agent,chat/completions,stop-conversation}/` |
 | Visual layer player | New small component | `agora-voice-demo/components/VisualPlayer.tsx` |
-| Visual generator | Existing | `storyImgToVideo/` (Remotion) — invoked from structurer |
+| Visual generator | Existing | `talkalong/` (Remotion) — invoked from structurer |
 | Demo client (UI) | Extends quickstart | `agora-voice-demo/components/` |
 
 The Agora-Convo-AI Next.js quickstart (already cloned at `agora-voice-demo/`) is the substrate. The orchestrator is a new module that imports `agora-agent-server-sdk` and lives alongside the existing routes.

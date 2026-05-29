@@ -1,4 +1,4 @@
-# storyImgToVideo
+# Talkalong
 
 把一张手绘风格的绘本插画变成可以"对话+被打断"的活绘本：
 
@@ -10,7 +10,7 @@
 ## 仓库结构
 
 ```
-storyImgToVideo/
+talkalong/
 ├── src/                       # Remotion 端：图 → 渐进式绘本视频（本目录顶层 npm 项目）
 │   ├── BookPage.tsx           # 主组合
 │   ├── preprocess.ts          # 一张图 → 线稿 + 颜色层

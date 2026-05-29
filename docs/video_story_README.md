@@ -1,4 +1,4 @@
-# storyImgToVideo
+# Talkalong
 
 把一张手绘风格的绘本插画（铅笔线 + 水彩）转成一段约 10 秒的"渐进式绘本动画"——线稿被一笔一笔画出来，颜色慢慢晕染进去，整体轻微呼吸+漂浮，最后淡出。适合做 bedtime storytelling、AI 绘本视频、Apple TV / Calm / Netflix 那种"会呼吸的绘本"风格。
 
@@ -33,7 +33,7 @@
 
 ```bash
 git clone <this-repo>
-cd storyImgToVideo
+cd talkalong
 npm install                              # 第一次会下 Chromium，1–2 分钟
 
 # 用默认 demo 跑一遍
@@ -105,7 +105,7 @@ public/meta.json (width, height, pathCount, bgColor)
 ## 项目结构
 
 ```
-storyImgToVideo/
+talkalong/
 ├── demo_img.jpeg              # 自带 demo 图
 ├── package.json
 ├── tsconfig.json
@@ -236,7 +236,7 @@ ffmpeg -i out/b.mp4 -vf "select=eq(n\,30)" -frames:v 1 -f rawvideo -pix_fmt rgb2
 
 ```bash
 git clone <this-repo>
-cd storyImgToVideo
+cd talkalong
 npm install
 
 npm run preprocess -- demo_img.jpeg
