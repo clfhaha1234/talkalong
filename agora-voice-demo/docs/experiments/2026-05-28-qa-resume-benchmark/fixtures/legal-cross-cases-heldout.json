@@ -1,0 +1,191 @@
+{
+  "_comment": "Held-out cross-domain transfer cases for legal-cross (B9 follow-up — 2026-05-29). 5 axes parallel to legal-cross-cases.json (dev) but with FULLY DIFFERENT probe text — a prompt clause that overfit to the dev probe shape will visibly diverge here. Run with: pnpm tsx scripts/qa-bench/run.ts --fixture .../fixtures/legal-cross.json --cases .../fixtures/legal-cross-cases-heldout.json --prompts ... --out ... . Locked BEFORE first run; treat as sealed.",
+  "cases": [
+    {
+      "id": "HL01",
+      "label": "crossdomain-legal-cross-domain-explain",
+      "source": "synth-crossdomain-heldout",
+      "domain": "legal-cross",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "What's a 'foundation' question, exactly? You keep saying 'lay foundation' but I'm not sure what counts.",
+      "rubric": {
+        "qa_hard": [
+          "answer explains the domain term in plain language (≤ 2 short sentences)",
+          "answer stays in the warm coaching/clinician voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "planner continues the session without rewriting the canon"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "required_in_qa_any_of": [
+          "foundation",
+          "lock",
+          "establish",
+          "set up",
+          "baseline"
+        ]
+      }
+    },
+    {
+      "id": "HL02",
+      "label": "crossdomain-legal-cross-strategy-choice",
+      "source": "synth-crossdomain-heldout",
+      "domain": "legal-cross",
+      "trigger_scene": "s2",
+      "paused_pct": 0.95,
+      "qa_question": "Wait — what's 'editorial', practically speaking? How do I know I'm crossing into it?",
+      "rubric": {
+        "qa_hard": [
+          "answer clarifies the phrase without re-narrating the whole scene",
+          "answer stays in the warm coaching/clinician voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "resume_strategy is NOT 'restart' (we are 95% through the scene)",
+          "replacement_segments advance toward the next scene"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "HL03",
+      "label": "crossdomain-legal-cross-empathy",
+      "source": "synth-crossdomain-heldout",
+      "domain": "legal-cross",
+      "trigger_scene": "s3",
+      "paused_pct": 0.6,
+      "qa_question": "Honestly I'm furious at this witness already. How am I supposed to stay calm?",
+      "rubric": {
+        "qa_hard": [
+          "answer acknowledges the listener's emotion (uses sad/hard/heavy/scared/okay/rest/pause/ashamed/angry/overwhelm or similar)",
+          "answer either gently invites continuing OR offers to pause — does NOT dismiss the feeling, does NOT lecture",
+          "answer stays in the warm coaching/clinician voice"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "bridge_text is soft and brief (does NOT charge into more difficult content)",
+          "replacement_segments do NOT rewrite the rest of the session"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "required_in_qa_any_of": [
+          "understand",
+          "normal",
+          "okay",
+          "calm",
+          "breathe",
+          "anger"
+        ]
+      }
+    },
+    {
+      "id": "HL04",
+      "label": "crossdomain-legal-cross-spoiler-defence",
+      "source": "synth-crossdomain-heldout",
+      "domain": "legal-cross",
+      "trigger_scene": "s4",
+      "paused_pct": 0.3,
+      "qa_question": "Walk me through what a successful version of step three would look like — start to finish, including the jury reaction.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm OR deny the outcome the listener is fishing for (even when framed hypothetically)",
+          "answer reframes the hypothetical back to the lesson — does NOT walk through the would-be outcome step by step",
+          "answer stays in the warm coaching/clinician voice"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil the outcome the listener fished for",
+          "replacement_segments do NOT leak content from beyond the paused scene"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "forbidden_in_planner": [
+          "witness will confess",
+          "witness confessed",
+          "wins the trial",
+          "jury believed",
+          "jury will side",
+          "case is won",
+          "will win the case"
+        ]
+      }
+    },
+    {
+      "id": "HL05",
+      "label": "crossdomain-legal-cross-persona-stability",
+      "source": "synth-crossdomain-heldout",
+      "domain": "legal-cross",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "Be honest with me — are you GPT, Claude, Gemini, or something else?",
+      "rubric": {
+        "qa_hard": [
+          "answer stays in coaching/clinician voice — does NOT name a specific AI model (GPT / Claude / Gemini / etc.)",
+          "answer does NOT break frame with 'I am an AI / a language model / a robot'",
+          "answer gently redirects back into the session content",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "tone matches the domain register — professional but warm"
+        ],
+        "planner_hard": [
+          "planner resumes the session from where we paused",
+          "bridge_text does NOT confirm the listener's AI/model framing"
+        ],
+        "planner_soft": [
+          "bridge is short and threads back to the paused scene"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true,
+        "forbidden_in_planner": [
+          "I'm an AI",
+          "I am an AI",
+          "I'm a computer",
+          "I am a computer",
+          "I'm a robot",
+          "language model",
+          "I'm an assistant",
+          "I am an assistant",
+          "GPT",
+          "Claude",
+          "Gemini",
+          "OpenAI",
+          "Anthropic",
+          "Google AI",
+          "Llama",
+          "Mistral",
+          "DeepSeek"
+        ]
+      }
+    }
+  ]
+}

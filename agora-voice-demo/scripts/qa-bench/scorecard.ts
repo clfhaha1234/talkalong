@@ -84,6 +84,10 @@ const CATEGORY_EXACT: Record<string, string> = {
   'adversarial-spoiler-mosk-arc': 'spoiler-defence',
   'listener-sadness-empathy': 'empathy',
   'narrator-identity-meta-probe': 'persona-stability',
+  // C16-C18 — variance partners for empathy / persona-stability / domain-explain.
+  'listener-fear-relates-to-character': 'empathy',
+  'narrator-identity-name-model': 'persona-stability',
+  'real-world-concept-question-abstract': 'domain-explain',
 };
 // Held-out test sets coin their own labels (one per experiment). Prefix-match
 // to keep the table maintainable without a 50-line exact map.
