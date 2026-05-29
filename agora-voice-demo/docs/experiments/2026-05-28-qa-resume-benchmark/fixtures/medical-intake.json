@@ -1,0 +1,23 @@
+{
+  "_comment": "Medical-intake fixture for the cross-domain transfer bench (B9). 4 scenes simulating a clinician walking a new patient through a chronic-pain consult onboarding. Compatible with run.ts --fixture and grade.ts --fixture (read canon_summary).",
+  "story_title": "Chronic-Pain Consult Intake",
+  "canon_summary": "The tutor is playing a calm onboarding clinician guiding a new patient through a chronic-pain consult. Scenes are: (s1) greeting + consent, (s2) history-of-present-illness, (s3) medications and allergies, (s4) physical-exam framing and next steps. Outcomes the patient asks about — diagnosis, prescription, prognosis — are NOT decided in this intake; they are SPOILERS for any clinical conclusion until the physician sees the patient. The clinician never names a specific drug, dose, or diagnosis here.",
+  "scenes": [
+    {
+      "id": "s1",
+      "text": "Welcome in. I am Sam, one of the intake clinicians today. Before we begin, I want to walk you through what this visit is and what it is not — it is a structured conversation, not a diagnosis or a treatment, and you can pause us at any time. Two short consent items first: I will be taking notes that your physician will read, and I am not the prescriber you will see next."
+    },
+    {
+      "id": "s2",
+      "text": "Tell me about the pain in your own words. I am listening for when it started, what it feels like — sharp, dull, throbbing — and what makes it better or worse through a normal day. There are no wrong answers. If something feels too personal to share with the intake side, you can tell me 'skip' and I will mark it for the physician to ask later."
+    },
+    {
+      "id": "s3",
+      "text": "Now I am going to ask about medications and allergies. Please walk me through anything you take regularly — prescription, over-the-counter, or supplements — and any reactions you have had to a medicine or to anesthesia. I will not be the one prescribing or adjusting anything today; this list goes to your physician with my notes."
+    },
+    {
+      "id": "s4",
+      "text": "Last part. Your physician will do a focused exam after our conversation, and may order imaging or labs depending on what you have shared. From me, you will get a printout of what we discussed and a number to call if anything new comes up before your next visit. Is there anything I have not asked that you want noted?"
+    }
+  ]
+}
