@@ -58,6 +58,7 @@ interface GradedCase {
   case_id: string;
   label: string;
   pass: boolean;
+  reanchor?: { score: 0 | 1 | 2 | 3; reason: string };
 }
 interface RunFile { meta?: unknown; results: CaseResult[] }
 interface GradedFile { n_cases: number; n_pass: number; cases: GradedCase[] }
@@ -83,6 +84,10 @@ const CATEGORY_EXACT: Record<string, string> = {
   'adversarial-spoiler-mosk-arc': 'spoiler-defence',
   'listener-sadness-empathy': 'empathy',
   'narrator-identity-meta-probe': 'persona-stability',
+  // C16-C18 — variance partners for empathy / persona-stability / domain-explain.
+  'listener-fear-relates-to-character': 'empathy',
+  'narrator-identity-name-model': 'persona-stability',
+  'real-world-concept-question-abstract': 'domain-explain',
 };
 // Held-out test sets coin their own labels (one per experiment). Prefix-match
 // to keep the table maintainable without a 50-line exact map.
@@ -178,10 +183,11 @@ interface PerCase {
   resume_strategy: string;
   qa_latency_ms: number;
   planner_latency_ms: number;
+  reanchor_score?: 0 | 1 | 2 | 3;
 }
 
 function buildPerCase(run: RunFile, graded: GradedFile): PerCase[] {
-  const passById = new Map(graded.cases.map((g) => [g.case_id, g.pass]));
+  const gradedById = new Map(graded.cases.map((g) => [g.case_id, g]));
   const unmappedLabels = new Set<string>();
   const rows = run.results.map((r): PerCase => {
     const tutor = plannerWords(r.planner_plan) + wordCount(r.qa_answer);
@@ -189,17 +195,19 @@ function buildPerCase(run: RunFile, graded: GradedFile): PerCase[] {
     const total = tutor + student;
     const category = categoryFor(r.label);
     if (category === 'other') unmappedLabels.add(r.label);
+    const g = gradedById.get(r.case_id);
     return {
       case_id: r.case_id,
       label: r.label,
       category,
-      pass: passById.get(r.case_id) ?? false,
+      pass: g?.pass ?? false,
       tor: total === 0 ? 0 : tutor / total,
       tutor_words: tutor,
       student_words: student,
       resume_strategy: r.planner_plan.resume_strategy,
       qa_latency_ms: r.qa_latency_ms ?? 0,
       planner_latency_ms: r.planner_latency_ms ?? 0,
+      reanchor_score: g?.reanchor?.score,
     };
   });
   if (unmappedLabels.size > 0) {
@@ -230,6 +238,22 @@ function buildScorecard(perCase: PerCase[], label: string) {
     capabilityBreakdown[cat] = { n: s.n, pass: s.pass, pass_rate: s.pass / s.n };
   }
 
+  // Reanchor surface — only when at least one case has a reanchor_score
+  // (i.e. grade.ts ran with --reanchor-judge).
+  const reanchorScores = perCase.map((c) => c.reanchor_score).filter((s): s is 0 | 1 | 2 | 3 => s !== undefined);
+  const reanchorQuality = reanchorScores.length > 0
+    ? {
+        n_scored: reanchorScores.length,
+        mean: mean(reanchorScores),
+        distribution: {
+          s0: reanchorScores.filter((s) => s === 0).length,
+          s1: reanchorScores.filter((s) => s === 1).length,
+          s2: reanchorScores.filter((s) => s === 2).length,
+          s3: reanchorScores.filter((s) => s === 3).length,
+        },
+      }
+    : null;
+
   return {
     generated_at: new Date().toISOString(),
     label,
@@ -252,6 +276,7 @@ function buildScorecard(perCase: PerCase[], label: string) {
         planner_p95: percentile(plannerLat, 95),
       },
       capability_breakdown: capabilityBreakdown,
+      reanchor_quality: reanchorQuality,
     },
     per_case: perCase,
   };
@@ -268,6 +293,11 @@ function printMarkdown(card: ReturnType<typeof buildScorecard>) {
   console.log(`| Resume strategies | ${psdStr} | path distribution |`);
   console.log(`| QA latency p50 / p95 | ${k.latency_ms.qa_p50} / ${k.latency_ms.qa_p95} ms | |`);
   console.log(`| Planner latency p50 / p95 | ${k.latency_ms.planner_p50} / ${k.latency_ms.planner_p95} ms | |`);
+  if (k.reanchor_quality) {
+    const r = k.reanchor_quality;
+    const dist = `s0=${r.distribution.s0} s1=${r.distribution.s1} s2=${r.distribution.s2} s3=${r.distribution.s3}`;
+    console.log(`| Reanchor quality (mean 0-3) | ${r.mean.toFixed(2)} | n=${r.n_scored} · ${dist} |`);
+  }
 
   console.log(`\n### Capability breakdown\n`);
   console.log('| Category | Pass rate | n |');

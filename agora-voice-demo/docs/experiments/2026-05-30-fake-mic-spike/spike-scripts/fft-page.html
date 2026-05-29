@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Fake-mic FFT probe</title></head>
+<body>
+<h1>Fake-mic FFT probe</h1>
+<div id="status">idle</div>
+<pre id="log"></pre>
+<script>
+// What we measure:
+//   1. getUserMedia returns a stream with a label that we can record (S1.3)
+//   2. AnalyserNode FFT identifies the dominant frequency bin (S1.4)
+//   3. For S2: log the wall-clock t at which the dominant frequency first
+//      exceeds a magnitude threshold — that's our "start-of-audio" timestamp.
+//
+// All measurements written to window.__spikeResult so Playwright can read them.
+
+window.__spikeResult = {
+  started_at: Date.now(),
+  stream_label: null,
+  dominant_freqs: [],   // {t_ms, freq_hz, magnitude}
+  first_audible_t_ms: null,
+  errors: [],
+};
+
+const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+const setStatus = (s) => { document.getElementById('status').textContent = s; };
+
+async function run() {
+  try {
+    setStatus('requesting getUserMedia...');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const track = stream.getAudioTracks()[0];
+    window.__spikeResult.stream_label = track.label;
+    log('stream label: ' + track.label);
+
+    setStatus('building audio graph');
+    const ctx = new AudioContext();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyser.smoothingTimeConstant = 0.3;
+    src.connect(analyser);
+
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const sampleRate = ctx.sampleRate;
+    window.__spikeResult.sample_rate = sampleRate;
+    window.__spikeResult.fft_size = analyser.fftSize;
+    const startedSampling = Date.now();
+    log('sampling at sample rate ' + sampleRate + ' fft_size ' + analyser.fftSize);
+
+    setStatus('sampling FFT');
+    // Sample every ~20ms for 8 seconds.
+    let ticks = 0;
+    const tickLimit = 400;
+    const interval = setInterval(() => {
+      analyser.getByteFrequencyData(buf);
+      // dominant = argmax of magnitudes
+      let maxI = 0, maxV = 0;
+      for (let i = 1; i < buf.length; i++) {
+        if (buf[i] > maxV) { maxV = buf[i]; maxI = i; }
+      }
+      const freq = maxI * sampleRate / analyser.fftSize;
+      const t = Date.now() - startedSampling;
+      window.__spikeResult.dominant_freqs.push({ t_ms: t, freq_hz: freq, magnitude: maxV });
+
+      // For S2: record first time magnitude exceeds threshold (audio "started")
+      // and freq is within 50Hz of expected 440
+      if (window.__spikeResult.first_audible_t_ms === null &&
+          maxV > 80 && Math.abs(freq - 440) < 100) {
+        window.__spikeResult.first_audible_t_ms = t;
+        log('first audible @ ' + t + 'ms, freq=' + freq.toFixed(1) + 'Hz, mag=' + maxV);
+      }
+
+      ticks++;
+      if (ticks >= tickLimit) {
+        clearInterval(interval);
+        setStatus('done');
+        window.__spikeResult.done = true;
+      }
+    }, 20);
+  } catch (e) {
+    window.__spikeResult.errors.push(String(e));
+    setStatus('ERROR: ' + e.message);
+  }
+}
+run();
+</script>
+</body>
+</html>

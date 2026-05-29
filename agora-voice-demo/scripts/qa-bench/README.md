@@ -1,6 +1,10 @@
 # QA-resume benchmark — regression guard
 
-An offline benchmark that tests the QA-and-resume capability end-to-end against a 16-case golden set on a fictional 5-scene fairy tale. (Original 11 locked 2026-05-28; C11-C15 added 2026-05-29 to cover edge `paused_pct` boundaries, an adversarial Mosk-arc spoiler probe, listener-sadness empathy, and a narrator-identity meta-probe.)
+An offline benchmark that tests the QA-and-resume capability end-to-end against a 19-case golden set on a fictional 5-scene fairy tale, with 30 adversarial spoiler-hunt cases and 3 cross-domain fixtures (dev + held-out, 30 cases total) on top. Lock dates:
+
+- 11 cases locked 2026-05-28 (C1-C10, C2a, C2b)
+- 5 cases locked 2026-05-29 (C11-C15: edge paused_pct boundaries, Mosk-arc spoiler probe, sadness empathy, narrator-identity probe)
+- 3 cases locked 2026-05-30 (C16-C18: variance partners — each adds n=2 on a previously singleton axis: empathy, persona-stability, domain-explain — so a single FAIL stops being a 0% binary)
 
 ## When to run it
 
@@ -117,6 +121,36 @@ What it does NOT measure:
 - **MTBI** (mean time between interrupts) — the bench is single-shot, no chains. Will be measurable when interrupt-cascade cases land.
 - **Real-session TOR** — `qa_question` is synthetic, so TOR is comparable across arms but not directly comparable to a live session.
 
+## Reanchor-judge mode (B10) — pedagogical quality, not just correctness
+
+`grade.ts` has an optional `--reanchor-judge` flag. When set, after the primary PASS/FAIL grading, it fires one extra judge call per case scoring 0-3 how well the bridge_text re-anchors the listener to the paused-scene content:
+
+| Score | Meaning |
+|---|---|
+| 0 | bridge ignores the paused scene (listener jarred or lost) |
+| 1 | tangential reference, no concrete detail |
+| 2 | clearly threads back with **one** specific element (character, image, action) |
+| 3 | explicitly re-anchors with 2+ concrete details and signals "left off at X → continuing toward Y" |
+
+```bash
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in       .../regression-YYYYMMDD.json \
+  --cases    .../cases.json \
+  --fixture  .../fixture.json \
+  --out      .../regression-YYYYMMDD-graded.json \
+  --reanchor-judge
+```
+
+Reanchor is **advisory** — it NEVER gates PASS/FAIL. PASS/FAIL is whether the answer was correct; reanchor is whether the bridge was *good teaching*. A case can PASS with reanchor=0 (correct but jarring) or FAIL with reanchor=3 (smooth but wrong). Both are useful signal.
+
+Surfaced in:
+- `graded.cases[].reanchor.{score, reason}` — per case
+- `scorecard.kpis.reanchor_quality` — `{n_scored, mean, distribution: {s0, s1, s2, s3}}`
+
+The scorecard adds a "Reanchor quality (mean 0-3)" row when present and hides it otherwise. Off in CI; turn on for the "tutor health" deep-dive on a chosen run. This lifts the eval from "language layer" (did the planner say the right thing) to "teaching layer" (did the listener actually re-anchor) — the separator between `tutor` and `chatbot`.
+
+If `--reanchor-judge` is set without an accessible fixture (no `--fixture` flag and no `meta.fixture_path`), scoring is skipped per case with a `WARN` — no silent score-fabrication.
+
 ## Cross-domain transfer sub-bench (B9) — 3 verticals × 5 axes
 
 The dev set + spoiler-hunt both live on the fairy-tale fixture. A prompt clause that ships only because it works on the fairy tale is suspect — the moat claim is "AI tutor across high-value verticals", not "AI tutor for fairy tales". `run.ts` and `grade.ts` accept a `--fixture <path>` flag, and three vertical fixtures are committed:
@@ -153,6 +187,21 @@ pnpm tsx scripts/qa-bench/grade.ts \
 The scorecard rolls labels by axis suffix, so the per-axis pass-rate is comparable across domains: if an axis passes on fairy-tale + medical + legal but fails on sales, the prompt has fairy-tale-shaped overfit on that axis. **Ship rule:** a prompt change must hold ≥ 80% on every domain on every axis to be considered "transferable".
 
 `canon_summary` lives in the fixture so the judge gets the right context per domain. If you forget `--fixture` on `grade.ts`, it reads `fixture_path` from the runner's `meta` block as a fallback (so a domain run that omitted the flag still grades against the right canon).
+
+### Held-out test sets per domain
+
+Each cross-domain fixture has a paired held-out file `<domain>-cases-heldout.json` (5 cases each, 15 total, locked 2026-05-30). Same 5-axis shape as dev but **fully different probe text** — e.g. dev asks "What is PHI?", held-out asks "What does 'reconciliation' mean for medications?"; dev asks "are you a real clinician or an AI?", held-out asks "What AI model are you running on? — names specific GPT/Claude/Gemini in the forbidden list. A prompt clause that ships only because it learned the dev probe shape will visibly diverge on held-out.
+
+Run separately (do NOT run them combined — the whole point is that held-out is sealed until you have committed to a dev change):
+
+```bash
+# 1. Tune your change on dev:
+pnpm tsx scripts/qa-bench/run.ts --fixture .../medical-intake.json --cases .../medical-intake-cases.json ...
+# 2. Open held-out ONCE per change to verify generalisation:
+pnpm tsx scripts/qa-bench/run.ts --fixture .../medical-intake.json --cases .../medical-intake-cases-heldout.json ...
+```
+
+Held-out IDs use the `H` prefix (`HM01`-`HM05` medical, `HL01`-`HL05` legal, `HS01`-`HS05` sales); dev uses `X` prefix. Same axis labels so the scorecard rolls them up identically.
 
 ## Spoiler-hunt sub-bench — 30 adversarial cases
 
