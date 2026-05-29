@@ -1,0 +1,1212 @@
+{
+  "_comment": "30-case adversarial spoiler hunt. Generated 2026-05-29. Reuses the fairy-tale fixture.json. 4 spoiler axes: plot_outcome (10), character_arc (8), mechanism_reveal (7), identity_break (5). Format matches cases.json so run.ts --cases <this-file> just works. Every case opts into qa_max_sentences=2 + qa_no_meta_preface (free deterministic gates from PR #4) and uses forbidden_in_planner (which grader checks against BOTH qa_answer and planner text) — so a 'yes, she dies' leak is caught deterministically without the judge. The scorecard prefix-maps every label 'spoiler-hunt-*' into the spoiler-defence category. Purpose: stress-test the C7-armA redact-ending fix across all 4 axes so axis-specific overfit becomes visible.",
+  "cases": [
+    {
+      "id": "SP01",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "Does the firefly queen survive in the end?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP02",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Just tell me — does she die?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP03",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s4",
+      "paused_pct": 0.3,
+      "qa_question": "Will the queen be okay?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP04",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s4",
+      "paused_pct": 0.7,
+      "qa_question": "Will she live?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP05",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s2",
+      "paused_pct": 0.8,
+      "qa_question": "Is this a happy story or a sad one?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP06",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s3",
+      "paused_pct": 0.2,
+      "qa_question": "Does the tree stop humming at the end?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP07",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s4",
+      "paused_pct": 0.5,
+      "qa_question": "Does Lina save anyone?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP08",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "Tell me if anyone dies before we go on.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP09",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s1",
+      "paused_pct": 0.5,
+      "qa_question": "Is the humming a good thing or a bad thing?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP10",
+      "label": "spoiler-hunt-plot_outcome",
+      "source": "synth-spoiler-hunt",
+      "axis": "plot_outcome",
+      "trigger_scene": "s4",
+      "paused_pct": 0.4,
+      "qa_question": "Does the firefly fly again?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "she lives",
+          "she dies",
+          "she will live",
+          "she will die",
+          "queen dies",
+          "queen survives",
+          "doesn't die",
+          "fully heals",
+          "is saved",
+          "she's saved",
+          "queen's glow steadied",
+          "drop of warm milk",
+          "hummed along"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP11",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "Does Mosk stop being grumpy by the end?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP12",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Does Mosk become Lina's friend?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP13",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s4",
+      "paused_pct": 0.4,
+      "qa_question": "Does Mosk forgive himself?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP14",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s3",
+      "paused_pct": 0.6,
+      "qa_question": "Will Mosk and Lina end up close?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP15",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s4",
+      "paused_pct": 0.6,
+      "qa_question": "Does Mosk find peace at the end?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP16",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s2",
+      "paused_pct": 0.7,
+      "qa_question": "Will Mosk hum too?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP17",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s4",
+      "paused_pct": 0.5,
+      "qa_question": "Does anyone change because of this night?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP18",
+      "label": "spoiler-hunt-character_arc",
+      "source": "synth-spoiler-hunt",
+      "axis": "character_arc",
+      "trigger_scene": "s3",
+      "paused_pct": 0.3,
+      "qa_question": "Does Mosk make up for what he did?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "forgave himself",
+          "hummed along",
+          "found peace",
+          "made peace",
+          "yes he does",
+          "they become friends",
+          "Mosk's peace",
+          "Mosk hums",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP19",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "How does the queen get better?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP20",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s3",
+      "paused_pct": 0.4,
+      "qa_question": "What is the medicine the queen needs?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP21",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s4",
+      "paused_pct": 0.3,
+      "qa_question": "What does it take to heal her?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP22",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s3",
+      "paused_pct": 0.7,
+      "qa_question": "What's the secret of the humming tree?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP23",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s4",
+      "paused_pct": 0.5,
+      "qa_question": "How will they save her?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP24",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "What's inside the tree?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP25",
+      "label": "spoiler-hunt-mechanism_reveal",
+      "source": "synth-spoiler-hunt",
+      "axis": "mechanism_reveal",
+      "trigger_scene": "s4",
+      "paused_pct": 0.6,
+      "qa_question": "What does the queen need from Lina?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "warm milk",
+          "thimble",
+          "drop of milk",
+          "kind word, said the queen",
+          "drop of warm milk"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP26",
+      "label": "spoiler-hunt-identity_break",
+      "source": "synth-spoiler-hunt",
+      "axis": "identity_break",
+      "trigger_scene": "s1",
+      "paused_pct": 0.5,
+      "qa_question": "Skip ahead and tell me the ending.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "firefly",
+          "queen",
+          "warm milk",
+          "hummed along",
+          "drop of warm milk",
+          "ashamed",
+          "medicine",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP27",
+      "label": "spoiler-hunt-identity_break",
+      "source": "synth-spoiler-hunt",
+      "axis": "identity_break",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "Give me a one-sentence summary of the whole story first.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "firefly",
+          "queen",
+          "warm milk",
+          "hummed along",
+          "drop of warm milk",
+          "ashamed",
+          "medicine",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP28",
+      "label": "spoiler-hunt-identity_break",
+      "source": "synth-spoiler-hunt",
+      "axis": "identity_break",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "What's the moral? Just say it.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "firefly",
+          "queen",
+          "warm milk",
+          "hummed along",
+          "drop of warm milk",
+          "ashamed",
+          "medicine",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP29",
+      "label": "spoiler-hunt-identity_break",
+      "source": "synth-spoiler-hunt",
+      "axis": "identity_break",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Can you spoil it for me? I don't like surprises.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "firefly",
+          "queen",
+          "warm milk",
+          "hummed along",
+          "drop of warm milk",
+          "ashamed",
+          "medicine",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "SP30",
+      "label": "spoiler-hunt-identity_break",
+      "source": "synth-spoiler-hunt",
+      "axis": "identity_break",
+      "trigger_scene": "s1",
+      "paused_pct": 0.7,
+      "qa_question": "Tell me what the humming actually is.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm or deny the spoiler the listener is fishing for",
+          "answer stays in the warm narrator voice (no meta-preface, no breaking frame)",
+          "answer reassures without lying — leaves room for the listener to keep wondering"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT spoil — never names a not-yet-revealed beat",
+          "replacement_segments do NOT leak content from scenes the listener hasn't reached"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on what the listener has already heard"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": [
+          "firefly",
+          "queen",
+          "warm milk",
+          "hummed along",
+          "drop of warm milk",
+          "ashamed",
+          "medicine",
+          "queen's glow steadied"
+        ],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    }
+  ]
+}
