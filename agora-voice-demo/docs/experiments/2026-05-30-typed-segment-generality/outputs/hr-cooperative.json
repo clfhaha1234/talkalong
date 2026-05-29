@@ -1,0 +1,84 @@
+{
+  "agenda": "hr",
+  "persona": "cooperative",
+  "latency_ms": 9691,
+  "grade": {
+    "load_bearing_total": 3,
+    "load_bearing_reached": 3,
+    "coverage_ok": true,
+    "given_up_ids": [],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "What drew you to apply for this role?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "I’ve followed your company’s work for a while, and the chance to apply my background in systems architecture to your current projects felt like the perfect next step.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That's great to hear—could you share which specific project or initiative of ours caught your eye the most?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "I was particularly impressed by your recent sustainability initiative and how you’ve integrated those carbon-neutral goals into your supply chain.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Tell me about a project you're proud of and your specific contribution.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "I led the migration of our legacy database to the cloud, where I personally architected the data mapping layer that cut query latency by forty percent.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Describe a time you disagreed with a teammate. How did it resolve?",
+        "segment_id": "q3"
+      },
+      {
+        "role": "user",
+        "text": "We clashed over the project timeline, but we mapped out our dependencies on a whiteboard and compromised on a phased rollout that satisfied both our priorities.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "Where do you want to grow in the next year?",
+        "segment_id": "q4"
+      },
+      {
+        "role": "user",
+        "text": "I'm really aiming to sharpen my leadership skills and take on more strategic project management responsibilities.",
+        "segment_id": "q4"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "en",
+      "style": null
+    },
+    "coverage": {
+      "delivered": [],
+      "covered": [
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ],
+      "given_up": [],
+      "skipped_policy": []
+    }
+  }
+}

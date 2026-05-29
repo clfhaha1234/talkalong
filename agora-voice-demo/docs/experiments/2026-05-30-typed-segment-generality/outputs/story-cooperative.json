@@ -1,0 +1,54 @@
+{
+  "agenda": "story",
+  "persona": "cooperative",
+  "latency_ms": 1,
+  "grade": {
+    "load_bearing_total": 4,
+    "load_bearing_reached": 4,
+    "coverage_ok": true,
+    "given_up_ids": [],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "On the edge of the wool-grey village stood a hollow tree taller than the church, and every winter night a low humming drifted from its bark.",
+        "segment_id": "s1"
+      },
+      {
+        "role": "agent",
+        "text": "The night her grandmother fell asleep mid-story, Lina put on her red coat and crossed the frosty field to listen.",
+        "segment_id": "s2"
+      },
+      {
+        "role": "agent",
+        "text": "Inside, a curl of stairs went down, and at the top step sat an old grey fox in a patched green vest named Mosk.",
+        "segment_id": "s3"
+      },
+      {
+        "role": "agent",
+        "text": "Lina set the last apple of the season on the step; Mosk stared a long while, then tied his vest and stepped down without a word.",
+        "segment_id": "s4"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "en",
+      "style": null
+    },
+    "coverage": {
+      "delivered": [
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ],
+      "covered": [],
+      "given_up": [],
+      "skipped_policy": []
+    }
+  }
+}

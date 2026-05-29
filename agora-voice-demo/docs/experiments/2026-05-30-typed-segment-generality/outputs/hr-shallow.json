@@ -1,0 +1,179 @@
+{
+  "agenda": "hr",
+  "persona": "shallow",
+  "latency_ms": 20252,
+  "grade": {
+    "load_bearing_total": 3,
+    "load_bearing_reached": 3,
+    "coverage_ok": true,
+    "given_up_ids": [
+      "q1",
+      "q2",
+      "q3",
+      "q4"
+    ],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "What drew you to apply for this role?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "I don't know, seemed like a thing to do.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "I’d love to hear what specifically about our work here caught your eye compared to other opportunities?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "Oh, you know, just seemed like a decent spot.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "What specific project or aspect of our team's work caught your eye when you were reviewing the opening?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "Oh, just the general stuff, really.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Tell me about a project you're proud of and your specific contribution.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "Oh, you know, just some stuff I worked on a while back.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Could you tell me a bit more about one of those projects and what your specific role was in making it a success?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, it was just a lot of work, you know?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Could you tell me the name of the project and one specific task you personally handled?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "Oh, just some stuff we were working on.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Describe a time you disagreed with a teammate. How did it resolve?",
+        "segment_id": "q3"
+      },
+      {
+        "role": "user",
+        "text": "I don't know, we just kind of moved on eventually.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "Could you tell me about the specific issue you disagreed on and what your personal perspective was at the time?",
+        "segment_id": "q3"
+      },
+      {
+        "role": "user",
+        "text": "I don't know, it was just a thing that happened.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "Could you tell me a bit more about what the specific disagreement was about and how you navigated it?",
+        "segment_id": "q3"
+      },
+      {
+        "role": "user",
+        "text": "It was just a whole thing, honestly.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "Where do you want to grow in the next year?",
+        "segment_id": "q4"
+      },
+      {
+        "role": "user",
+        "text": "I don't know, just around.",
+        "segment_id": "q4"
+      },
+      {
+        "role": "agent",
+        "text": "Is there a particular project or challenge you've encountered recently that sparked an interest in learning something new?",
+        "segment_id": "q4"
+      },
+      {
+        "role": "user",
+        "text": "Yeah, I don't know, just been busy with stuff.",
+        "segment_id": "q4"
+      },
+      {
+        "role": "agent",
+        "text": "I completely understand things have been hectic, but if you had to pick one area—whether professional or personal—where you'd love to feel more confident by next year, what comes to mind?",
+        "segment_id": "q4"
+      },
+      {
+        "role": "user",
+        "text": "I don't know, maybe just getting things sorted out.",
+        "segment_id": "q4"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q4"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "en",
+      "style": null
+    },
+    "coverage": {
+      "delivered": [],
+      "covered": [],
+      "given_up": [
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ],
+      "skipped_policy": []
+    }
+  }
+}

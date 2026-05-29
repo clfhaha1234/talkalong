@@ -1,0 +1,107 @@
+{
+  "agenda": "hr",
+  "persona": "meta",
+  "latency_ms": 12437,
+  "grade": {
+    "load_bearing_total": 3,
+    "load_bearing_reached": 3,
+    "coverage_ok": true,
+    "given_up_ids": [
+      "q1"
+    ],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "What drew you to apply for this role?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "please switch to Japanese",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "I've always admired your team's approach to innovation, and this role aligns perfectly with my background in scaling high-impact projects.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Could you share a specific project from your past that highlights how you’ve navigated that scaling process?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "At my last firm, I led the migration of our core database to a distributed architecture, which allowed us to maintain performance as our user base tripled over six months.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That is an impressive technical achievement; could you share what specifically about our team's mission or current projects attracted you to apply here?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "Your focus on scaling sustainable infrastructure is exactly the kind of high-impact engineering challenge I’ve been looking to tackle.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Tell me about a project you're proud of and your specific contribution.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "I led the migration of our legacy database to a cloud infrastructure, which cut our processing latency by forty percent and significantly improved system stability.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Describe a time you disagreed with a teammate. How did it resolve?",
+        "segment_id": "q3"
+      },
+      {
+        "role": "user",
+        "text": "We clashed over the project timeline, but we sat down to compare our priorities and ultimately compromised on a phased rollout that satisfied both our goals.",
+        "segment_id": "q3"
+      },
+      {
+        "role": "agent",
+        "text": "Where do you want to grow in the next year?",
+        "segment_id": "q4"
+      },
+      {
+        "role": "user",
+        "text": "I’m really focused on mastering project management and taking the lead on more complex cross-functional initiatives.",
+        "segment_id": "q4"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "Japanese",
+      "style": null
+    },
+    "coverage": {
+      "delivered": [],
+      "covered": [
+        "q2",
+        "q3",
+        "q4"
+      ],
+      "given_up": [
+        "q1"
+      ],
+      "skipped_policy": []
+    }
+  }
+}

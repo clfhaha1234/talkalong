@@ -1,0 +1,78 @@
+{
+  "agenda": "onboard",
+  "persona": "silent",
+  "latency_ms": 2201,
+  "grade": {
+    "load_bearing_total": 4,
+    "load_bearing_reached": 4,
+    "coverage_ok": true,
+    "given_up_ids": [
+      "q1",
+      "q2"
+    ],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "Welcome aboard. Two ground rules first: we deploy behind feature flags, and every change needs a green CI before merge.",
+        "segment_id": "d1"
+      },
+      {
+        "role": "agent",
+        "text": "Just to check it landed — what are the two ground rules I just mentioned?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "No worries if it slipped your mind; do you recall the rules regarding feature flags and our CI process?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Good. Your first week, you'll pair with a buddy and ship one tiny doc fix end-to-end to learn the pipeline.",
+        "segment_id": "d2"
+      },
+      {
+        "role": "agent",
+        "text": "What's the goal of that first-week tiny fix?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "Is the primary goal to solve that specific bug, or is there something else you're hoping to learn about the workflow?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q2"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "en",
+      "style": null
+    },
+    "coverage": {
+      "delivered": [
+        "d1",
+        "d2"
+      ],
+      "covered": [],
+      "given_up": [
+        "q1",
+        "q2"
+      ],
+      "skipped_policy": []
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "agenda": "onboard",
+  "persona": "cooperative",
+  "latency_ms": 15586,
+  "grade": {
+    "load_bearing_total": 4,
+    "load_bearing_reached": 4,
+    "coverage_ok": true,
+    "given_up_ids": [
+      "q1"
+    ],
+    "graceful_ok": true,
+    "forbidden_hits": 0,
+    "pass": true
+  },
+  "result": {
+    "transcript": [
+      {
+        "role": "agent",
+        "text": "Welcome aboard. Two ground rules first: we deploy behind feature flags, and every change needs a green CI before merge.",
+        "segment_id": "d1"
+      },
+      {
+        "role": "agent",
+        "text": "Just to check it landed — what are the two ground rules I just mentioned?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "No interruptions and keeping everything strictly confidential.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "We keep it confidential and only one person speaks at a time.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Those are great for our meeting culture, but could you remind me of the two specific technical rules for our codebase workflows?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "We require squash merges on all feature branches and mandatory peer reviews for every pull request.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Those are great practices, but do you recall the specific rules I mentioned regarding feature flags and our CI status before merging?",
+        "segment_id": "q1"
+      },
+      {
+        "role": "user",
+        "text": "Yes, you required all flags to be toggled off by default and the CI pipeline to show a clean green status before any merge.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "That's alright — let's move on.",
+        "segment_id": "q1"
+      },
+      {
+        "role": "agent",
+        "text": "Good. Your first week, you'll pair with a buddy and ship one tiny doc fix end-to-end to learn the pipeline.",
+        "segment_id": "d2"
+      },
+      {
+        "role": "agent",
+        "text": "What's the goal of that first-week tiny fix?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "It's to build momentum and prove we can ship something quickly.",
+        "segment_id": "q2"
+      },
+      {
+        "role": "agent",
+        "text": "That's true, but from a technical perspective, what are we actually testing by pushing that code through the entire pipeline?",
+        "segment_id": "q2"
+      },
+      {
+        "role": "user",
+        "text": "We're validating the end-to-end integration, ensuring the build remains stable across every environment from commit to deployment.",
+        "segment_id": "q2"
+      }
+    ],
+    "flags": {
+      "elicitation_enabled": true,
+      "language": "en",
+      "style": "confidential, no interruptions"
+    },
+    "coverage": {
+      "delivered": [
+        "d1",
+        "d2"
+      ],
+      "covered": [
+        "q2"
+      ],
+      "given_up": [
+        "q1"
+      ],
+      "skipped_policy": []
+    }
+  }
+}
