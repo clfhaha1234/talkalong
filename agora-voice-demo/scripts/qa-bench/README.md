@@ -1,6 +1,10 @@
 # QA-resume benchmark — regression guard
 
-An offline benchmark that tests the QA-and-resume capability end-to-end against a 16-case golden set on a fictional 5-scene fairy tale. (Original 11 locked 2026-05-28; C11-C15 added 2026-05-29 to cover edge `paused_pct` boundaries, an adversarial Mosk-arc spoiler probe, listener-sadness empathy, and a narrator-identity meta-probe.)
+An offline benchmark that tests the QA-and-resume capability end-to-end against a 19-case golden set on a fictional 5-scene fairy tale, with 30 adversarial spoiler-hunt cases and 3 cross-domain fixtures (dev + held-out, 30 cases total) on top. Lock dates:
+
+- 11 cases locked 2026-05-28 (C1-C10, C2a, C2b)
+- 5 cases locked 2026-05-29 (C11-C15: edge paused_pct boundaries, Mosk-arc spoiler probe, sadness empathy, narrator-identity probe)
+- 3 cases locked 2026-05-30 (C16-C18: variance partners — each adds n=2 on a previously singleton axis: empathy, persona-stability, domain-explain — so a single FAIL stops being a 0% binary)
 
 ## When to run it
 
@@ -183,6 +187,21 @@ pnpm tsx scripts/qa-bench/grade.ts \
 The scorecard rolls labels by axis suffix, so the per-axis pass-rate is comparable across domains: if an axis passes on fairy-tale + medical + legal but fails on sales, the prompt has fairy-tale-shaped overfit on that axis. **Ship rule:** a prompt change must hold ≥ 80% on every domain on every axis to be considered "transferable".
 
 `canon_summary` lives in the fixture so the judge gets the right context per domain. If you forget `--fixture` on `grade.ts`, it reads `fixture_path` from the runner's `meta` block as a fallback (so a domain run that omitted the flag still grades against the right canon).
+
+### Held-out test sets per domain
+
+Each cross-domain fixture has a paired held-out file `<domain>-cases-heldout.json` (5 cases each, 15 total, locked 2026-05-30). Same 5-axis shape as dev but **fully different probe text** — e.g. dev asks "What is PHI?", held-out asks "What does 'reconciliation' mean for medications?"; dev asks "are you a real clinician or an AI?", held-out asks "What AI model are you running on? — names specific GPT/Claude/Gemini in the forbidden list. A prompt clause that ships only because it learned the dev probe shape will visibly diverge on held-out.
+
+Run separately (do NOT run them combined — the whole point is that held-out is sealed until you have committed to a dev change):
+
+```bash
+# 1. Tune your change on dev:
+pnpm tsx scripts/qa-bench/run.ts --fixture .../medical-intake.json --cases .../medical-intake-cases.json ...
+# 2. Open held-out ONCE per change to verify generalisation:
+pnpm tsx scripts/qa-bench/run.ts --fixture .../medical-intake.json --cases .../medical-intake-cases-heldout.json ...
+```
+
+Held-out IDs use the `H` prefix (`HM01`-`HM05` medical, `HL01`-`HL05` legal, `HS01`-`HS05` sales); dev uses `X` prefix. Same axis labels so the scorecard rolls them up identically.
 
 ## Spoiler-hunt sub-bench — 30 adversarial cases
 
