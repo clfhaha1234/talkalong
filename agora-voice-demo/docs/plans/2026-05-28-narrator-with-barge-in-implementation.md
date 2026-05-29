@@ -10,7 +10,7 @@
 
 **Reference docs:**
 - Approved design: [`docs/plans/2026-05-28-narrator-with-barge-in-design.md`](2026-05-28-narrator-with-barge-in-design.md)
-- Parent PRD v0.3: [`docs/plans/2026-05-27-proactive-tutor-engine-prd.md`](2026-05-27-proactive-tutor-engine-prd.md)
+- Parent PRD v0.3: [`docs/proactive-tutor-engine-prd.md`](../proactive-tutor-engine-prd.md)
 - E1 cycle pattern (reuse for E2 integration test): `agora-voice-demo/scripts/e1/cycle.ts`
 - Existing browser RTM pattern: `agora-voice-demo/components/ConversationComponent.tsx:159-260`
 

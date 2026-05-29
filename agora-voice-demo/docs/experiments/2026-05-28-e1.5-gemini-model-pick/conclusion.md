@@ -2,7 +2,7 @@
 
 > **Status:** Complete. Decision locked.
 > **Date:** 2026-05-28
-> **Parent PRD:** [`../../plans/2026-05-27-proactive-tutor-engine-prd.md`](../../plans/2026-05-27-proactive-tutor-engine-prd.md) §11
+> **Parent PRD:** [`../../proactive-tutor-engine-prd.md`](../../proactive-tutor-engine-prd.md) §11
 
 ## Question
 

@@ -189,8 +189,8 @@ async function main() {
     }
   }
 
-  // Resolve repo root relative to this script: scripts/probe-greeting.ts -> ../..
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  // Resolve subproject root relative to this script: scripts/probe-greeting.ts -> ..
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
   const outDir = join(repoRoot, 'docs/experiments/2026-05-28-greeting-debug/data');
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, 'trials.json'), JSON.stringify(results, null, 2));

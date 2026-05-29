@@ -141,33 +141,36 @@ The bench is the reason we trust "we changed the persona prompt" before a demo, 
 
 ```
 talkalong/
-├── src/                          # Half 1 — Remotion: image → ~10s breathing storybook video
+├── README.md
+├── docs/
+│   └── remotion.md               # Remotion side deep dive (the only top-level doc)
+│
+├── src/                          # 🎞️ Half 1 — Remotion: image → ~10s breathing storybook video
 │   ├── BookPage.tsx              # main composition (line draw + color fade-in + breathing)
 │   ├── preprocess.ts             # one image → lineart SVG + color layer
 │   └── Root.tsx
+├── public/                       # Remotion-side input images
 │
-├── agora-voice-demo/             # Half 2 — Next.js + Agora voice tutor (separate pnpm project)
-│   ├── lib/orchestrator/         # 🧠 the moat — state machine, resume planner, progress state
-│   │   ├── index.ts              # session lifecycle (NARRATING → INTERRUPTED → QA → RESUMING)
-│   │   ├── resume-planner.ts     # LLM-emits {strategy, bridge, replacement_segments[]}
-│   │   ├── narrator.ts           # drives segments through Agora's text-injection channel
-│   │   └── progress-state.ts     # covered_points[], remaining_points[], qa_history
-│   ├── lib/lesson/               # content layer: user input → 5-scene script + Gemini illustrations
-│   ├── app/api/tutor/            # SSE narration + qa-ended routes
-│   ├── components/tutor/         # storybook UI (image carousel + transcript)
-│   └── scripts/qa-bench/         # 🧪 11-case regression bench + E2E interrupt harness
-│
-├── docs/
-│   ├── proactive_engine_README.md     # full PRD — the engine's design philosophy
-│   ├── video_story_README.md          # Remotion side deep dive
-│   ├── plans/                         # build plans
-│   ├── experiments/                   # A/B experiments with data + conclusions
-│   └── screenshots/
-│
-└── public/                       # Remotion-side input images
+└── agora-voice-demo/             # 🎙️ Half 2 — Next.js + Agora voice tutor (separate pnpm project)
+    ├── lib/orchestrator/         # 🧠 the moat — state machine, resume planner, progress state
+    │   ├── index.ts              # session lifecycle (NARRATING → INTERRUPTED → QA → RESUMING)
+    │   ├── resume-planner.ts     # LLM-emits {strategy, bridge, replacement_segments[]}
+    │   ├── narrator.ts           # drives segments through Agora's text-injection channel
+    │   └── progress-state.ts     # covered_points[], remaining_points[], qa_history
+    ├── lib/lesson/               # content layer: user input → 5-scene script + Gemini illustrations
+    ├── app/api/tutor/            # SSE narration + qa-ended routes
+    ├── components/tutor/         # storybook UI (image carousel + transcript)
+    ├── scripts/qa-bench/         # 🧪 11-case regression bench + E2E interrupt harness
+    └── docs/                     # engine PRD, plans, experiments, screenshots — all engine-side
+        ├── proactive-tutor-engine-prd.md   # v0.3 — architecture locked
+        ├── plans/
+        ├── experiments/                     # all 4 experiments here
+        ├── screenshots/
+        ├── legacy/
+        └── ai/                              # AI-agent recipe docs (L0/L1/L2)
 ```
 
-The two halves are **independent** npm/pnpm projects (different package managers on purpose — Remotion plays better with npm, the Next.js side with pnpm). They share `docs/` as a common brain but neither depends on the other; you can run the storybook video pipeline without ever touching the voice tutor, and vice versa.
+The two halves are **independent** npm/pnpm projects (different package managers on purpose — Remotion plays better with npm, the Next.js side with pnpm). They don't depend on each other; you can run the storybook video pipeline without touching the voice tutor and vice versa. Each half owns its own `docs/`.
 
 ## 🚀 Quick start
 
@@ -184,7 +187,7 @@ What you'll see: a storybook input screen, then a live tutor that reads a 5-scen
 
 Deeper docs:
 - Subproject README: [agora-voice-demo/README.md](agora-voice-demo/README.md)
-- Engine architecture: [docs/proactive_engine_README.md](docs/proactive_engine_README.md) (the PRD — the full design philosophy)
+- Engine PRD (v0.3, architecture locked): [agora-voice-demo/docs/proactive-tutor-engine-prd.md](agora-voice-demo/docs/proactive-tutor-engine-prd.md)
 - Agent contracts: [agora-voice-demo/AGENTS.md](agora-voice-demo/AGENTS.md)
 
 ### B — The breathing storybook video (Remotion side)
@@ -209,7 +212,7 @@ Interactive preview (tweak seed/timeline in the browser):
 npm run preview                            # opens Remotion Studio
 ```
 
-Deeper: [docs/video_story_README.md](docs/video_story_README.md).
+Deeper: [docs/remotion.md](docs/remotion.md).
 
 ## ✅ Verification
 
@@ -227,10 +230,12 @@ If you're about to change the persona prompt in [`lib/orchestrator/index.ts`](ag
 
 Every non-obvious decision has a frame, data, and a conclusion doc:
 
-- [`docs/experiments/2026-05-27-e1-agora-narration-control`](docs/experiments/2026-05-27-e1-agora-narration-control) — Agora-driven proactive narration as the control arm
-- [`docs/experiments/2026-05-28-e1.5-gemini-model-pick`](docs/experiments/2026-05-28-e1.5-gemini-model-pick) — Gemini model selection for the lesson generator
-- [`docs/experiments/2026-05-28-greeting-debug`](docs/experiments/2026-05-28-greeting-debug) — why "Got it — let me read this through" leaked into the storybook narration (3 independent bugs, all root-caused not A/B'd)
-- [`agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark`](agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark) — **the 11-case QA-resume regression bench**, with iter1/iter2/iter3 data and the locked rubric per case
+All four live under [`agora-voice-demo/docs/experiments/`](agora-voice-demo/docs/experiments/):
+
+- [`2026-05-27-e1-agora-narration-control`](agora-voice-demo/docs/experiments/2026-05-27-e1-agora-narration-control) — Agora-driven proactive narration as the control arm
+- [`2026-05-28-e1.5-gemini-model-pick`](agora-voice-demo/docs/experiments/2026-05-28-e1.5-gemini-model-pick) — Gemini model selection for the lesson generator
+- [`2026-05-28-greeting-debug`](agora-voice-demo/docs/experiments/2026-05-28-greeting-debug) — why "Got it — let me read this through" leaked into the storybook narration (3 independent bugs, all root-caused not A/B'd)
+- [`2026-05-28-qa-resume-benchmark`](agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark) — **the 11-case QA-resume regression bench**, with iter1/iter2/iter3 data and the locked rubric per case
 
 ## ❓ FAQ
 

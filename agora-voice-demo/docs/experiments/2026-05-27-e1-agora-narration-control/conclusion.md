@@ -3,7 +3,7 @@
 > **Status:** Complete. Verdict locked at Phase 5 on held-out test.
 > **Date:** 2026-05-28
 > **Frame:** [`./frame.md`](./frame.md)
-> **PRD locked by:** [`../../plans/2026-05-27-proactive-tutor-engine-prd.md`](../../plans/2026-05-27-proactive-tutor-engine-prd.md) §11
+> **PRD locked by:** [`../../proactive-tutor-engine-prd.md`](../../proactive-tutor-engine-prd.md) §11
 
 We tested three methods of getting Agora's Conversational AI Engine to deliver pre-scripted narration with mid-utterance barge-in. The question was architecture-lock for the Proactive Tutor Engine PRD: should the orchestrator push text via `/speak`, route a custom LLM through Agora, or rely on the native LLM-driven loop?
 

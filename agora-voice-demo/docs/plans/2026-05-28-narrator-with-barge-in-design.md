@@ -3,7 +3,7 @@
 > **Status:** Approved. Ready for implementation plan.
 > **Date:** 2026-05-28
 > **Brainstormed via:** `superpowers:brainstorming` skill
-> **Parent PRD:** [`./2026-05-27-proactive-tutor-engine-prd.md`](2026-05-27-proactive-tutor-engine-prd.md) — v0.3, Option C (hybrid) architecture locked
+> **Parent PRD:** [`../proactive-tutor-engine-prd.md`](../proactive-tutor-engine-prd.md) — v0.3, Option C (hybrid) architecture locked
 > **Phase coverage:** PRD §10 Phase 3 + Phase 4 (barge-in + Q&A + graceful resume + incremental re-script)
 > **Predecessors / Phase 1 baseline:**
 > - `agora-voice-demo/lib/orchestrator/` — naive narrator (sleep-based), single-row session
@@ -327,9 +327,9 @@ These are tactical decisions that the implementation plan should call out explic
 
 | File | Why it matters |
 |---|---|
-| `docs/plans/2026-05-27-proactive-tutor-engine-prd.md` (v0.3) | Parent PRD — architecture and rationale |
-| `docs/experiments/2026-05-27-e1-agora-narration-control/conclusion.md` | Locks `session.say()` + per-row sessions + 98.7 % pass-rate |
-| `docs/experiments/2026-05-28-e1.5-gemini-model-pick/conclusion.md` | Locks `gemini-3.1-flash-lite` + `reasoning_effort='minimal'` for bridge + rescript |
+| `agora-voice-demo/docs/proactive-tutor-engine-prd.md` (v0.3) | Parent PRD — architecture and rationale |
+| `agora-voice-demo/docs/experiments/2026-05-27-e1-agora-narration-control/conclusion.md` | Locks `session.say()` + per-row sessions + 98.7 % pass-rate |
+| `agora-voice-demo/docs/experiments/2026-05-28-e1.5-gemini-model-pick/conclusion.md` | Locks `gemini-3.1-flash-lite` + `reasoning_effort='minimal'` for bridge + rescript |
 | `agora-voice-demo/scripts/e1/cycle.ts` | Reference pattern for session lifecycle + turn analytics |
 | `agora-voice-demo/components/ConversationComponent.tsx:235-242` | Pattern for browser-side RTM event subscription via `AgoraVoiceAI` |
 | `agora-voice-demo/lib/orchestrator/` | Phase 1 baseline to extend |
