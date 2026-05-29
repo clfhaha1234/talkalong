@@ -1,0 +1,45 @@
+{
+  "experiment": {
+    "name": "agentic-vs-singleshot",
+    "question": "For the resume decision, does an agentic tool-loop beat a single-shot structured call on decision quality — and at what latency/reliability/token cost?",
+    "metric": "qa-bench decision quality (grade.ts PASS-rate, 11 cases, shared qa_answer so planner-side carries the signal)",
+    "threshold_pct": 9.0,
+    "threshold_rule": "Agentic wins (=> move architecture agentic) ONLY if quality >= +1 case (~+9pp) AND latency <= 2x baseline. Else single-shot wins.",
+    "test_set_n": 11,
+    "trials_per_arm": 3
+  },
+  "arms": [
+    {"id": "singleshot", "name": "single-shot planner (current) [1 call]", "cost_per_1k_usd": 2.0},
+    {"id": "agentic",    "name": "agentic tool-loop planner [4.5 calls]", "cost_per_1k_usd": 7.0}
+  ],
+  "slices": [
+    {"id": "stable", "name": "stable cases (8)"},
+    {"id": "noise",  "name": "noise-prone cases C2a/C7/C9 (3)"}
+  ],
+  "variance_trials": {
+    "singleshot": [0.909, 0.909, 0.909],
+    "agentic":    [0.909, 0.818, 0.909]
+  },
+  "test_set_aggregate": {
+    "singleshot": 0.909,
+    "agentic":    0.879
+  },
+  "test_set_per_slice": {
+    "singleshot": {"stable": 1.000, "noise": 0.667},
+    "agentic":    {"stable": 1.000, "noise": 0.556}
+  },
+  "effect_sizes": {
+    "agentic": {
+      "aggregate": {"delta": -0.030, "ci_low": -0.12, "ci_high": 0.06},
+      "per_slice": {
+        "stable": {"delta": 0.000, "ci_low": -0.05, "ci_high": 0.05},
+        "noise":  {"delta": -0.111, "ci_low": -0.40, "ci_high": 0.18}
+      }
+    }
+  },
+  "verdict": {
+    "winner": "singleshot",
+    "killed": ["agentic"],
+    "rationale": "Agentic tool-loop did NOT improve decision quality (9.67/11 vs single-shot 10.0/11 — flat-to-slightly-worse, both fail only the known noise cases C2a/C7/C9) while costing 3.65x latency (4717ms vs 1293ms) and ~5x tokens (~6955 vs one call) at 4.5 round-trips. Fails the pre-registered threshold (needed +1 case AND <=2x latency) on both axes. The task's inputs are small and fully known up front, so there is nothing for the agent to 'discover' via tools — the round-trips are pure overhead. SHIP single-shot (Approach A/B: deterministic spine + single structured decision). The more-agentic direction (C/D) is not justified by data on this task. The separate 'who hosts the loop' axis (our code vs Agora-native MCP) is moot here since the mechanism itself adds no quality; revisit only if a future task needs multi-step tool reasoning a single call cannot express."
+  }
+}
