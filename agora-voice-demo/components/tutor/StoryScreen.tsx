@@ -16,7 +16,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { T, F_HEAD, F_BODY, F_MONO, tokenize, type Scene } from './theme';
 import {
   Flourish,
@@ -128,6 +128,25 @@ function BookSpread({
   // rather than showing a black box. Reset implicitly: BookSpread remounts
   // per scene (keyed wrapper in StoryScreen), so this starts false each page.
   const [videoFailed, setVideoFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // The clip's first frame is a BLANK page (it draws the art on from nothing).
+  // `autoPlay` covers the happy path, but a browser that defers muted autoplay
+  // (background/inactive tab, low-power mode, stricter policy) leaves the video
+  // parked on that blank frame with no `error` event — so the plate would show
+  // a blank box forever. Drive play() ourselves and, if it's rejected, fall
+  // back to the still illustration (which is always the finished art). The
+  // happy path is unchanged: play() resolves and the draw-on animation runs.
+  useEffect(() => {
+    if (!scene.video_url) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const p = v.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => setVideoFailed(true));
+    }
+  }, [scene.video_url]);
+
   const tokens = useMemo(() => tokenize(scene.narration_text), [scene]);
   const visible = tokens.slice(0, visibleCount).join('');
   const remaining = tokens.slice(visibleCount).join('');
@@ -203,6 +222,7 @@ function BookSpread({
             // fall back to the still illustration below.
             <video
               key={scene.video_url}
+              ref={videoRef}
               src={scene.video_url}
               onError={() => setVideoFailed(true)}
               poster={scene.image_url}
