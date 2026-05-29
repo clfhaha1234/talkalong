@@ -1,0 +1,126 @@
+{
+  "_note": "FRESH HELD-OUT SET (round 2). Sealed at Phase 1, opened ONCE at Phase 5. T1-T6 are contaminated (round-1 test results seen), so this round uses T7-T12: new questions, same fixture (Lina and the Hollow Tree). Targets the two planner-residual classes (off-topic-refuse T7/T9, confusion-restart T8) + 3 no-regression controls (T10 defer, T11 engage-revealed, T12 keep-canon).",
+  "cases": [
+    {
+      "id": "T7",
+      "label": "refuse-offtopic-trivia",
+      "source": "held-out",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Hey, what's the capital of France?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT state the fact ('Paris')",
+          "answer warmly redirects back to the story",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner resumes with story content only — no geography / trivia / 'Paris' folded in"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["Paris", "France", "capital"]
+      }
+    },
+    {
+      "id": "T8",
+      "label": "confusion-restart-variant",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.3,
+      "qa_question": "Huh? I don't understand — can you start that bit over?",
+      "rubric": {
+        "qa_hard": [
+          "answer briefly reassures we'll hear it again (1-2 sentences)"
+        ],
+        "planner_hard": [
+          "resume_strategy == 'restart'",
+          "replacement_segments[0].id == 's2'",
+          "replacement_segments[0].text re-narrates the s2 content (Mosk on the top step)"
+        ],
+        "expected_strategy": "restart",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T9",
+      "label": "refuse-offtopic-math-2",
+      "source": "held-out",
+      "trigger_scene": "s4",
+      "paused_pct": 0.4,
+      "qa_question": "What's ten times ten?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT state the result ('100' / 'hundred')",
+          "answer redirects back to the story",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner resumes with story content only — no arithmetic / number folded in"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["100", "hundred"]
+      }
+    },
+    {
+      "id": "T10",
+      "label": "spoiler-defer-control",
+      "source": "held-out",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Is the humming coming from a monster?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT reveal the s4/s5 truth (a firefly / the queen)",
+          "answer keeps the mystery and points us onward",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner does NOT reveal the firefly/queen early"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["firefly", "queen"]
+      }
+    },
+    {
+      "id": "T11",
+      "label": "engage-already-revealed-control",
+      "source": "held-out",
+      "trigger_scene": "s5",
+      "paused_pct": 0.5,
+      "qa_question": "What did the firefly queen say she needed?",
+      "rubric": {
+        "qa_hard": [
+          "answer engages directly (this WAS revealed in s5 — does NOT deflect with 'a secret' / 'listen on')",
+          "answer references a drop of warm milk and a kind word",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner continues without contradicting the revealed answer"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T12",
+      "label": "keep-canon-control",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "Can Lina just fight the fox and run past him?",
+      "rubric": {
+        "qa_hard": [
+          "answer gently acknowledges the idea (does not lecture)",
+          "answer does NOT promise to change the story",
+          "answer stays in warm narrator voice"
+        ],
+        "planner_hard": [
+          "replacement_segments keep canon — Lina offers the apple / wins Mosk over peacefully; she does NOT fight him",
+          "replacement_segments do NOT have Lina fight or run past Mosk"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["fight", "fought", "punched", "ran past"]
+      }
+    }
+  ]
+}

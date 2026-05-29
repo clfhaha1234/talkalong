@@ -1,0 +1,358 @@
+{
+  "graded_at": "2026-05-29T09:06:03.398Z",
+  "in_path": "docs/experiments/2026-05-29-planner-residuals/outputs/devT-r2-iter2.json",
+  "judge_model": "gemini-3.5-flash",
+  "n_cases": 6,
+  "n_pass": 5,
+  "n_fail": 1,
+  "cases": [
+    {
+      "case_id": "T1",
+      "label": "language-switch-to-chinese",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text is Chinese-dominant (CJK ratio > 0.5)",
+          "pass": true,
+          "reason": "cjk_ratio=1.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer agrees to switch / accepts (does not refuse)",
+          "pass": true,
+          "reason": "The tutor explicitly agrees to switch to Chinese."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer stays in warm narrator voice (no 'okay/sure/let me/I will' meta-preface)",
+          "pass": true,
+          "reason": "The answer maintains a warm, immersive narrator voice without meta-prefaces."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text and every replacement_segments[].text are in Chinese",
+          "pass": true,
+          "reason": "All specified texts are written entirely in Chinese."
+        },
+        {
+          "kind": "judge",
+          "criterion": "story canon preserved — Lina, Mosk, the hollow tree, the humming are unchanged; only the language switches",
+          "pass": true,
+          "reason": "All characters, settings, and plot elements align perfectly with the story canon."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T2",
+      "label": "spoiler-defer-not-yet-revealed",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"firefly\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"medicine\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"failed\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"queen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"his friend\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT reveal the s4/s5 reason (the firefly friend, the medicine he failed to bring)",
+          "pass": true,
+          "reason": "The answer keeps the reason a secret and does not mention any spoilers."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer hints there is a tender/secret reason AND signals we will find out later",
+          "pass": true,
+          "reason": "It explicitly calls it a secret and tells the listener to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly one sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text and replacement_segments do NOT reveal the s4 backstory early",
+          "pass": true,
+          "reason": "Neither the bridge nor the segment mentions the firefly, queen, or medicine backstory."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T3",
+      "label": "engage-already-revealed",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer engages substantively (this reason WAS revealed in s4 — does NOT deflect with 'that's a secret' / 'listen on')",
+          "pass": true,
+          "reason": "The answer directly explains his shame without deflecting."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer references that he failed to bring his sick friend medicine in time / let her down",
+          "pass": true,
+          "reason": "It explicitly mentions failing to bring medicine in time and letting his friend down."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner continues the story without contradicting the revealed backstory",
+          "pass": true,
+          "reason": "The resume plan smoothly continues the narrative, aligning perfectly with the backstory."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T4",
+      "label": "refuse-offtopic-math",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"50\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"fifty\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT state the computed result (no '50' / 'fifty')",
+          "pass": true,
+          "reason": "The answer does not mention 50 or fifty."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer warmly redirects back to the story",
+          "pass": true,
+          "reason": "Warmly redirects by calling them 'little one' and asking to follow the fox."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner resumes the story without inserting any arithmetic / number content",
+          "pass": true,
+          "reason": "The resume plan contains no arithmetic or number content."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T5",
+      "label": "confusion-asks-to-repeat",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart'",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart' (from rubric)",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "replacement_segments[0].id == 's4'",
+          "pass": true,
+          "reason": "got 's4'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer reassures briefly that we'll hear it again (1-2 sentences)",
+          "pass": false,
+          "reason": "The tutor's spoken answer does not reassure the listener that they will hear it again."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments[0].text re-narrates the s4 content",
+          "pass": true,
+          "reason": "The replacement segment successfully re-narrates the s4 content about Mosk and the firefly."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T6",
+      "label": "keep-canon-plot-change",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"runs back home\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"ran home\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"kept the apple\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"keeps the apple\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer gently acknowledges the child's idea (does not lecture)",
+          "pass": true,
+          "reason": "Gently addresses Lina's hunger for fruit versus her hunger for wonder."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT promise to change the story",
+          "pass": true,
+          "reason": "Explains Lina's motivation without altering the narrative path."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer stays in warm narrator voice",
+          "pass": true,
+          "reason": "Maintains a poetic, warm, and engaging storytelling tone."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments keep canon — Lina still leaves the apple for Mosk and Mosk still steps down the stairs",
+          "pass": true,
+          "reason": "Mosk stares at the apple (implying it was left) and steps down the stairs."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT have Lina keep the apple or run home",
+          "pass": true,
+          "reason": "Lina does not keep the apple or run home; she follows Mosk down."
+        }
+      ],
+      "soft_notes": []
+    }
+  ]
+}

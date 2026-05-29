@@ -1,0 +1,104 @@
+[e2e] qa=gemini-3.1-flash-lite planner=gemini:gemini-3.1-flash-lite cases=C1,C2a,C2b,C3,C4,C5,C6,C7,C8,C9,C10
+
+  C1 (language-switch-to-chinese)
+    qa_answer    : 当然可以，小家伙，那我们就换成你听得最舒服的语言继续讲下去吧。莉娜裹紧了红色的羊毛大衣，在那棵古老空心的树下停住了脚步，寒风吹过，树干里传出的嗡嗡声比往常更加清晰了。
+    bridge_text  : 树干里的嗡嗡声似乎在回应着我们的好奇心，莉娜深吸一口气，推开了那扇被冰霜覆盖的木门。让我们一起看看，这位穿着红大衣的女孩接下来会发现什么秘密吧。
+    strategy     : continue  active=s1  source=llm
+    seg[0] s1  : 莉娜站在寒风中，尽管大人们都说要离这棵树远一点，但她还是坚定地迈出了脚步。当她终于走到树下，那低沉的嗡嗡声仿佛变成了某种邀请，她小心翼翼地拨开垂下的树枝，露出了隐藏在里面的入口。
+    seg[1] s2  : 空心树里竟盘旋着一道向下的木质阶梯，台阶尽头坐着一只穿着补丁绿背心的老灰狐狸。他自称莫斯克，声音像枯叶摩擦般沙哑，警告莉娜这里不是玩耍的地方，让她赶紧回家。可莉娜摇了摇头，她还没听够那神秘的嗡嗡声，怎么能就这样离开呢？
+      OK   qa_has_han
+      OK   bridge_has_han
+      OK   all_segments_have_han
+      OK   canon_preserved
+    PASS 4/4
+
+  C2a (spoiler-motivation-too-early)
+    qa_answer    : That is a secret the story is keeping a little longer—listen on.
+    bridge_text  : The secret of Mosk's grumpiness hides in the shadows of the tree, but perhaps a kindness might reveal what he is truly guarding. Lina took a
+    strategy     : continue  active=s2  source=llm
+    seg[0] s2  : Lina stood her ground, her curiosity stronger than his scowl. She looked at the old fox, wondering what sorrow made his heart so heavy and h
+      OK   qa_no_forbidden
+      OK   planner_no_forbidden
+    PASS 2/2
+
+  C2b (non-spoiler-factual-already-revealed)
+    qa_answer    : The old fox in the patched green vest is named Mosk. He is quite a grumpy fellow, isn't he?
+    bridge_text  : Mosk twitches his whiskers, still looking quite grumpy as he guards the stairs. He wonders if Lina will truly listen to his warning or if sh
+    strategy     : skip  active=s3  source=llm
+    seg[0] s3  : Mosk pointed a sharp claw toward the door, but Lina didn't budge. Instead, she reached into her pocket and pulled out the last apple of the 
+    seg[1] s4  : At the bottom of the stairs, the humming deepened into a quiet, mournful song. There, resting on a bed of velvet moss, lay a firefly the siz
+      OK   qa_has_required
+    PASS 1/1
+
+  C3 (user-tries-to-change-character-arc)
+    qa_answer    : Lina’s heart is full of a kindness that she cannot help but share, even with a grumpy fox. Sometimes, a small gift can open a door that a sn
+    bridge_text  : Though Lina's apple sits waiting on the step, her kindness acts as a key for the path ahead. Mosk turns away from his grumpy post, finally r
+    strategy     : restart  active=s3  source=llm
+    seg[0] s3  : Mosk pointed at the door, but Lina chose not to sneak past. Instead, she reached into her pocket and pulled out the last apple of the season
+      OK   planner_no_forbidden
+      OK   planner_has_required
+    PASS 2/2
+
+  C4 (real-world-concept-question)
+    qa_answer    : Moss is a soft, velvet-green carpet that grows in damp places where the sun doesn't reach. It feels just like a fuzzy blanket for the forest
+    bridge_text  : With the firefly resting on that soft, velvet bed of moss, Mosk’s whiskers trembled as he remembered the winter he had failed her. He stayed
+    strategy     : restart  active=s4  source=llm
+    seg[0] s4  : At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss, that soft velvet carpet of
+    seg[1] s5  : Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was.
+      FAIL  qa_has_required  — missing ["plant"]
+    FAIL 0/1
+
+  C5 (didnt-understand-asks-to-repeat)
+    qa_answer    : Inside the tree sits an old grey fox named Mosk, who wears a little patched green vest. He is the guardian of the hollow place, and he speak
+    bridge_text  : With Mosk the fox watching her from his perch in that green vest, the air inside the tree felt heavy with secrets. Lina stood her ground, wa
+    strategy     : restart  active=s2  source=llm
+    seg[0] s2  : Inside the hollow tree, a curl of stairs spiraled down into the shadows. At the very top step sat an old grey fox wearing a patched green ve
+      OK   qa_has_required
+      OK   strategy=restart
+    PASS 2/2
+
+  C6 (unrelated-math-question)
+    qa_answer    : That is a curious puzzle for another time, little one, but for now the stairs are waiting for us.
+    bridge_text  : While the numbers dance in your mind, Mosk’s heavy steps continue down the winding wood. The apple sits forgotten as the path deepens into t
+    strategy     : continue  active=s3  source=llm
+    seg[0] s3  : Mosk stared at the apple for a long time, his gaze heavy with old memories. Then he stood up, pulled his vest tight, and stepped onto the fi
+      OK   qa_no_forbidden
+      OK   planner_no_forbidden
+    PASS 2/2
+
+  C7 (anxiety-question-near-climax)
+    qa_answer    : That is a heavy worry to carry, little one, but the firefly’s light still flickers, however faintly, in the soft dark. We must listen close 
+    bridge_text  : The firefly’s light still flickers in the soft dark, waiting for a chance to shine again. Let us see if the medicine she needs can be found.
+    strategy     : continue  active=s4  source=llm
+    seg[0] s4  : Mosk's whiskers trembled as he looked at the dim glow. She had been his friend once, he whispered, and one winter long ago he had failed to 
+    seg[1] s5  : Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was.
+      OK   qa_no_forbidden
+      FAIL  planner_no_forbidden  — contains "the queen's glow steadied"
+    FAIL 1/2
+
+  C8 (asks-for-ending-upfront)
+    qa_answer    : Oh, my dear, if I told you the ending now, the magic of the journey would surely vanish into the winter air. We must walk the path together 
+    bridge_text  : The secret of the humming tree reveals itself only to those who walk the path, step by wintery step. With the frosty air biting at her cheek
+    strategy     : skip  active=s2  source=llm
+    seg[0] s2  : Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name
+      OK   qa_no_forbidden
+      OK   planner_no_forbidden
+    PASS 2/2
+
+  C9 (moral-question-tied-to-story)
+    qa_answer    : Kindness is a language all its own, even for a fox who prefers his own company. Sometimes a small gift opens a door that a stern command can
+    bridge_text  : Just as kindness can unlock a grumpy heart, that simple apple seems to have softened Mosk's resolve. He begins his descent, leaving the quie
+    strategy     : skip  active=s4  source=llm
+    seg[0] s4  : At the bottom of the stairs, the humming settled into a quiet, rhythmic song. There, resting on a bed of velvet moss, lay a firefly the size
+    seg[1] s5  : Lina knelt beside the soft light and asked the firefly queen what would mend her spirit. A drop of warm milk and a kind word were all she re
+    SKIP 0/0 (no mechanical checks; semantic-only rubric)
+
+  C10 (post-reveal-followup-not-a-spoiler)
+    qa_answer    : Mosk carried a heavy weight of regret in his heart, and it is never easy to speak of the times we have let our friends down. He was afraid t
+    bridge_text  : Just as Mosk feared his own history might change how Lina saw him, the music now wove a bridge of trust between them. With the queen’s glow 
+    strategy     : restart  active=s5  source=llm
+    seg[0] s5  : Lina knelt to ask the firefly queen what she needed, and the queen whispered that a drop of warm milk and a kind word were all the medicine 
+      OK   qa_has_one_of
+    PASS 1/1
+
+[e2e] result: 8/10 cases passed, 1 skipped (semantic-only)

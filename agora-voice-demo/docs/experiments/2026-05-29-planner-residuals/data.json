@@ -1,0 +1,45 @@
+{
+  "experiment": {
+    "name": "planner-residuals",
+    "question": "Can two general-purpose planner clauses (no-echo-offtopic, restart-on-confusion) close the planner-side interrupt residuals and generalize to a fresh held-out set?",
+    "metric": "qa-bench hard-PASS rate (grade.ts: deterministic gates + gemini-3.5-flash judge); 11-set shown for variance, held-out T7-T12 for verdict",
+    "threshold_pct": 9.0,
+    "threshold_rule": "Strictly dominate dev (fix targets, regress 0) AND regress 0 on fresh held-out T7-T12.",
+    "test_set_n": 6,
+    "trials_per_arm": 3
+  },
+  "arms": [
+    {"id": "baseline", "name": "shipped iter3 (round-1 winner)", "cost_per_1k_usd": 1.348},
+    {"id": "iter2",    "name": "r2-iter2 (+no-echo +restart) [shipped]", "cost_per_1k_usd": 1.338}
+  ],
+  "slices": [
+    {"id": "offtopic", "name": "off-topic-refuse (T7,T9)"},
+    {"id": "controls", "name": "restart + controls (T8,T10,T11,T12)"}
+  ],
+  "variance_trials": {
+    "baseline": [0.909, 0.818, 0.909],
+    "iter2":    [0.909, 0.818, 0.909]
+  },
+  "test_set_aggregate": {
+    "baseline": 0.500,
+    "iter2":    0.667
+  },
+  "test_set_per_slice": {
+    "baseline": {"offtopic": 0.000, "controls": 0.750},
+    "iter2":    {"offtopic": 0.500, "controls": 0.750}
+  },
+  "effect_sizes": {
+    "iter2": {
+      "aggregate": {"delta": 0.167, "ci_low": -0.10, "ci_high": 0.43},
+      "per_slice": {
+        "offtopic": {"delta": 0.500, "ci_low": 0.05, "ci_high": 0.95},
+        "controls": {"delta": 0.000, "ci_low": -0.30, "ci_high": 0.30}
+      }
+    }
+  },
+  "verdict": {
+    "winner": "iter2",
+    "killed": [],
+    "rationale": "The 11-set does not discriminate (round 1 maxed it; both arms 9.7/11). Round 2's win is the no-echo-offtopic clause: held-out off-topic slice 0/2 -> 1/2 (T9 fixed), aggregate 3/6 -> 4/6, 0 regressions. n=6 held-out -> wide CIs (directional, not powered). restart-on-confusion is kept as general-true + harmless (latency-flat) but benchmark-neutral. Ship iter2. Residuals: C7 climax-leak, C5 noise, T5-qa reassurance, T7 trivia (judge-borderline)."
+  }
+}

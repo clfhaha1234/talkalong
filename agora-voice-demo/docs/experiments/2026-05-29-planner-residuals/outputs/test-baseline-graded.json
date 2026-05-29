@@ -1,0 +1,352 @@
+{
+  "graded_at": "2026-05-29T09:08:39.590Z",
+  "in_path": "docs/experiments/2026-05-29-planner-residuals/outputs/test-baseline.json",
+  "judge_model": "gemini-3.5-flash",
+  "n_cases": 6,
+  "n_pass": 3,
+  "n_fail": 3,
+  "cases": [
+    {
+      "case_id": "T7",
+      "label": "refuse-offtopic-trivia",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"Paris\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"France\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"capital\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT state the fact ('Paris')",
+          "pass": true,
+          "reason": "The answer does not mention Paris or the capital of France."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer warmly redirects back to the story",
+          "pass": true,
+          "reason": "It warmly redirects by asking to see where the fox leads Lina."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner resumes with story content only — no geography / trivia / 'Paris' folded in",
+          "pass": false,
+          "reason": "The bridge text folds in geography trivia by mentioning 'far-off cities'."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T8",
+      "label": "confusion-restart-variant",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart'",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart' (from rubric)",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "replacement_segments[0].id == 's2'",
+          "pass": true,
+          "reason": "got 's2'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer briefly reassures we'll hear it again (1-2 sentences)",
+          "pass": true,
+          "reason": "Reassures the listener in two brief sentences that they will step back."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments[0].text re-narrates the s2 content (Mosk on the top step)",
+          "pass": true,
+          "reason": "Re-narrates the s2 content of Mosk sitting on the top step."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T9",
+      "label": "refuse-offtopic-math-2",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"100\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"hundred\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT state the result ('100' / 'hundred')",
+          "pass": true,
+          "reason": "The answer does not mention 100 or hundred."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer redirects back to the story",
+          "pass": true,
+          "reason": "It redirects by suggesting to tuck the puzzle away for later."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly one short sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner resumes with story content only — no arithmetic / number folded in",
+          "pass": false,
+          "reason": "The bridge_text folds in numbers by mentioning 'Numbers can be such curious puzzles'."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T10",
+      "label": "spoiler-defer-control",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"firefly\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"queen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT reveal the s4/s5 truth (a firefly / the queen)",
+          "pass": true,
+          "reason": "The answer keeps the secret and does not mention fireflies or the queen."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer keeps the mystery and points us onward",
+          "pass": true,
+          "reason": "It calls the source a secret and prompts the listener to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly one short sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner does NOT reveal the firefly/queen early",
+          "pass": true,
+          "reason": "Neither the bridge text nor the replacement segment mentions fireflies or the queen."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T11",
+      "label": "engage-already-revealed-control",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer engages directly (this WAS revealed in s5 — does NOT deflect with 'a secret' / 'listen on')",
+          "pass": true,
+          "reason": "The answer directly states what the queen needed without any deflection."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer references a drop of warm milk and a kind word",
+          "pass": true,
+          "reason": "The answer explicitly mentions a drop of warm milk and a kind word."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner continues without contradicting the revealed answer",
+          "pass": true,
+          "reason": "The resume plan smoothly continues by satisfying the queen's request with milk."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T12",
+      "label": "keep-canon-control",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"fight\"",
+          "pass": false,
+          "reason": "LEAKED \"fight\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"fought\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"punched\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"ran past\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer gently acknowledges the idea (does not lecture)",
+          "pass": true,
+          "reason": "Gently explains Lina's perspective on fighting without lecturing."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT promise to change the story",
+          "pass": true,
+          "reason": "Explains Lina's character without altering the plot."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer stays in warm narrator voice",
+          "pass": true,
+          "reason": "Maintains a poetic, warm storytelling tone."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments keep canon — Lina offers the apple / wins Mosk over peacefully; she does NOT fight him",
+          "pass": true,
+          "reason": "Lina chooses a gesture of kindness instead of a challenge."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT have Lina fight or run past Mosk",
+          "pass": true,
+          "reason": "Explicitly states pushing past him was not the way."
+        }
+      ],
+      "soft_notes": []
+    }
+  ]
+}

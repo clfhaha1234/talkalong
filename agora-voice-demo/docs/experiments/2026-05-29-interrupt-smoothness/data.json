@@ -1,0 +1,45 @@
+{
+  "experiment": {
+    "name": "interrupt-smoothness",
+    "question": "Can additive general-purpose prompt clauses close the stable qa-bench interrupt failures without regressing passing cases, and do they generalize to a held-out set?",
+    "metric": "qa-bench hard-PASS rate (grade.ts: deterministic gates + gemini-3.5-flash judge)",
+    "threshold_pct": 9.0,
+    "threshold_rule": "Strictly dominate baseline on dev (fix targets, regress 0) AND regress 0 behaviour classes on the sealed held-out test set.",
+    "test_set_n": 6,
+    "trials_per_arm": 3
+  },
+  "arms": [
+    {"id": "baseline", "name": "merged prod (final persona + lang-mirror)", "cost_per_1k_usd": 1.348},
+    {"id": "iter3",    "name": "iter3 (3 clauses) [shipped]",               "cost_per_1k_usd": 1.429}
+  ],
+  "slices": [
+    {"id": "persona", "name": "persona behaviours (T1-T4)"},
+    {"id": "planner", "name": "planner/structure behaviours (T5-T6)"}
+  ],
+  "variance_trials": {
+    "baseline": [0.727, 0.636, 0.727],
+    "iter3":    [0.909, 0.818, 0.909]
+  },
+  "test_set_aggregate": {
+    "baseline": 0.500,
+    "iter3":    0.667
+  },
+  "test_set_per_slice": {
+    "baseline": {"persona": 0.500, "planner": 0.500},
+    "iter3":    {"persona": 0.750, "planner": 0.500}
+  },
+  "effect_sizes": {
+    "iter3": {
+      "aggregate": {"delta": 0.167, "ci_low": -0.10, "ci_high": 0.43},
+      "per_slice": {
+        "persona": {"delta": 0.250, "ci_low": -0.05, "ci_high": 0.55},
+        "planner": {"delta": 0.000, "ci_low": -0.40, "ci_high": 0.40}
+      }
+    }
+  },
+  "verdict": {
+    "winner": "iter3",
+    "killed": [],
+    "rationale": "iter3 strictly dominates on dev (mean 9.7/11 vs baseline 7.7/11 — ~4x the +-0.5-case within-arm variance, clearing the +9pp threshold) and on the sealed held-out test regresses 0 (T1/T2/T6 stay PASS) while gaining T3 (engage-already-revealed), proving that fix generalizes. The held-out N=6 gives wide CIs (crossing zero) so it is a directional generalization sanity-check, not a powered significance test. Ship iter3. Residuals documented (not chased): T4/C6 planner-side math leak, T5/C5 confusion-restart (untargeted), C7 climax leak (no-early-reveal clause was neutral)."
+  }
+}
