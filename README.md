@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/tests-80%20unit%20%2B%2011%20bench-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
+[![Tests](https://img.shields.io/badge/tests-82%20unit%20%2B%2011%20bench-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
 [![Built on](https://img.shields.io/badge/voice%20I%2FO-Agora%20Conversational%20AI-D77757?style=flat-square)](https://www.agora.io/en/products/conversational-ai-engine/)
 
 </div>
@@ -135,7 +135,15 @@ pnpm tsx scripts/qa-bench/e2e-interrupt.ts --only C1      # debug one case
 pnpm tsx scripts/qa-bench/e2e-interrupt.ts --all          # full sweep
 ```
 
-The bench is the reason we trust "we changed the persona prompt" before a demo, instead of crossing our fingers and reading the conversation logs after.
+And it now **grades itself**. `scripts/qa-bench/grade.ts` scores any run against each case's locked rubric — deterministic gates (language/CJK guardrail, forbidden substrings, expected strategy, structural assertions) plus a `gemini-3.5-flash` LLM judge for the semantic lines — and emits a PASS/FAIL table. No more eyeballing outputs:
+
+```bash
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in  docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD.json \
+  --out docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD-graded.json
+```
+
+The bench is the reason we trust "we changed the persona prompt" before a demo, instead of crossing our fingers and reading the conversation logs after. The most recent pass — [2026-05-29 interrupt-smoothness](./agora-voice-demo/docs/experiments/2026-05-29-interrupt-smoothness/) — used it (with a sealed held-out set) to lift the dev pass rate **7.7/11 → 9.7/11**: a refuse-to-compute clause stops the tutor solving a kid's math question mid-story, and an "engage-if-already-revealed" clause stops it deflecting on a reason the story already told (the fix generalized to a new held-out question). The resume-to-main-line latency stays ~1.4 s.
 
 ## 🗂️ What's in the repo
 

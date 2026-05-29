@@ -62,6 +62,7 @@ function parseArgs(): {
   only?: string[];
   trials: number;
   qaModel: string;
+  casesPath?: string;
 } {
   const args = process.argv.slice(2);
   const get = (k: string) => {
@@ -74,10 +75,12 @@ function parseArgs(): {
   const trials = Number(get('--trials') ?? '1');
   // --qa-model formats: "gemini" (default) or "openai:<model>" e.g. "openai:gpt-5-mini"
   const qaModel = get('--qa-model') ?? 'gemini';
+  // --cases overrides the case set (rubric + questions); fixture is always shared.
+  const casesPath = get('--cases');
   if (!prompts || !out) {
-    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>]');
+    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>] [--cases <path>]');
   }
-  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel };
+  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel, casesPath };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -169,9 +172,9 @@ async function runOneCase(
 }
 
 async function main() {
-  const { prompts: promptsPath, out: outPath, only, trials, qaModel } = parseArgs();
+  const { prompts: promptsPath, out: outPath, only, trials, qaModel, casesPath } = parseArgs();
   const fixture = JSON.parse(readFileSync(join(expDir, 'fixture.json'), 'utf8')) as Fixture;
-  const cases = JSON.parse(readFileSync(join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[];
+  const cases = JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[];
   const promptsFile = JSON.parse(readFileSync(promptsPath, 'utf8')) as PromptsFile;
   const selected = only ? cases.filter((c) => only.includes(c.id)) : cases;
   if (selected.length === 0) throw new Error('no cases selected');

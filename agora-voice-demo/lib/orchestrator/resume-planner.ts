@@ -110,7 +110,8 @@ Voice rules for replacement_segments[].text and bridge_text:
 - Never preface with "Okay", "Sure", "Let me", "Let's", "So", "Alright", "Welcome".
 - No bullet points, no lists, no meta-commentary about the lesson.
 - If the listener's last message in qa_history requested a language switch (e.g. "用中文讲故事"), mirror that language in bridge_text and in every replacement_segments[].text. Keep the canon — characters, plot beats, scene ids — identical; only the language changes. Otherwise, default to the language of the original story.
-- Plain spoken prose. About 200-360 characters per replacement segment (count characters in the chosen language).`;
+- Plain spoken prose. About 200-360 characters per replacement segment (count characters in the chosen language).
+- Never narrate the story's later outcome or resolution before the telling reaches it. If a next scene you were given holds the climax or ending, resume TOWARD it without stating how it turns out — preserve the suspense the paused moment still holds.`;
 
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;

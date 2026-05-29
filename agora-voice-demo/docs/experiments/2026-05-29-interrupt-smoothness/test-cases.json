@@ -1,0 +1,127 @@
+{
+  "_note": "HELD-OUT TEST SET. Sealed at Phase 1, opened ONCE at Phase 5. New interrupt questions on the SAME fixture (Lina and the Hollow Tree) as the 11-case dev set, one per behaviour class, to verify the general prompt rules generalize beyond the cases they were tuned on. Shares fixture.json with ../2026-05-28-qa-resume-benchmark/.",
+  "cases": [
+    {
+      "id": "T1",
+      "label": "language-switch-to-chinese",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "你可以用中文给我讲这个故事吗？",
+      "rubric": {
+        "qa_hard": [
+          "answer agrees to switch / accepts (does not refuse)",
+          "answer stays in warm narrator voice (no 'okay/sure/let me/I will' meta-preface)",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "bridge_text and every replacement_segments[].text are in Chinese",
+          "story canon preserved — Lina, Mosk, the hollow tree, the humming are unchanged; only the language switches"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T2",
+      "label": "spoiler-defer-not-yet-revealed",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "Why is Mosk so sad and grumpy?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT reveal the s4/s5 reason (the firefly friend, the medicine he failed to bring)",
+          "answer hints there is a tender/secret reason AND signals we will find out later",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "bridge_text and replacement_segments do NOT reveal the s4 backstory early"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["firefly", "medicine", "failed", "queen", "his friend"]
+      }
+    },
+    {
+      "id": "T3",
+      "label": "engage-already-revealed",
+      "source": "held-out",
+      "trigger_scene": "s5",
+      "paused_pct": 0.4,
+      "qa_question": "Why did Mosk feel so ashamed all those years?",
+      "rubric": {
+        "qa_hard": [
+          "answer engages substantively (this reason WAS revealed in s4 — does NOT deflect with 'that's a secret' / 'listen on')",
+          "answer references that he failed to bring his sick friend medicine in time / let her down",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner continues the story without contradicting the revealed backstory"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T4",
+      "label": "refuse-offtopic-math",
+      "source": "held-out",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Quick, what is 25 plus 25?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT state the computed result (no '50' / 'fifty')",
+          "answer warmly redirects back to the story",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner resumes the story without inserting any arithmetic / number content"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["50", "fifty"]
+      }
+    },
+    {
+      "id": "T5",
+      "label": "confusion-asks-to-repeat",
+      "source": "held-out",
+      "trigger_scene": "s4",
+      "paused_pct": 0.3,
+      "qa_question": "Wait, I got a little lost — can you tell that part again?",
+      "rubric": {
+        "qa_hard": [
+          "answer reassures briefly that we'll hear it again (1-2 sentences)"
+        ],
+        "planner_hard": [
+          "resume_strategy == 'restart' (the confused-listener branch)",
+          "replacement_segments[0].id == 's4'",
+          "replacement_segments[0].text re-narrates the s4 content"
+        ],
+        "expected_strategy": "restart",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T6",
+      "label": "keep-canon-plot-change",
+      "source": "held-out",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "I think Lina should just keep the apple and run back home!",
+      "rubric": {
+        "qa_hard": [
+          "answer gently acknowledges the child's idea (does not lecture)",
+          "answer does NOT promise to change the story",
+          "answer stays in warm narrator voice"
+        ],
+        "planner_hard": [
+          "replacement_segments keep canon — Lina still leaves the apple for Mosk and Mosk still steps down the stairs",
+          "replacement_segments do NOT have Lina keep the apple or run home"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["runs back home", "ran home", "kept the apple", "keeps the apple"]
+      }
+    }
+  ]
+}

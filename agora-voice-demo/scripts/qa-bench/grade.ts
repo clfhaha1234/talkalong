@@ -127,10 +127,12 @@ function parseArgs() {
   // flash-lite generation model so rubric evaluation is trustworthy, but not
   // the heavyweight reasoning pro tier (too slow for an interactive gate).
   const judgeModel = get('--judge-model') ?? 'gemini-3.5-flash';
+  // --cases overrides the rubric source (default: the 11-case benchmark).
+  const casesPath = get('--cases');
   if (!inPath || !outPath) {
-    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>]');
+    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>] [--cases <path>]');
   }
-  return { inPath, outPath, noJudge, judgeModel };
+  return { inPath, outPath, noJudge, judgeModel, casesPath };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -329,8 +331,8 @@ async function judgeCase(
 }
 
 async function main() {
-  const { inPath, outPath, noJudge, judgeModel } = parseArgs();
-  const cases = (JSON.parse(readFileSync(join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[]);
+  const { inPath, outPath, noJudge, judgeModel, casesPath } = parseArgs();
+  const cases = (JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[]);
   const caseById = new Map(cases.map((c) => [c.id, c]));
   const inFile = JSON.parse(readFileSync(inPath, 'utf8')) as { meta?: unknown; results: CaseResult[] };
 
