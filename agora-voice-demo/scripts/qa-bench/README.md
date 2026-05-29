@@ -39,11 +39,46 @@ Takes ~25s. Reads `GOOGLE_API_KEY` from `.env.local` (parent dir also searched).
 
 Per case: `qa_question`, full `qa_answer` (raw LLM output), the planner's `plan` (bridge + replacement_segments + strategy + active_scene_id), `planner_source` (llm/fallback), and `planner_raw` (the raw JSON the planner emitted).
 
-## Judging
+## Judging — automated (`grade.ts`)
 
-Manual — read [cases.json](../../docs/experiments/2026-05-28-qa-resume-benchmark/cases.json) for the locked rubric per case, then read each `qa_answer` and `planner_plan` from your output JSON. PASS = every `qa_hard` AND `planner_hard` rule satisfied. Forbidden / required string lists are auto-checkable; tone/intent rules are human.
+`grade.ts` scores a run automatically against each case's locked rubric:
 
-For automated PR-gate use, write a small Python script that loads the output JSON + cases.json and applies the substring rules in `forbidden_in_qa`, `forbidden_in_planner`, `required_in_qa`, `required_in_planner_text`, etc. The auto-judge script used in the original experiment lives at the bottom of [conclusion.md](../../docs/experiments/2026-05-28-qa-resume-benchmark/conclusion.md) — port that as `scripts/qa-bench/judge.ts` if you want CI integration.
+```bash
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in  docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD.json \
+  --out docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD-graded.json
+```
+
+Prints a per-case PASS/FAIL table and writes a graded JSON with every check + reason.
+
+It is a **hybrid** grader, by design:
+
+- **Deterministic gates** (reproducible, no model — the trustworthy spine):
+  - `planner_source === 'llm'` (the planner actually ran, not the fallback)
+  - `forbidden_in_planner` substrings absent from bridge + segments **and** the qa_answer
+  - `expected_strategy` match, plus structural assertions parsed straight from the
+    rubric text (`resume_strategy == 'restart'`, `replacement_segments[0].id == 's2'`)
+  - **language guardrail** — `C1` (language-switch-to-chinese) must be CJK-dominant;
+    every other case must stay English (CJK ratio < 0.05). This is what makes the
+    language-switch behaviour an objective, model-free PASS/FAIL.
+- **LLM judge** (`--judge-model`, default `gemini-3.5-flash`) for the semantic
+  rubric lines ("agrees to switch", "preserves canon", "reassuring without lying").
+  One call per case, `temperature 0`, `reasoning_effort: minimal` (REQUIRED — the
+  thinking-capable flash models truncate their JSON otherwise). `qa_soft` /
+  `planner_soft` lines are scored advisory-only and never gate.
+
+A case PASSES iff every deterministic gate AND every judged **hard** line pass.
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--in <path>` | required | A run output JSON from `run.ts`. |
+| `--out <path>` | required | Where to write the graded JSON. |
+| `--judge-model <id>` | `gemini-3.5-flash` | Any model the `GOOGLE_API_KEY` can reach. Use `--no-judge` for deterministic gates only (offline, zero API calls). |
+
+**Note on noise:** `run.ts` generates at `temperature 0.7`, so absolute PASS counts
+fluctuate ±1-2 between runs. The *stable* signals are what matter: `C1` (language
+switch) reliably PASSES; `C5` (restart) reliably mis-labels as `continue`; `C6`
+(math) reliably computes the answer. Use `--trials N` for variance-aware grading.
 
 ## Files
 
@@ -56,7 +91,8 @@ scripts/qa-bench/
   anthropic-client.ts   ← optional, for --qa-model anthropic:*
   planner.ts            ← parameterized copy of resume-planner.ts (so --prompts can override SYSTEM)
   extract-baseline.ts   ← regex-pulls live persona + planner SYSTEM into prompts/baseline.json
-  run.ts                ← main runner
+  run.ts                ← main runner (generation)
+  grade.ts              ← automated grader (deterministic gates + LLM judge)
 
 docs/experiments/2026-05-28-qa-resume-benchmark/
   frame.md              ← Phase 0 (locked BEFORE any run)

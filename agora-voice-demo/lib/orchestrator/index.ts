@@ -108,6 +108,12 @@ function buildAgent(config: OrchestratorConfig, name: string): Agent {
     instructions: config.persona_prompt ?? DEFAULT_PERSONA,
     greeting: config.greeting ?? DEFAULT_GREETING,
   })
+    // NOTE: en-US pins STT to English. Spoken-Mandarin barge-ins (e.g. a child
+    // saying "用中文讲") transcribe to garbage and never reach the planner, so
+    // the story won't switch. nova-3 `multi` does NOT cover Mandarin; a真正的
+    // 多语言 fix needs a different vendor (e.g. OpenAISTT/whisper auto-detect) +
+    // Agora provisioning. Root cause + recommended fix:
+    // docs/experiments/2026-05-29-language-switch-rootcause/README.md
     .withStt(new DeepgramSTT({ model: 'nova-3', language: 'en-US' }))
     .withLlm(new OpenAI({ model: 'gpt-4o-mini', maxHistory: 6 }))
     .withTts(
