@@ -67,6 +67,7 @@ vi.mock('./resume-planner', () => ({
 }));
 
 import { startTutorSessionFromScenes } from './index';
+import { planResume } from './resume-planner';
 import type { Scene } from '@/lib/lesson/types';
 
 const scenes: Scene[] = [
@@ -155,4 +156,66 @@ describe('handleQaEnded — Chinese language-switch resume wiring', () => {
     expect(sayCalls.length).toBe(0);
     expect(events.some((e) => e.type === 'error')).toBe(true);
   });
+});
+
+// Scene-VIDEO alignment on resume: the page the UI shows (active_scene_changed →
+// activeSceneIndex → <video src=scenes[i].video_url>) MUST match the page the
+// narrator resumes on (progress.nextSegment()). If they diverge, the storybook
+// would play scene N's video while the agent narrates scene M — the exact
+// "wrong page's video after an interrupt" bug. This verifies the orchestrator
+// keeps them in lockstep across all three resume strategies, including when the
+// planner rewrites the resumed scene's text (content change) — the video page
+// selection follows the active scene id, not the stale narration.
+describe('handleQaEnded — scene-video page selection stays aligned with narration', () => {
+  // paused on s1; next scene is s2.
+  const cases = [
+    { strategy: 'continue', active: 's1', firstSeg: 's1', desc: 'continue → stay on paused page' },
+    { strategy: 'restart', active: 's1', firstSeg: 's1', desc: 'restart → rewind to paused page (rewritten text)' },
+    { strategy: 'skip', active: 's2', firstSeg: 's2', desc: 'skip → advance to next page' },
+  ] as const;
+
+  for (const c of cases) {
+    it(`${c.desc}: UI active scene === narrator next segment === ${c.active}`, async () => {
+      sayCalls.length = 0;
+      vi.mocked(planResume).mockResolvedValueOnce({
+        plan: {
+          bridge_text: 'A short warm bridge back into the tale, friend — listen on now.',
+          resume_strategy: c.strategy,
+          // first replacement targets the resumed page; its rewritten text is what
+          // the narrator will speak — the scene's VIDEO is keyed to the scene id,
+          // not this text, so a content rewrite must not desync the page shown.
+          replacement_segments: [{ id: c.firstSeg, text: 'Rewritten narration for the resumed scene, woven with the Q&A.' }],
+          active_scene_id: c.active,
+        },
+        source: 'llm',
+        latency_ms: 5,
+      });
+
+      const handle = await startTutorSessionFromScenes({
+        scenes,
+        config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+      });
+      const events: ProgressEvent[] = [];
+      handle.progress.subscribe((e) => events.push(e));
+      handle.progress.enterMain();
+      handle.progress.startSegment(handle.progress.segments[0]); // paused on s1
+
+      await handle.handleQaEnded({
+        qa_history: [{ role: 'user', text: 'a question', ts: 1 }],
+      });
+
+      // (a) The UI is told to show the resumed scene's page (drives the <video>).
+      const active = events.find((e) => e.type === 'active_scene_changed') as
+        | (ProgressEvent & { scene_id?: string })
+        | undefined;
+      expect(active?.scene_id).toBe(c.active);
+
+      // (b) The narrator's next pull is the SAME page — so the scene VIDEO the UI
+      //     plays matches the scene the agent is about to narrate (no desync).
+      expect(handle.progress.nextSegment()?.id).toBe(c.active);
+
+      // (c) Back on the main line, ready to narrate the resumed page.
+      expect(handle.progress.outerState()).toBe('MAIN');
+    });
+  }
 });
