@@ -1,0 +1,47 @@
+{
+  "_comment": "Audio barge-in MVP cases. Locked 2026-05-30. Each case is ONE Chromium launch with ONE WAV. WAV follows the pad-don't-loop pattern from the fake-mic spike (docs/experiments/2026-05-30-fake-mic-spike/conclusion.md): 5s leading silence + content + 60s trailing silence. The leading silence lets the agent's greeting play; the trailing silence prevents the fake-mic loop from re-feeding the question and confusing the agent's LLM context (verified Spike 3+4 finding).",
+  "observation_window_s": 50,
+  "leading_silence_s": 5,
+  "trailing_silence_s": 60,
+  "cases": [
+    {
+      "id": "B01",
+      "label": "barge-in-true-question",
+      "axis": "true-positive",
+      "description": "Listener asks a coherent question. Pipeline must transcribe + agent must respond. This is the baseline 'does the audio path work end-to-end' case.",
+      "audio_source": { "type": "tts", "text": "What is moss?", "voice": "Samantha" },
+      "expected": {
+        "stt_received_final": true,
+        "stt_text_includes_any_of": ["moss", "what is"],
+        "agent_state_transitioned_to": ["thinking", "speaking"],
+        "agent_replied": true,
+        "agent_reply_excludes": ["didn't come through", "didn't catch that"]
+      }
+    },
+    {
+      "id": "B02",
+      "label": "barge-in-back-channel",
+      "axis": "false-positive-risk",
+      "description": "Listener says 'uh huh' — a back-channel acknowledgement, NOT a real interrupt. A well-tuned barge-in stack should NOT treat this as a turn worthy of agent re-planning. Current Agora-managed default likely WILL trigger a turn — finding that out is the test. Result tells us where we sit vs LiveKit's CNN-based back-channel filter.",
+      "audio_source": { "type": "tts", "text": "uh huh", "voice": "Samantha" },
+      "expected": {
+        "stt_received_final": true,
+        "agent_state_transitioned_to": ["thinking", "speaking"],
+        "_note": "We deliberately do NOT assert NO-state-change here — the current managed Agora setup almost certainly DOES re-plan on back-channels. The PASS criterion is 'observed and recorded'; the FBR KPI (false-barge-in rate) is the signal we read from this case + B03 across runs."
+      }
+    },
+    {
+      "id": "B03",
+      "label": "barge-in-silence-only",
+      "axis": "false-positive-clean",
+      "description": "30s of pure silence (no leading/trailing pattern). VAD MUST NOT trigger a user turn. If it does, FBR is non-zero — a known LiveKit-vs-Agora differentiator and a real customer-experience bug.",
+      "audio_source": { "type": "silence", "duration_s": 30 },
+      "expected": {
+        "stt_received_final": false,
+        "agent_state_transitioned_to": [],
+        "agent_replied": false,
+        "_note": "Silence MUST NOT produce STT events OR agent re-plans. Any deviation is a FBR signal."
+      }
+    }
+  ]
+}
