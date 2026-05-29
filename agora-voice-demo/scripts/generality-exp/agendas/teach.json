@@ -1,0 +1,5 @@
+{ "id": "teach", "title": "Teach one concept then check",
+  "segments": [
+    { "id": "d1", "kind": "deliver", "text": "A 'feature flag' is a switch in the code that turns a feature on or off without redeploying — so we can ship code dark and enable it later.", "load_bearing": true },
+    { "id": "q1", "kind": "elicit", "question": "In your own words, what does a feature flag let us do?", "target": "turn a feature on/off without a redeploy (ship dark, enable later)", "load_bearing": true }
+  ] }

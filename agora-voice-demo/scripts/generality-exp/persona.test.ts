@@ -23,6 +23,18 @@ describe('makePersona', () => {
     if (turn.kind === 'text') expect(turn.text).toMatch(/engineering culture/);
   });
 
+  it('wrong-corrigible persona is not silent: calls the llm and returns a text turn', async () => {
+    let called = 0;
+    const act = new TranscriptActuator();
+    await act.speak('In your own words, what does a feature flag let us do?');
+    const llm = async () => { called++; return 'Um, it makes the app faster?'; };
+    const p = makePersona({ kind: 'wrong-corrigible' }, llm, act);
+    const turn = await p.nextUserTurn();
+    expect(called).toBe(1);
+    expect(turn.kind).toBe('text');
+    if (turn.kind === 'text') expect(turn.text).toBe('Um, it makes the app faster?');
+  });
+
   it('meta persona emits its scripted directive utterance first, then cooperates', async () => {
     const act = new TranscriptActuator();
     await act.speak('Tell me about a hard project.');
