@@ -77,6 +77,10 @@ interface Rubric {
   planner_soft?: string[];
   expected_strategy?: string;
   forbidden_in_planner?: string[];
+  // Opt-in deterministic gates (added 2026-05-29 for C11-C15). When absent the
+  // gate does not fire — keeps C1-C10 historical baselines bit-for-bit comparable.
+  qa_max_sentences?: number;
+  qa_no_meta_preface?: boolean;
 }
 interface CaseSpec {
   id: string;
@@ -152,6 +156,34 @@ function plannerText(plan: Plan): string {
   return [plan.bridge_text, ...plan.replacement_segments.map((s) => s.text)].join('\n');
 }
 
+// ── opt-in deterministic helpers (added 2026-05-29) ──────────────────
+// Count terminators . ! ? 。 ！ ？ (ASCII and CJK). Treats ellipses (…, ...)
+// as ONE terminator, and ignores a sole trailing terminator so "Hi there!"
+// scores as 1 not 1+ε. Best-effort — tutor-style answers are 1-2 sentences
+// short, so simple terminator counting is robust enough; no abbreviation
+// heuristics needed at this length.
+function countSentences(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  const normalised = trimmed.replace(/\.{2,}/g, '…');
+  const matches = normalised.match(/[.!?。！？…]/g);
+  return matches ? matches.length : 1;
+}
+
+// Detect a persona-violating meta-preface at the START of the qa_answer.
+// Returns the offending token (lowercased), or null if the opening is clean.
+// Looks at the first ~40 chars only so a legit mid-sentence "let's" doesn't fire.
+const META_PREFACES = ['okay', 'sure', 'alright', 'let me', "let's", 'i will', "i'll", 'of course', 'i can'];
+function detectMetaPreface(text: string): string | null {
+  const head = text.trim().slice(0, 40).toLowerCase();
+  for (const p of META_PREFACES) {
+    if (head === p || head.startsWith(p + ' ') || head.startsWith(p + ',') || head.startsWith(p + '.') || head.startsWith(p + '!') || head.startsWith(p + '—')) {
+      return p;
+    }
+  }
+  return null;
+}
+
 // ── deterministic gates ───────────────────────────────────────────────
 function deterministicChecks(c: CaseSpec, r: CaseResult): Check[] {
   const checks: Check[] = [];
@@ -214,7 +246,36 @@ function deterministicChecks(c: CaseSpec, r: CaseResult): Check[] {
     }
   }
 
-  // 5. language guardrail — the objective heart of the language-switch test
+  // 5. qa_max_sentences — opt-in deterministic cap on qa_answer length.
+  //    Persona constraint "≤2 short sentences" is currently judged by the LLM;
+  //    this gate makes it free + reproducible for cases that opt in. C1-C10
+  //    leave the rubric field unset, so the gate is silent there.
+  if (typeof c.rubric.qa_max_sentences === 'number') {
+    const max = c.rubric.qa_max_sentences;
+    const count = countSentences(r.qa_answer);
+    checks.push({
+      kind: 'deterministic',
+      criterion: `qa_answer has at most ${max} sentence${max === 1 ? '' : 's'}`,
+      pass: count <= max,
+      reason: `got ${count}`,
+    });
+  }
+
+  // 6. qa_no_meta_preface — opt-in deterministic check for the persona-violating
+  //    openings (okay/sure/let me/I will/...) that the C1 judge-line describes.
+  //    Detects them at the START of qa_answer (first ~40 chars), so a legit
+  //    mid-sentence "okay" doesn't trip the gate.
+  if (c.rubric.qa_no_meta_preface === true) {
+    const found = detectMetaPreface(r.qa_answer);
+    checks.push({
+      kind: 'deterministic',
+      criterion: 'qa_answer has no meta-preface (okay/sure/alright/let me/let\'s/i will/i\'ll/of course)',
+      pass: found === null,
+      reason: found === null ? 'clean opening' : `prefaced with "${found}"`,
+    });
+  }
+
+  // 7. language guardrail — the objective heart of the language-switch test
   const ratio = cjkRatio(pText);
   if (c.label === 'language-switch-to-chinese') {
     checks.push({

@@ -1,6 +1,6 @@
 # QA-resume benchmark — regression guard
 
-An offline benchmark that tests the QA-and-resume capability end-to-end against an 11-case golden set on a fictional 5-scene fairy tale.
+An offline benchmark that tests the QA-and-resume capability end-to-end against a 16-case golden set on a fictional 5-scene fairy tale. (Original 11 locked 2026-05-28; C11-C15 added 2026-05-29 to cover edge `paused_pct` boundaries, an adversarial Mosk-arc spoiler probe, listener-sadness empathy, and a narrator-identity meta-probe.)
 
 ## When to run it
 
@@ -61,6 +61,15 @@ It is a **hybrid** grader, by design:
   - **language guardrail** — `C1` (language-switch-to-chinese) must be CJK-dominant;
     every other case must stay English (CJK ratio < 0.05). This is what makes the
     language-switch behaviour an objective, model-free PASS/FAIL.
+  - **opt-in QA gates** (added 2026-05-29, used by C11-C15 only):
+    - `qa_max_sentences: <int>` — terminator-count cap on `qa_answer`. Formalises
+      the persona's "≤ 2 short sentences" rule as a free, reproducible check.
+    - `qa_no_meta_preface: true` — substring check on the first 40 chars of
+      `qa_answer` for `okay / sure / alright / let me / let's / i will / i'll /
+      of course / i can`. Formalises the persona's "no meta-preface" rule.
+    Both gates are **off by default** — a case opts in by setting the field in
+    its rubric. C1-C10 leave the fields unset, so historical baseline pass-rates
+    remain bit-for-bit comparable.
 - **LLM judge** (`--judge-model`, default `gemini-3.5-flash`) for the semantic
   rubric lines ("agrees to switch", "preserves canon", "reassuring without lying").
   One call per case, `temperature 0`, `reasoning_effort: minimal` (REQUIRED — the
@@ -80,6 +89,34 @@ fluctuate ±1-2 between runs. The *stable* signals are what matter: `C1` (langua
 switch) reliably PASSES; `C5` (restart) reliably mis-labels as `continue`; `C6`
 (math) reliably computes the answer. Use `--trials N` for variance-aware grading.
 
+## Scorecard — `scorecard.ts`
+
+`scorecard.ts` aggregates a `run.ts` output + its `grade.ts` verdict into a product-grade KPI panel — the kind a school/HR admin or tutor-platform PM would read instead of the raw PASS/FAIL table.
+
+```bash
+pnpm tsx scripts/qa-bench/scorecard.ts \
+  --run    docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD.json \
+  --graded docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD-graded.json \
+  --out    docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD-scorecard.json \
+  --label  "regression-YYYYMMDD"
+```
+
+Prints a markdown panel to stdout (good for PR comments / conclusion.md) and writes the structured JSON for charts.
+
+| KPI | What it measures | Healthy band |
+|---|---|---|
+| **IRSR** (Interrupt-Recovery Success Rate) | grader PASS rate across cases | ≥ 90% (single-trial) |
+| **TOR** (Takeover Rate) | tutor speech / (tutor + student), by word count. Tutor = `bridge_text` + `replacement_segments` + `qa_answer`; student = `qa_question`. | 0.85 – 0.95 (below → talked over; above → monologue) |
+| **PSD** (Path-Strategy Distribution) | count per `resume_strategy` (restart/continue/skip) | varied — a degenerate planner picks one strategy 100% |
+| **Latency p50 / p95** | nearest-rank from `qa_latency_ms` and `planner_latency_ms` | per E1.5 target: QA p50 < 1 s, planner p50 < 1.5 s |
+| **Capability breakdown** | PASS rate grouped by `label → category` (see `CATEGORY_EXACT`/`CATEGORY_PREFIX` in `scorecard.ts`) | every category ≥ 80%; a single weak category is the next experiment |
+
+Useful for: A/B comparison of arms in one ROI shot (see the climax-leak `baseline` vs `armA` — the scorecard surfaces spoiler-defence 66.7% → 100% and the post-reveal-recall trade-off in one panel), or building the longitudinal "tutor health" dashboard over time. Not a replacement for `grade.ts` PASS/FAIL — read the scorecard for ops/product, the grader for ship/no-ship.
+
+What it does NOT measure:
+- **MTBI** (mean time between interrupts) — the bench is single-shot, no chains. Will be measurable when interrupt-cascade cases land.
+- **Real-session TOR** — `qa_question` is synthetic, so TOR is comparable across arms but not directly comparable to a live session.
+
 ## Files
 
 ```
@@ -93,6 +130,7 @@ scripts/qa-bench/
   extract-baseline.ts   ← regex-pulls live persona + planner SYSTEM into prompts/baseline.json
   run.ts                ← main runner (generation)
   grade.ts              ← automated grader (deterministic gates + LLM judge)
+  scorecard.ts          ← KPI aggregator (IRSR / TOR / PSD / latency / capability breakdown)
 
 docs/experiments/2026-05-28-qa-resume-benchmark/
   frame.md              ← Phase 0 (locked BEFORE any run)
