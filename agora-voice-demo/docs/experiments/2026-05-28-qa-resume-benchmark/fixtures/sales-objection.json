@@ -1,0 +1,23 @@
+{
+  "_comment": "Sales-objection fixture for the cross-domain transfer bench (B9). 4 scenes simulating a sales coach walking a rep through a price-objection conversation. Compatible with run.ts --fixture and grade.ts --fixture.",
+  "story_title": "Handling the Price Objection — Coaching Walkthrough",
+  "canon_summary": "The tutor is a sales coach walking a rep through the four moves of handling a late-stage price objection. Scenes: (s1) discovery and value framing before the price comes up, (s2) budget question — surfaced by the rep, not the buyer, (s3) the price objection lands, (s4) handle and advance. Whether THIS specific deal closes is NOT decided in the walkthrough — that is a SPOILER for the buyer's decision and not the lesson. The coach never tells the rep what to do on a real live deal; this is a craft lesson on patterns.",
+  "scenes": [
+    {
+      "id": "s1",
+      "text": "Before price ever comes up, you should have already done discovery and framed value. Not 'features.' Value — meaning, the cost of their current situation in dollars and time. If you cannot say back to the buyer what bad thing is happening to them today, you have not done discovery yet, and any price objection you get later is going to feel like the real conversation when it is actually about something you skipped."
+    },
+    {
+      "id": "s2",
+      "text": "Around the middle of the meeting, you surface budget — you do, not the buyer. 'For this kind of project at the size we're describing, our customers typically invest in the X to Y range. Where does that sit?' You are not asking for permission; you are calibrating expectations. If the answer is 'way under,' you address it now, not at the end."
+    },
+    {
+      "id": "s3",
+      "text": "Now the objection. The buyer says some version of 'it's too expensive.' Do not flinch, do not discount, do not justify yet. Three words: 'Tell me more.' Then shut up. Nine times out of ten the buyer fills the silence with the actual concern — which is rarely the dollar number — and you find out whether it is timing, authority, risk, or genuinely fit."
+    },
+    {
+      "id": "s4",
+      "text": "Handle what they actually said, then advance to the next step. If it was risk, propose a smaller pilot. If it was timing, propose a deferred start. If it was authority, ask who else needs to be in the next conversation. You are not winning the deal in this meeting — you are getting the next meeting on the calendar with the right people in the room."
+    }
+  ]
+}
