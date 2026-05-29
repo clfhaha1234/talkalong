@@ -1,99 +1,262 @@
-# Talkalong
+<div align="center">
 
-把一张手绘风格的绘本插画变成可以"对话+被打断"的活绘本：
+# 🎙️ talkalong
 
-1. **静态绘本动画 (Remotion)** — 一张成品图 → 一段 ~10 秒"渐进式绘本动画"（线稿一笔一笔画出来，颜色慢慢晕染，整体呼吸+漂浮）。
-2. **会讲故事的语音 tutor (Next.js + Agora)** — 用 LLM 生成 5 段故事剧本，配上 Gemini 生成的插画，由 Agora 实时语音管线朗读，小听众可以随时打断提问，问完会被巧妙圆回主线。
+<p><strong>A proactive AI tutor engine — it drives its own lesson, lets the listener interrupt for Q&A, then resumes the main line where it paused.</strong></p>
 
----
+<p><em>Most "AI explainer" experiences are reactive: they wait to be asked. A good human teacher is proactive — they have a plan, they drive through it, they pause at the right moments, and when interrupted they answer and rejoin the thread without losing their place. talkalong is the orchestration engine that does this.</em></p>
 
-## 仓库结构
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
+[![Tests](https://img.shields.io/badge/tests-80%20unit%20%2B%2011%20bench-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
+[![Built on](https://img.shields.io/badge/voice%20I%2FO-Agora%20Conversational%20AI-D77757?style=flat-square)](https://www.agora.io/en/products/conversational-ai-engine/)
+
+</div>
+
+## 🧠 What this repo is really about
+
+The interesting question isn't *"can an LLM read a script out loud?"* — TTS has done that for a decade.
+
+It's *"can an AI sustain a multi-turn proactive monologue, **survive an off-topic interruption**, answer it in character, and then rejoin its own main thread without losing where it was?"*
+
+That's the loop a human teacher runs all day. It's also exactly the loop most AI products skip — they wait politely for you to ask, then forget the thread the moment the conversation goes off-piste. **talkalong is the orchestrator that makes the loop work end-to-end.**
+
+We prove it on one demo content type — a children's storybook tutor — because it's the highest-stakes correctness setting (you can't fool a 6-year-old by faking continuity). The same engine generalizes to any long-form content: a paper walkthrough, an onboarding doc, a museum audio guide, a Khan-style lesson.
+
+## 🎬 What this looks like in practice
+
+A real interaction the system handles end-to-end today:
+
+> 🤖 *"Lily wandered into a forest where the trees had silver bark, and..."*
+>
+> 🧒 *(interrupts)* **"Wait, why is the bark silver?"**
+>
+> 🤖 *(stops mid-sentence)* *"Because of the moonlight catching the leaves — silver bark is what very old trees grow in forests where the moon is always full. Now — where were we... Lily had just stepped into the silver forest, and a small fox came out from behind a tree..."*
+>
+> 🧒 *(interrupts again)* **"用中文讲故事。"**
+>
+> 🤖 *(switches language but keeps the same Lily, same silver forest, same fox)* *"莉莉刚刚走进银色的森林，一只小狐狸从树后探出头来……"*
+
+Three things the orchestrator did that a vanilla chatbot would have flubbed:
+
+1. **Stopped narrating the instant the kid spoke** — no talking-over.
+2. **Answered in narrator voice** (no *"Sure! Great question!"*) and bridged back to the storyline mid-sentence, not from the top.
+3. **Mid-story language switch preserved canon** — same characters, same scene, just a different language. Plot doesn't reset.
+
+That third one is a regression we actually shipped and caught — see [the 11-case QA-resume bench](#-the-regression-bench-where-the-discipline-lives).
+
+## 🔁 The core loop
 
 ```
-talkalong/
-├── src/                       # Remotion 端：图 → 渐进式绘本视频（本目录顶层 npm 项目）
-│   ├── BookPage.tsx           # 主组合
-│   ├── preprocess.ts          # 一张图 → 线稿 + 颜色层
-│   └── Root.tsx
-├── agora-voice-demo/          # Next.js + Agora 语音 tutor 子项目（独立 pnpm 项目）
-│   ├── app/api/tutor/         # SSE narration + qa-ended 路由
-│   ├── lib/orchestrator/      # 状态机、Q&A 中断、resume planner、bridge
-│   ├── lib/lesson/            # 用户输入 → 5 scene 剧本 + 插画 + 视频
-│   ├── components/tutor/      # 前端故事书 UI
-│   └── scripts/qa-bench/      # QA & resume 回归基准（11 个 case）
-├── docs/                      # 设计文档 / 实验结论 / PRD
-│   ├── plans/                 # 实施计划
-│   ├── experiments/           # 完整带数据的 A/B 实验
-│   └── screenshots/           # 截图
-└── public/                    # Remotion 端的输入图素材
+                  ┌──────────────────────────────────────────┐
+                  │      ① STRUCTURING                       │
+                  │  Content → 5-segment script              │
+                  │  + pre-planned elicitation nodes         │
+                  │  + main-line progress state              │
+                  └────────────────┬─────────────────────────┘
+                                   │
+                                   ▼
+        ┌──────────────────────────────────────────────────────┐
+        │     ② ORCHESTRATION  (this repo's moat)              │
+        │                                                      │
+        │   state: NARRATING → INTERRUPTED → QA → RESUMING     │
+        │                                                      │
+        │   tracks: current_segment, covered_points[],         │
+        │           remaining_points[], qa_history[]           │
+        │                                                      │
+        │   resume planner: emits {strategy, bridge_text,      │
+        │   replacement_segments[], active_scene_id}           │
+        └─────────────────┬────────────────────────────────────┘
+                          │  (same single channel)
+                          ▼
+        ┌──────────────────────────────────────────────────────┐
+        │     ③ AGORA CONVERSATIONAL AI ENGINE                 │
+        │     (rented voice I/O — ~340-650ms median)           │
+        │                                                      │
+        │   • voice-based auto-interrupt                       │
+        │   • v2.6 text-injection (push our script as agent    │
+        │     output, no stop/restart)                         │
+        │   • turn detection, voice-lock anti-false-interrupt  │
+        └──────────────────────────────────────────────────────┘
 ```
 
-两个子项目是独立的 npm/pnpm 项目，互不依赖；共用 `docs/` 当公共大脑。
+**The single most consequential design choice:** narration AND Q&A flow through the **same** Agora agent channel via v2.6 text-injection — *not* "narration on external TTS, Q&A on a separate LLM call." This eliminates mode-switch tearing, lets Agora's voice-lock handle interruption uniformly, and means the kid never hears the audio character change halfway through.
 
----
+## 🏗️ The orchestration layer — what we build (and Agora doesn't)
 
-## 快速上手
+| Layer | Who builds it |
+|---|---|
+| Mouth + ears (TTS, STT, turn detection, interrupt) | **Agora** (rented) |
+| Anti-false-interrupt (voice-lock filters background voices) | **Agora** (rented) |
+| Low-latency voice pipeline (~340–650ms median) | **Agora** (rented) |
+| Structuring arbitrary content into a teachable script | **talkalong** |
+| Main-line progress state (what's covered, what's pending) | **talkalong** |
+| Deciding when a Q&A exchange is *semantically* over | **talkalong** |
+| Incrementally re-scripting after an interruption | **talkalong** |
+| Deciding *when* the tutor should proactively pause and ask | **talkalong** |
+| Regression-testing every prompt change against 11 cases | **talkalong** |
 
-### A. 跑 Remotion 静态绘本动画
+Agora gives us the mouth and ears. The brain's scheduling logic is the moat.
 
-```bash
-npm install                              # 第一次会下 Chromium，1–2 分钟
-npm run generate                         # = preprocess demo_img.jpeg + render
-open out/video.mp4
-```
+## ⚖️ Why "same agent channel" was the unlock
 
-详情见 [docs/video_story_README.md](docs/video_story_README.md)。
+We considered three architectures before settling. Each failure mode below is one we either tested or watched a sibling project ship-then-revert:
 
-### B. 跑 Agora 语音 tutor
+| Naive architecture | What goes wrong |
+|---|---|
+| **Narration via external TTS + Q&A via a separate LLM call** | Voice character changes mid-conversation. Kid notices. Worse: interrupt detection has to be wired into two pipelines and synchronized — guaranteed race on barge-in. |
+| **One LLM, just prompt it to "continue from where you left off"** | LLM has no durable main-line state. After 2 interrupts it re-explains things it already said, or drops covered points entirely. Hallucinates progress. |
+| **Pre-render the whole narration to MP3, play with TTS gaps** | Can't text-inject during a live session. Every interrupt requires stop/restart, which Agora docs explicitly warn against (200-500ms tearing). |
+| **Same channel, text-injection (this repo)** | Narration and Q&A are both "agent output." Interrupt is uniform. Resume = inject a fresh segment after the bridge. No tearing, no voice swap, one state machine. |
+
+The design decision isn't sexy. The consequence is — it's why the demo actually feels like a tutor instead of a screen-reader interrupted by a chatbot.
+
+## 🧪 The regression bench — where the discipline lives
+
+The hard part of shipping a proactive tutor isn't the happy path. It's that **every prompt tweak silently breaks ~3 weird interrupt scenarios.** The kid asks a meta-question ("are you a robot?"). The kid switches language. The kid asks about something three scenes ahead. The kid says "tell me a different story." Each of these has a "right" recovery and a "wrong" recovery, and which one your prompt produces is *not visible* until you look at all 11 cases together.
+
+So we built [an 11-case golden set](./agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark/) and made it a regression gate:
 
 ```bash
 cd agora-voice-demo
-pnpm install
-cp env.local.example .env.local           # 填上 Agora App ID + Cert + GOOGLE_API_KEY
-pnpm run dev                              # http://localhost:3000/tutor
-```
-
-详情见 [agora-voice-demo/README.md](agora-voice-demo/README.md) 和 [agora-voice-demo/AGENTS.md](agora-voice-demo/AGENTS.md)。
-
----
-
-## 文档
-
-- 项目愿景 / PRD: [docs/proactive_engine_README.md](docs/proactive_engine_README.md)
-- Remotion 端说明: [docs/video_story_README.md](docs/video_story_README.md)
-- 实施计划: [docs/plans/](docs/plans/)
-- 实验 + 数据 + 结论: [docs/experiments/](docs/experiments/)
-  - `2026-05-27-e1-agora-narration-control` — Agora 主动叙述 control
-  - `2026-05-28-e1.5-gemini-model-pick` — Gemini 模型选型
-  - `2026-05-28-qa-resume-benchmark` — QA & 续讲回归基准（**11 个 case，用于回归门**）
-
----
-
-## 测试 + 类型检查
-
-```bash
-cd agora-voice-demo
-pnpm run typecheck                       # tsc --noEmit
-pnpm test                                # vitest，80 个 unit test
-pnpm run verify                          # 完整管线 (typecheck + api contract + build)
-```
-
-QA 回归基准（每次改 [agora-voice-demo/lib/orchestrator/index.ts](agora-voice-demo/lib/orchestrator/index.ts) 的 `DEFAULT_PERSONA` 或 [agora-voice-demo/lib/orchestrator/resume-planner.ts](agora-voice-demo/lib/orchestrator/resume-planner.ts) 的 `SYSTEM` 之前跑一次）：
-
-```bash
-cd agora-voice-demo
-pnpm tsx scripts/qa-bench/extract-baseline.ts
+pnpm tsx scripts/qa-bench/extract-baseline.ts            # pull LIVE prompts from prod code
 pnpm tsx scripts/qa-bench/run.ts \
   --prompts docs/experiments/2026-05-28-qa-resume-benchmark/prompts/baseline.json \
   --out docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-$(date +%Y%m%d).json
 ```
 
-详见 [agora-voice-demo/scripts/qa-bench/README.md](agora-voice-demo/scripts/qa-bench/README.md)。
+~25 seconds on Gemini. Reads `.env.local` from the parent dir automatically.
 
----
+There's also a stricter E2E variant that hits the **prod** planner (not a parameterized bench copy) and applies mechanical rubrics — substring presence/absence + expected resume strategy + a Han-character detector on `bridge_text`. That's the regression that fixed itself this morning:
 
-## License
+```bash
+pnpm tsx scripts/qa-bench/e2e-interrupt.ts                # default smoke set: C1, C2a, C2b, C3
+pnpm tsx scripts/qa-bench/e2e-interrupt.ts --only C1      # debug one case
+pnpm tsx scripts/qa-bench/e2e-interrupt.ts --all          # full sweep
+```
 
-MIT — 见 [LICENSE](LICENSE)。
+The bench is the reason we trust "we changed the persona prompt" before a demo, instead of crossing our fingers and reading the conversation logs after.
 
-agora-voice-demo 子项目最初 fork 自 [AgoraIO-Conversational-AI/agent-quickstart-nextjs](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs)（MIT），已重度定制为故事书 tutor。
+## 🗂️ What's in the repo
+
+```
+talkalong/
+├── src/                          # Half 1 — Remotion: image → ~10s breathing storybook video
+│   ├── BookPage.tsx              # main composition (line draw + color fade-in + breathing)
+│   ├── preprocess.ts             # one image → lineart SVG + color layer
+│   └── Root.tsx
+│
+├── agora-voice-demo/             # Half 2 — Next.js + Agora voice tutor (separate pnpm project)
+│   ├── lib/orchestrator/         # 🧠 the moat — state machine, resume planner, progress state
+│   │   ├── index.ts              # session lifecycle (NARRATING → INTERRUPTED → QA → RESUMING)
+│   │   ├── resume-planner.ts     # LLM-emits {strategy, bridge, replacement_segments[]}
+│   │   ├── narrator.ts           # drives segments through Agora's text-injection channel
+│   │   └── progress-state.ts     # covered_points[], remaining_points[], qa_history
+│   ├── lib/lesson/               # content layer: user input → 5-scene script + Gemini illustrations
+│   ├── app/api/tutor/            # SSE narration + qa-ended routes
+│   ├── components/tutor/         # storybook UI (image carousel + transcript)
+│   └── scripts/qa-bench/         # 🧪 11-case regression bench + E2E interrupt harness
+│
+├── docs/
+│   ├── proactive_engine_README.md     # full PRD — the engine's design philosophy
+│   ├── video_story_README.md          # Remotion side deep dive
+│   ├── plans/                         # build plans
+│   ├── experiments/                   # A/B experiments with data + conclusions
+│   └── screenshots/
+│
+└── public/                       # Remotion-side input images
+```
+
+The two halves are **independent** npm/pnpm projects (different package managers on purpose — Remotion plays better with npm, the Next.js side with pnpm). They share `docs/` as a common brain but neither depends on the other; you can run the storybook video pipeline without ever touching the voice tutor, and vice versa.
+
+## 🚀 Quick start
+
+### A — The voice tutor (the interactive AI engine)
+
+```bash
+cd agora-voice-demo
+pnpm install
+cp env.local.example .env.local           # fill in: Agora App ID + Cert + GOOGLE_API_KEY
+pnpm run dev                               # → http://localhost:3000/tutor
+```
+
+What you'll see: a storybook input screen, then a live tutor that reads a 5-scene story aloud, pauses for elicitation, and accepts mid-story interrupts. Talk to it; it should answer in narrator voice and rejoin the storyline.
+
+Deeper docs:
+- Subproject README: [agora-voice-demo/README.md](agora-voice-demo/README.md)
+- Engine architecture: [docs/proactive_engine_README.md](docs/proactive_engine_README.md) (the PRD — the full design philosophy)
+- Agent contracts: [agora-voice-demo/AGENTS.md](agora-voice-demo/AGENTS.md)
+
+### B — The breathing storybook video (Remotion side)
+
+```bash
+npm install                                # first run downloads Chromium (~1–2 min)
+npm run generate                           # = preprocess demo_img.jpeg + render
+open out/video.mp4
+```
+
+Bring your own picture:
+
+```bash
+cp /path/to/picture.jpg .
+npm run preprocess -- picture.jpg
+npm run render
+```
+
+Interactive preview (tweak seed/timeline in the browser):
+
+```bash
+npm run preview                            # opens Remotion Studio
+```
+
+Deeper: [docs/video_story_README.md](docs/video_story_README.md).
+
+## ✅ Verification
+
+```bash
+cd agora-voice-demo
+pnpm run typecheck                         # tsc --noEmit
+pnpm test                                  # vitest — 80 unit tests, ~3s
+pnpm run verify                            # full: typecheck + API contract + build
+pnpm tsx scripts/qa-bench/e2e-interrupt.ts # 4-case smoke against PROD planner
+```
+
+If you're about to change the persona prompt in [`lib/orchestrator/index.ts`](agora-voice-demo/lib/orchestrator/index.ts) or the `SYSTEM` constant in [`lib/orchestrator/resume-planner.ts`](agora-voice-demo/lib/orchestrator/resume-planner.ts), **run the bench first**. That's the discipline.
+
+## 📚 Experiments + data + conclusions
+
+Every non-obvious decision has a frame, data, and a conclusion doc:
+
+- [`docs/experiments/2026-05-27-e1-agora-narration-control`](docs/experiments/2026-05-27-e1-agora-narration-control) — Agora-driven proactive narration as the control arm
+- [`docs/experiments/2026-05-28-e1.5-gemini-model-pick`](docs/experiments/2026-05-28-e1.5-gemini-model-pick) — Gemini model selection for the lesson generator
+- [`docs/experiments/2026-05-28-greeting-debug`](docs/experiments/2026-05-28-greeting-debug) — why "Got it — let me read this through" leaked into the storybook narration (3 independent bugs, all root-caused not A/B'd)
+- [`agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark`](agora-voice-demo/docs/experiments/2026-05-28-qa-resume-benchmark) — **the 11-case QA-resume regression bench**, with iter1/iter2/iter3 data and the locked rubric per case
+
+## ❓ FAQ
+
+**Why is the demo a children's storybook and not, say, a paper walkthrough?**
+The PRD's primary target was a paper walkthrough (clearest main-line structure, sharpest pain point — researchers reading dense PDFs need this more than kids need bedtime stories). The storybook ended up shipping first because it's the **highest-stakes correctness setting**: you cannot fake continuity in front of a 6-year-old. If the engine handles "wait why is the bark silver, also switch to Chinese, and where's the fox now?" it handles anything. Same engine, different content layer.
+
+**Doesn't Agora already do this?**
+Agora does voice I/O — TTS, STT, interrupt, turn detection, the latency budget. Agora explicitly does **not** do: structuring content into a teachable script, maintaining main-line progress state, deciding when a Q&A is semantically over, or incrementally re-scripting after an interrupt. That's the brain. We rent the mouth and ears.
+
+**Why same agent channel for narration AND Q&A?**
+See ["Why same agent channel was the unlock"](#%EF%B8%8F-why-same-agent-channel-was-the-unlock). Short version: two channels means two interrupt pipelines and a voice-character swap mid-conversation. Same channel + v2.6 text-injection means narration is just "agent output we pushed" and Q&A is "agent output it generated" — Agora can't tell them apart, so neither can the listener.
+
+**Why 11 bench cases and not 50?**
+Each case is a distinct interrupt class with a locked rubric. Adding case 12 means writing case 12's "right recovery" by hand — you can't fuzz this; the judge is structural, not stylistic. We grew the set when we *shipped a bug the existing cases didn't catch* (case C1 — language-mirroring — was added the day we caught the regression in prod). The bench is hand-grown the same way a unit test suite is.
+
+**Why doesn't talkalong auto-pick the persona prompt?**
+A prompt the system tunes against its own bench is a prompt that drifts toward the bench. We use the bench as a **regression gate**, not an optimizer — humans propose the prompt change, the bench tells us if anything broke. See the discipline in [`scripts/qa-bench/README.md`](agora-voice-demo/scripts/qa-bench/README.md).
+
+**Can I use a different voice provider?**
+Yes — the orchestrator only depends on (a) text-injection into a live channel and (b) voice-based auto-interrupt. Any provider that exposes both will work; we currently use Agora because their v2.6 SDK is the only one that ships both today.
+
+**Can I use this for non-storybook content?**
+Yes — that's the whole point. The orchestration layer is content-agnostic; only [`agora-voice-demo/lib/lesson/`](agora-voice-demo/lib/lesson) is storybook-specific (5-scene structure, illustration generation, age-8-12 voice). Replace it with a paper-segmenter, doc-segmenter, or museum-tour-segmenter and the engine carries.
+
+## 📄 License
+
+[MIT](./LICENSE)
+
+The `agora-voice-demo/` subproject was originally forked from [AgoraIO-Conversational-AI/agent-quickstart-nextjs](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs) (MIT) and has been heavily customized into the proactive-tutor orchestrator described above.
