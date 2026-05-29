@@ -50,6 +50,24 @@ describe('engine — elicit', () => {
     expect(t.flags.elicitation_enabled).toBe(false);
     expect(t.coverage.skipped_policy).toContain('q1');
   });
+  it('recovers a wrong-then-corrigible learner via remediate (re-teach) → covered', async () => {
+    const act = new TranscriptActuator();
+    const listener = new ScriptedListener([
+      { kind: 'text', text: 'um, it changes the colors?' },          // wrong
+      { kind: 'text', text: 'it turns a feature on or off without redeploying' }, // right, after re-teach
+    ]);
+    // classify(answer), decide(remediate+text), classify(answer), decide(accept)
+    const llm = fakeLlm([
+      '{"kind":"answer"}', '{"action":"remediate","text":"A feature flag is a switch that enables/disables a feature without a redeploy."}',
+      '{"kind":"answer"}', '{"action":"accept"}',
+    ]);
+    const teach = { id: 'teach', title: 't', segments: [
+      { id: 'q1', kind: 'elicit' as const, question: 'What does a feature flag do?', target: 'on/off without redeploy', load_bearing: true },
+    ]};
+    const t = await runAgenda(teach, act, listener, llm, { maxAttempts: 3 });
+    expect(t.coverage.covered).toContain('q1');                       // learner recovered
+    expect(act.spoken.join(' ')).toMatch(/without a redeploy/);       // the re-teach was spoken
+  });
   it('terminates under an unbounded HOW stream (does not hang)', async () => {
     const act = new TranscriptActuator();
     const listener = new AlwaysListener({ kind: 'text', text: 'slower please' });

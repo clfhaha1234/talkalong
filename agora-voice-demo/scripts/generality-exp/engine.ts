@@ -53,6 +53,7 @@ export async function runAgenda(
       attempts++;
       if (d.action === 'accept') { coverage.covered.push(seg.id); done = true; }
       else if (d.action === 'follow_up') { await say(d.text ?? 'Could you say a bit more?', seg.id); }
+      else if (d.action === 'remediate') { await say(d.text ?? 'Let me explain that differently.', seg.id); }
       else { await say("That's alright — let's move on.", seg.id); coverage.given_up.push(seg.id); done = true; }
     }
   }

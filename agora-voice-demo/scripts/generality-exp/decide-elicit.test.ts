@@ -21,4 +21,10 @@ describe('decideElicitTurn', () => {
     const d = await decideElicitTurn({ segment: seg, answer: null, attempts: 2, maxAttempts: 2 }, llm);
     expect(d.action).toBe('give_up'); // cap overrides the model
   });
+  it('remediates (re-explains) on a wrong answer that shows misunderstanding', async () => {
+    const llm = fakeLlm(['{"action":"remediate","text":"A feature flag is a switch that turns a feature on/off without redeploying."}']);
+    const d = await decideElicitTurn({ segment: seg, answer: 'it changes the colors', attempts: 0 }, llm);
+    expect(d.action).toBe('remediate');
+    expect(d.text).toMatch(/switch/);
+  });
 });
