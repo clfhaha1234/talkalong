@@ -250,6 +250,14 @@ async function main() {
     const triggerIdx = fixture.scenes.findIndex((s) => s.id === c.trigger_scene);
     const pausedScene = fixture.scenes[triggerIdx];
     const nextScenes = fixture.scenes.slice(triggerIdx + 1, triggerIdx + 3);
+    // Mirror the prod climax-leak fix (handleQaEnded): the story's FINAL scene is
+    // handed to the planner as only its first sentence, so it can't leak the ending.
+    const lastIdx = fixture.scenes.length - 1;
+    const nextForPlanner = nextScenes.map((s) =>
+      fixture.scenes.findIndex((x) => x.id === s.id) === lastIdx
+        ? { id: s.id, text: s.text.split(/(?<=[.!?])\s/)[0] ?? s.text }
+        : { id: s.id, text: s.text },
+    );
 
     process.stdout.write(`\n  ${c.id} (${c.label})\n`);
     let qaAnswer = '';
@@ -265,7 +273,7 @@ async function main() {
         story_title: fixture.story_title,
         paused_scene: { id: pausedScene.id, text: pausedScene.text },
         paused_scene_progress: c.paused_pct,
-        next_scenes: nextScenes.map((s) => ({ id: s.id, text: s.text })),
+        next_scenes: nextForPlanner,
         qa_history: [
           { role: 'user', text: c.qa_question },
           { role: 'agent', text: qaAnswer },

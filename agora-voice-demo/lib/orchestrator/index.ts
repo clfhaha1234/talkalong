@@ -276,6 +276,16 @@ async function buildTutorHandle(args: {
     const pausedSeg = pausedIdx >= 0 ? allSegs[pausedIdx] : allSegs[0];
     const actualPausedIdx = pausedIdx >= 0 ? pausedIdx : 0;
     const nextSegs = allSegs.slice(actualPausedIdx + 1, actualPausedIdx + 3);
+    // Climax-leak fix (experiment 2026-05-29-climax-leak): when the story's FINAL
+    // scene is in the planner's lookahead, hand it only the first sentence. The
+    // planner needs enough to transition toward the ending, but giving it the full
+    // resolution text makes it intermittently leak the outcome into a climax resume
+    // (the C7 failure). Redacting the ending closed C7 0/3 → 3/3 with no regression.
+    const lastSegIdx = allSegs.length - 1;
+    const redactEndingText = (s: Segment): string =>
+      allSegs.findIndex((x) => x.id === s.id) === lastSegIdx
+        ? (s.text.split(/(?<=[.!?])\s/)[0] ?? s.text)
+        : s.text;
 
     const llm = createGeminiCompletion({
       apiKey: process.env.GOOGLE_API_KEY ?? '',
@@ -287,7 +297,7 @@ async function buildTutorHandle(args: {
         story_title: '',
         paused_scene: { id: pausedSeg.id, text: pausedSeg.text },
         paused_scene_progress: pausedScenePct,
-        next_scenes: nextSegs.map((s) => ({ id: s.id, text: s.text })),
+        next_scenes: nextSegs.map((s) => ({ id: s.id, text: redactEndingText(s) })),
         qa_history: progress.snapshot().branch_line.qa_history.map((t) => ({
           role: t.role,
           text: t.text,

@@ -63,6 +63,8 @@ function parseArgs(): {
   trials: number;
   qaModel: string;
   casesPath?: string;
+  plannerModel?: string;
+  redactEnding: boolean;
 } {
   const args = process.argv.slice(2);
   const get = (k: string) => {
@@ -77,10 +79,14 @@ function parseArgs(): {
   const qaModel = get('--qa-model') ?? 'gemini';
   // --cases overrides the case set (rubric + questions); fixture is always shared.
   const casesPath = get('--cases');
+  // R3 arms: --planner-model overrides the planner LLM; --redact-ending truncates
+  // the story's FINAL scene in the planner's lookahead so it can't leak the ending.
+  const plannerModel = get('--planner-model');
+  const redactEnding = args.includes('--redact-ending');
   if (!prompts || !out) {
-    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>] [--cases <path>]');
+    throw new Error('usage: --prompts <path> --out <path> [--only id1,id2] [--trials N] [--qa-model gemini|openai:<model>] [--cases <path>] [--planner-model <id>] [--redact-ending]');
   }
-  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel, casesPath };
+  return { prompts, out, only, trials: Number.isFinite(trials) && trials > 0 ? trials : 1, qaModel, casesPath, plannerModel, redactEnding };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -113,6 +119,7 @@ async function runOneCase(
   qaLlm: ReturnType<typeof createGeminiCompletion>,
   plannerLlm: ReturnType<typeof createGeminiCompletion>,
   trial: number,
+  redactEnding: boolean,
 ): Promise<CaseResult> {
   const triggerIdx = fixture.scenes.findIndex((s) => s.id === c.trigger_scene);
   if (triggerIdx < 0) throw new Error(`unknown trigger_scene in case ${c.id}: ${c.trigger_scene}`);
@@ -132,11 +139,21 @@ async function runOneCase(
   // Step 2: call the resume planner.
   const pausedScene = fixture.scenes[triggerIdx];
   const nextScenes = fixture.scenes.slice(triggerIdx + 1, triggerIdx + 3);
+  const lastIdx = fixture.scenes.length - 1;
   const plannerInput = {
     story_title: fixture.story_title,
     paused_scene: { id: pausedScene.id, text: pausedScene.text },
     paused_scene_progress: c.paused_pct,
-    next_scenes: nextScenes.map((s) => ({ id: s.id, text: s.text })),
+    next_scenes: nextScenes.map((s) => {
+      // ARM A (workflow): redact the story's FINAL scene in lookahead — give only
+      // its first sentence so the planner can transition toward the ending without
+      // being handed (and leaking) its outcome.
+      if (redactEnding && fixture.scenes.findIndex((x) => x.id === s.id) === lastIdx) {
+        const firstSentence = s.text.split(/(?<=[.!?])\s/)[0] ?? s.text;
+        return { id: s.id, text: firstSentence };
+      }
+      return { id: s.id, text: s.text };
+    }),
     qa_history: [
       { role: 'user' as const, text: c.qa_question },
       { role: 'agent' as const, text: qaAnswer },
@@ -172,7 +189,7 @@ async function runOneCase(
 }
 
 async function main() {
-  const { prompts: promptsPath, out: outPath, only, trials, qaModel, casesPath } = parseArgs();
+  const { prompts: promptsPath, out: outPath, only, trials, qaModel, casesPath, plannerModel, redactEnding } = parseArgs();
   const fixture = JSON.parse(readFileSync(join(expDir, 'fixture.json'), 'utf8')) as Fixture;
   const cases = JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[];
   const promptsFile = JSON.parse(readFileSync(promptsPath, 'utf8')) as PromptsFile;
@@ -180,9 +197,11 @@ async function main() {
   if (selected.length === 0) throw new Error('no cases selected');
 
   // Planner ALWAYS runs on Gemini (matches prod server-side reality).
+  // --planner-model overrides the model (R3 arm B); defaults to the prod model.
+  const plannerModelId = plannerModel ?? env.geminiModel;
   const plannerLlm = createGeminiCompletion({
     apiKey: env.geminiApiKey,
-    model: env.geminiModel,
+    model: plannerModelId,
     temperature: 0.7,
     maxTokens: 1024,
   });
@@ -215,14 +234,14 @@ async function main() {
     throw new Error(`unknown --qa-model: ${qaModel} (use "gemini", "openai:<model>", or "anthropic:<model>")`);
   }
 
-  console.log(`[bench] qa_model=${qaModelLabel} planner_model=${env.geminiModel} cases=${selected.length} trials=${trials} prompts=${promptsPath}`);
+  console.log(`[bench] qa_model=${qaModelLabel} planner_model=${plannerModelId}${redactEnding ? ' redact_ending=on' : ''} cases=${selected.length} trials=${trials} prompts=${promptsPath}`);
 
   const results: CaseResult[] = [];
   for (const c of selected) {
     for (let t = 1; t <= trials; t++) {
       const label = `${c.id}${trials > 1 ? `/t${t}` : ''}`;
       process.stdout.write(`  - ${label} (${c.label})... `);
-      const r = await runOneCase(c, fixture, promptsFile.persona, promptsFile.planner_system, qaLlm, plannerLlm, t);
+      const r = await runOneCase(c, fixture, promptsFile.persona, promptsFile.planner_system, qaLlm, plannerLlm, t, redactEnding);
       results.push(r);
       const tag = `${r.planner_source}/${(r.planner_plan as { resume_strategy: string }).resume_strategy}`;
       console.log(`qa=${r.qa_latency_ms}ms planner=${r.planner_latency_ms}ms ${tag}`);

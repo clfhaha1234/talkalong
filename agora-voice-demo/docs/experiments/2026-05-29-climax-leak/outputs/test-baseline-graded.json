@@ -1,0 +1,346 @@
+{
+  "graded_at": "2026-05-29T15:36:06.802Z",
+  "in_path": "docs/experiments/2026-05-29-climax-leak/outputs/test-baseline.json",
+  "judge_model": "gemini-3.5-flash",
+  "n_cases": 6,
+  "n_pass": 5,
+  "n_fail": 1,
+  "cases": [
+    {
+      "case_id": "T13",
+      "label": "climax-outcome-question",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"glow steadied\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"hummed along\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"humming along\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"the queen's glow\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT state whether the queen lives or dies / how it ends",
+          "pass": true,
+          "reason": "The answer keeps the outcome a secret, stating the listener must listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is reassuring without lying, and points us onward",
+          "pass": true,
+          "reason": "It is gently reassuring, truthful about the mystery, and directs the listener to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly one compound sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text and replacement_segments do NOT reveal the s5 outcome (the glow steadying, Mosk humming along, the cure working)",
+          "pass": true,
+          "reason": "They describe the light flickering low and dimming, keeping the outcome unresolved."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T14",
+      "label": "climax-happy-ending-question",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"glow steadied\"",
+          "pass": false,
+          "reason": "LEAKED \"glow steadied\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"hummed along\"",
+          "pass": false,
+          "reason": "LEAKED \"hummed along\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"humming along\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT spoil the ending either way",
+          "pass": true,
+          "reason": "The answer keeps the ending a secret without giving anything away."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer keeps the suspense warmly",
+          "pass": true,
+          "reason": "It playfully calls the ending a secret and warmly invites them to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly one short sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT narrate the s5 resolution early",
+          "pass": true,
+          "reason": "The segments are in their correct, original narrative order."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T15",
+      "label": "refuse-offtopic-math-control",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"15\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"fifteen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT state the result ('15' / 'fifteen')",
+          "pass": true,
+          "reason": "The answer does not mention 15 or fifteen."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer redirects to the story",
+          "pass": true,
+          "reason": "It redirects attention back to where the fox is leading."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is a single sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner resumes with story content only — no arithmetic / number folded in",
+          "pass": true,
+          "reason": "The resume plan contains only story narrative with no math."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T16",
+      "label": "engage-already-revealed-control",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer engages directly (s4 revealed Mosk failed to bring her medicine one winter — does NOT deflect with 'a secret'/'listen on')",
+          "pass": true,
+          "reason": "Directly explains the light faded waiting for medicine, without deflecting."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer references that she was ill / he failed to bring medicine in time",
+          "pass": true,
+          "reason": "References she was weary and waiting for medicine that never came."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner continues without contradicting the revealed backstory",
+          "pass": true,
+          "reason": "The resume plan aligns perfectly with the established backstory and answer."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T17",
+      "label": "spoiler-defer-control",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"firefly\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"queen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT reveal the firefly / queen (s4 reveal)",
+          "pass": true,
+          "reason": "The answer does not mention the firefly or queen."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer keeps the mystery and points onward",
+          "pass": true,
+          "reason": "It calls the sound a secret and directs the listener to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly one short sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner does NOT reveal the firefly/queen early",
+          "pass": true,
+          "reason": "The resume plan does not mention the firefly or queen."
+        }
+      ],
+      "soft_notes": []
+    },
+    {
+      "case_id": "T18",
+      "label": "language-switch-to-chinese",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text is Chinese-dominant (CJK ratio > 0.5)",
+          "pass": true,
+          "reason": "cjk_ratio=1.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer agrees to switch / accepts (does not refuse)",
+          "pass": true,
+          "reason": "The tutor explicitly agrees by saying \"当然可以\" (Of course)."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer stays in warm narrator voice",
+          "pass": true,
+          "reason": "The tone is warm, gentle, and maintains the storytelling persona."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The spoken answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text and every replacement_segments[].text are in Chinese",
+          "pass": true,
+          "reason": "Both the bridge_text and the replacement segment are entirely in Chinese."
+        },
+        {
+          "kind": "judge",
+          "criterion": "story canon preserved — only the language switches",
+          "pass": true,
+          "reason": "The story details match the canon perfectly without introducing any spoilers."
+        }
+      ],
+      "soft_notes": []
+    }
+  ]
+}

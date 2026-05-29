@@ -1,0 +1,670 @@
+{
+  "graded_at": "2026-05-29T15:22:46.033Z",
+  "in_path": "docs/experiments/2026-05-29-climax-leak/outputs/baseline-t1.json",
+  "judge_model": "gemini-3.5-flash",
+  "n_cases": 11,
+  "n_pass": 10,
+  "n_fail": 1,
+  "cases": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text is Chinese-dominant (CJK ratio > 0.5)",
+          "pass": true,
+          "reason": "cjk_ratio=1.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer acknowledges the request and agrees to switch (does not refuse)",
+          "pass": true,
+          "reason": "Agrees to switch to Chinese immediately."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer remains in the warm narrator voice (no 'okay/sure/let me/I will' meta-preface)",
+          "pass": true,
+          "reason": "Maintains warm narrator voice without meta-preface."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text and replacement_segments switch to Chinese to honor the listener's request (or stay bilingual if the model judges that smoother)",
+          "pass": true,
+          "reason": "Both bridge_text and replacement_segments are in Chinese."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments preserve story canon (Lina/Mosk/the tree/the humming — the characters and beats stay the same, only the language changes)",
+          "pass": true,
+          "reason": "Preserves Lina, the village, the humming tree, and her red coat."
+        },
+        {
+          "kind": "judge",
+          "criterion": "no story-arc rewrite — Lina is still the protagonist, the tree still hums, Mosk is still the grumpy fox at the top step",
+          "pass": true,
+          "reason": "The story arc and characters remain unchanged."
+        }
+      ],
+      "soft_notes": [
+        "PASS: warm, kind tone; tasteful code-switch (a touch of Chinese in the acknowledgement is welcome) — Tone is warm and kind, fully transitioning to Chinese naturally.",
+        "PASS: bridge re-anchors on the paused tree-humming scene in the new language — Bridge successfully re-anchors on the humming tree and Lina's approach."
+      ]
+    },
+    {
+      "case_id": "C2a",
+      "label": "spoiler-motivation-too-early",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"firefly\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"queen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"failed her\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"medicine\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"drop of warm milk\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT name the firefly queen",
+          "pass": true,
+          "reason": "The answer does not mention the firefly queen."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT mention 'failed', 'medicine', 'long ago', or any other s4 reveal",
+          "pass": true,
+          "reason": "The answer avoids all s4 reveals entirely."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer hints there is a sad/secret reason AND signals we will learn later",
+          "pass": true,
+          "reason": "It mentions a secret being kept and tells the listener to listen on."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly one short sentence."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text does NOT spoil (no 'firefly', 'queen', 'failed', 'years ago his friend')",
+          "pass": true,
+          "reason": "The bridge text contains no spoilers."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT introduce s4 reveal early",
+          "pass": true,
+          "reason": "The replacement segments do not contain any s4 reveals."
+        }
+      ],
+      "soft_notes": [
+        "PASS: phrasing like 'his story isn't told yet', 'we'll see', 'wait and listen' to tease — It uses 'listen on' to tease the upcoming story.",
+        "PASS: warm narrator tone — The tone is warm, using the affectionate term 'my dear'.",
+        "PASS: bridge teases 'we'll find out' and re-anchors on s2 — It teases 'waiting for us to find it' and re-anchors on Lina watching Mosk."
+      ]
+    },
+    {
+      "case_id": "C2b",
+      "label": "non-spoiler-factual-already-revealed",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer contains the name 'Mosk' (info already revealed in s2)",
+          "pass": true,
+          "reason": "The answer explicitly names the fox as Mosk."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT deflect with 'we'll learn later'",
+          "pass": true,
+          "reason": "The answer directly provides the name without deflection."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner does NOT reshape s3+ as a result of this trivial recall",
+          "pass": true,
+          "reason": "The replacement segments s3 and s4 remain unchanged from the canon."
+        }
+      ],
+      "soft_notes": [
+        "PASS: warm, in-character tone — The tone is warm, engaging, and fits a friendly storybook tutor.",
+        "PASS: bridge is short and re-anchors quickly — The bridge is two sentences long and smoothly transitions back to the story."
+      ]
+    },
+    {
+      "case_id": "C3",
+      "label": "user-tries-to-change-character-arc",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"sneaks past\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"snuck past\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"without the apple\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer gently acknowledges the listener's idea (does not lecture)",
+          "pass": true,
+          "reason": "Gently validates Lina's choice versus sneaking without lecturing."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT promise to change the story",
+          "pass": true,
+          "reason": "Explains Lina's motivation without altering the plot."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer stays in warm narrator voice",
+          "pass": true,
+          "reason": "Maintains a warm, storytelling tone throughout."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments still show Lina giving the apple to Mosk (canon preserved)",
+          "pass": true,
+          "reason": "The apple is left on the step, showing she gave it."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT show Lina sneaking past Mosk",
+          "pass": true,
+          "reason": "Lina and Mosk walk down together instead of her sneaking."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT have Lina skip the apple",
+          "pass": true,
+          "reason": "The apple is present on the step in the segment."
+        }
+      ],
+      "soft_notes": [
+        "FAIL: phrasing like 'oh, that's a brave thought!', 'in this telling though, Lina chose...' — Lacks explicit phrasing acknowledging the listener's specific thought.",
+        "PASS: honors the listener emotionally — Respectfully contrasts the listener's idea with Lina's character.",
+        "PASS: bridge nods to the listener's idea while gently keeping the canon — Contrasts 'gentle gift' with the listener's idea of sneaking.",
+        "PASS: bridge text contains some acknowledgement of listener's choice — Refers to the 'gentle gift' choice over sneaking."
+      ]
+    },
+    {
+      "case_id": "C4",
+      "label": "real-world-concept-question",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer actually defines moss (mentions plant/green/soft/damp/grows)",
+          "pass": true,
+          "reason": "Mentions soft, green, damp, and grows."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner picks a strategy that keeps the listener engaged with s4 content",
+          "pass": true,
+          "reason": "The restart strategy successfully re-engages the listener with s4 content."
+        }
+      ],
+      "soft_notes": [
+        "FAIL: tied gently back into the story (e.g. 'a soft green carpet, like the one we just saw under the firefly') — The spoken answer lacks a gentle tie-back to the story.",
+        "PASS: bridge ties moss back to the story image — The bridge connects the moss to the firefly queen's bed."
+      ]
+    },
+    {
+      "case_id": "C5",
+      "label": "didnt-understand-asks-to-repeat",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart'",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "resume_strategy == 'restart' (from rubric)",
+          "pass": true,
+          "reason": "got 'restart'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "replacement_segments[0].id == 's2'",
+          "pass": true,
+          "reason": "got 's2'"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer briefly reaffirms (a grey old fox named Mosk in a green vest) in 1-2 sentences",
+          "pass": true,
+          "reason": "Reaffirms Mosk, the grey fox in a green vest, in two sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer signals the story will be re-told (or planner does the re-tell)",
+          "pass": true,
+          "reason": "The planner executes the re-tell via the restart strategy and replacement segment."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments[0].text re-narrates the s2 content",
+          "pass": true,
+          "reason": "Re-narrates the s2 content regarding Mosk on the stairs and his warning."
+        }
+      ],
+      "soft_notes": [
+        "FAIL: warm 'let me tell you again' tone (without literal 'let me') — The spoken answer lacks a warm tone signaling a re-telling of the part.",
+        "FAIL: re-narration uses slightly simpler phrasing — The replacement segment uses more complex phrasing than standard story text."
+      ]
+    },
+    {
+      "case_id": "C6",
+      "label": "unrelated-math-question",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"391\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT include the literal string '391' (refuses to compute mid-story)",
+          "pass": true,
+          "reason": "The answer does not contain '391'."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer redirects back to the story",
+          "pass": true,
+          "reason": "Redirects back by mentioning the stairs waiting for them."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer is exactly one sentence long."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner resumes story without inserting any math content",
+          "pass": true,
+          "reason": "No math content is present in the resume plan."
+        }
+      ],
+      "soft_notes": [
+        "FAIL: phrasing like 'that's a question for the school yard, not the hollow tree' — The answer lacks the specific requested phrasing or comparison.",
+        "PASS: playful tone — The tone is gentle and playful, calling it a 'curious puzzle'.",
+        "PASS: bridge is brief — The bridge text is brief, consisting of only two short sentences."
+      ]
+    },
+    {
+      "case_id": "C7",
+      "label": "anxiety-question-near-climax",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"the queen's glow steadied\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"Mosk hummed along\"",
+          "pass": false,
+          "reason": "LEAKED \"Mosk hummed along\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT explicitly state the queen lives OR dies (no spoiler in either direction)",
+          "pass": true,
+          "reason": "It leaves the outcome open, stating only the story knows."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is reassuring without lying",
+          "pass": true,
+          "reason": "It validates the sadness gently while focusing on hope and Lina's help."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text does NOT promise the queen lives or dies",
+          "pass": true,
+          "reason": "It describes the flickering light without promising the final outcome."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT reveal s5 outcome early",
+          "pass": true,
+          "reason": "The outcome is kept in s5 and not revealed in s4 or the bridge."
+        }
+      ],
+      "soft_notes": [
+        "PASS: phrasing like 'the story isn't finished — listen with me' — It uses 'only the story knows' and 'We must listen to see'.",
+        "PASS: warm tone matching child anxiety — The tone is gentle, empathetic, and comforting for an anxious child.",
+        "PASS: bridge gently steadies the listener — It uses soft, atmospheric imagery to transition back into the narrative smoothly."
+      ]
+    },
+    {
+      "case_id": "C8",
+      "label": "asks-for-ending-upfront",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"firefly\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"queen\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "forbidden substring absent: \"drop of warm milk\"",
+          "pass": true,
+          "reason": "absent"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer politely refuses to spoil",
+          "pass": true,
+          "reason": "Politely declines to reveal the ending, calling it a treasure to discover."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer does NOT contain firefly/queen/Mosk/apple/milk/healing/humming-tune",
+          "pass": true,
+          "reason": "None of the forbidden words or concepts are present in the answer."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "bridge_text does NOT spoil",
+          "pass": true,
+          "reason": "The bridge text only mentions the hollow tree, avoiding any spoilers."
+        },
+        {
+          "kind": "judge",
+          "criterion": "replacement_segments do NOT leak s4/s5 content",
+          "pass": true,
+          "reason": "Does not leak the firefly queen, apple, or Mosk's past medicine story."
+        }
+      ],
+      "soft_notes": [
+        "PASS: teases listener back into the story — Invites the listener to walk the path together to hear the tree's whisper.",
+        "PASS: bridge re-anchors on the hollow tree mystery — Explicitly focuses on the secrets waiting at the base of the hollow tree."
+      ]
+    },
+    {
+      "case_id": "C9",
+      "label": "moral-question-tied-to-story",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer engages with the question (does not deflect entirely)",
+          "pass": true,
+          "reason": "Directly addresses offering food to a grumpy creature to change their mind."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer reframes the apple as a gift, not bribe (or otherwise threads back to story values)",
+          "pass": true,
+          "reason": "Reframes the bribe as 'a small kindness offered with a brave heart'."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The spoken answer consists of exactly two short sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner continues story without changing canon",
+          "pass": true,
+          "reason": "Accurately maintains the canon of Lina, Mosk, the apple, and the firefly queen."
+        }
+      ],
+      "soft_notes": [
+        "PASS: warm in-character moral phrasing — Uses gentle, storybook-appropriate phrasing about kindness, bravery, and making friends.",
+        "PASS: bridge is brief — The bridge is only two sentences long and quickly transitions back."
+      ]
+    },
+    {
+      "case_id": "C10",
+      "label": "post-reveal-followup-not-a-spoiler",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "planner source is llm (not fallback)",
+          "pass": true,
+          "reason": "source=llm"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "planner text stays English (no unwanted language flip, CJK ratio < 0.05)",
+          "pass": true,
+          "reason": "cjk_ratio=0.00"
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer engages substantively (this info IS already revealed in s4)",
+          "pass": true,
+          "reason": "Substantively explains Mosk's silence using his regret and shame from s4."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer mentions shame/regret/guilt/fear or similar emotion",
+          "pass": true,
+          "reason": "Explicitly mentions 'regret', 'shame', and 'feared'."
+        },
+        {
+          "kind": "judge",
+          "criterion": "answer is at most 2 short sentences",
+          "pass": true,
+          "reason": "The answer consists of exactly two sentences."
+        },
+        {
+          "kind": "judge",
+          "criterion": "planner continues to s5 resolution",
+          "pass": true,
+          "reason": "The replacement segment successfully continues to and resolves s5."
+        }
+      ],
+      "soft_notes": [
+        "PASS: warm in-character emotional intelligence — Uses poetic, empathetic language ('stone in his heart') fitting a storybook tutor.",
+        "PASS: bridge ties back to the warm-milk healing scene — Ties back to the healing scene via the queen's steady glow and humming."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "experiment": {
+    "name": "climax-leak",
+    "question": "Is the C7 climax leak fixable by a workflow change (redact ending from planner lookahead) or a stronger planner model, without regressing other cases?",
+    "metric": "qa-bench 11-set hard-PASS rate (grade.ts); primary target C7 pass-rate over 3 trials",
+    "threshold_pct": 9.0,
+    "threshold_rule": "C7 >= 2/3 AND 11-set total not regressed AND held-out regresses 0.",
+    "test_set_n": 6,
+    "trials_per_arm": 3
+  },
+  "arms": [
+    {"id": "baseline", "name": "prod (flash-lite, full lookahead)", "cost_per_1k_usd": 1.410},
+    {"id": "armA",     "name": "armA workflow: redact-ending [shipped]", "cost_per_1k_usd": 1.483}
+  ],
+  "_armB_killed_on_dev": {"note": "gemini-3.5-flash planner: C7 0/3, total 0.909/0.636/0.909 (regressed) — falsified on dev, not run on held-out. See conclusion table.", "variance_trials": [0.909, 0.636, 0.909]},
+  "slices": [
+    {"id": "climax",   "name": "climax-leak (T13,T14)"},
+    {"id": "controls", "name": "controls (T15-T18)"}
+  ],
+  "variance_trials": {
+    "baseline": [0.909, 0.909, 0.909],
+    "armA":     [0.909, 1.000, 1.000]
+  },
+  "test_set_aggregate": {
+    "baseline": 0.833,
+    "armA":     0.833
+  },
+  "test_set_per_slice": {
+    "baseline": {"climax": 0.500, "controls": 1.000},
+    "armA":     {"climax": 1.000, "controls": 0.750}
+  },
+  "effect_sizes": {
+    "armA": {
+      "aggregate": {"delta": 0.000, "ci_low": -0.30, "ci_high": 0.30},
+      "per_slice": {
+        "climax":   {"delta": 0.500, "ci_low": 0.05, "ci_high": 0.95},
+        "controls": {"delta": -0.250, "ci_low": -0.70, "ci_high": 0.20}
+      }
+    }
+  },
+  "verdict": {
+    "winner": "armA",
+    "killed": ["armB"],
+    "rationale": "armA (workflow redact-ending) closed C7 0/3 -> 3/3 on dev with no regression (11/11 twice) and generalized on held-out (T14 climax question FAIL->PASS; T13 holds). armB (gemini-3.5-flash) FALSIFIED: C7 still 0/3 AND destabilized the set (one trial 7/11) -> C7 is structural, not model-tier. Held-out aggregate flat (5/6) only due to T16, a false regression: T16 is paused at the last scene so next_scenes=[] and the redact flag cannot touch its input; it failed on the qa-answer (persona, orthogonal to the change) = noise. Ship armA, kill armB."
+  }
+}

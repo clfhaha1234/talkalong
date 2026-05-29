@@ -147,7 +147,9 @@ The bench is the reason we trust "we changed the persona prompt" before a demo, 
 - [2026-05-29 interrupt-smoothness](./agora-voice-demo/docs/experiments/2026-05-29-interrupt-smoothness/) — **persona** side, dev **7.7/11 → 9.7/11**: refuse-to-compute (stop solving a kid's math mid-story) + engage-if-already-revealed (stop deflecting on a reason the story already told). Generalized to held-out.
 - [2026-05-29 planner-residuals](./agora-voice-demo/docs/experiments/2026-05-29-planner-residuals/) — **planner** side, dev **9.7/11 → 10/11** + T1–T6 4/6 → 5/6: don't fold the kid's off-topic question into the narration, and restart (not continue) when the kid says "I'm lost." The no-echo fix generalized to a fresh held-out math case.
 
-Resume-to-main-line latency stays **~1.34 s** across both. Remaining residual: an intermittent end-of-story phrase leak near the climax (C7) — documented, not yet closed.
+- [2026-05-29 climax-leak](./agora-voice-demo/docs/experiments/2026-05-29-climax-leak/) — **workflow** fix for the last residual: near the climax the planner was being *handed the ending scene's full text* and intermittently leaked it (C7). Redacting the final scene in the planner's lookahead to its first sentence closed **C7 0/3 → 3/3** (hit 11/11 twice) and generalized to a held-out climax question. A stronger planner model (gemini-3.5-flash) was tested as the rival arm and **falsified** — it didn't fix C7 and destabilized the set, proving the leak was structural, not model-tier.
+
+Resume-to-main-line latency stays **~1.4 s** throughout. The prod e2e interrupt sweep now passes **9/10 (+1 semantic-skip), C7 included**; the lone remaining mechanical miss (C4) is a benchmark-rubric substring artifact, not a model failure.
 
 ## 🗂️ What's in the repo
 
