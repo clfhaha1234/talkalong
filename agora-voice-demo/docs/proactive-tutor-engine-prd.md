@@ -1,8 +1,8 @@
 # Proactive Tutor Engine — PRD v0.3 (Architecture Locked)
 
-> **For Claude:** PRD with locked architecture decision. Phase-0 experiment data backs the lock — see [`docs/experiments/2026-05-27-e1-agora-narration-control/conclusion.md`](../experiments/2026-05-27-e1-agora-narration-control/conclusion.md) for the verdict. Implementation can begin from §10.
+> **For Claude:** PRD with locked architecture decision. Phase-0 experiment data backs the lock — see [`docs/experiments/2026-05-27-e1-agora-narration-control/conclusion.md`](experiments/2026-05-27-e1-agora-narration-control/conclusion.md) for the verdict. Implementation can begin from §10.
 >
-> **Predecessors:** Supersedes `proactive_engine_README.md` (v0.1) and `docs/plans/2026-05-27-proactive-tutor-engine-prd.md` v0.2 (which reopened the architecture question). v0.3 locks it.
+> **Predecessors:** Supersedes [`legacy/proactive-tutor-engine-prd-v0.1.md`](legacy/proactive-tutor-engine-prd-v0.1.md) (originally `proactive_engine_README.md` at repo root) and an interim v0.2 (which reopened the architecture question). v0.3 locks it.
 
 **Working name:** Talkthrough
 **One-liner:** Turn any reading material into a living tutor that *proactively narrates with illustrations and video*, can be *interrupted mid-sentence for real-time voice Q&A*, and *gracefully resumes* without losing its place.
@@ -549,7 +549,7 @@ These are questions we **don't decide in this PRD** because answering them requi
 >
 > | Exp | Status | Outcome |
 > |---|---|---|
-> | E1 — Text-injection round-trip + barge-in fidelity | **✓ DONE** | Arm 1 wins, 98.7 % test pass-rate, C1 mean 213 ms, C2 mean 192 ms. See [conclusion](../experiments/2026-05-27-e1-agora-narration-control/conclusion.md). |
+> | E1 — Text-injection round-trip + barge-in fidelity | **✓ DONE** | Arm 1 wins, 98.7 % test pass-rate, C1 mean 213 ms, C2 mean 192 ms. See [conclusion](experiments/2026-05-27-e1-agora-narration-control/conclusion.md). |
 > | E2 — Q&A latency on Option A vs Option B | **DEFERRED** | Requires server-side user-message injection. The `agora-agent-server-sdk`'s `AgentsClient` exposes only `start/list/get/getHistory/getTurns/stop/update/speak/interrupt` — no chat injection. Realistic implementation: Playwright with `--use-fake-device-for-media-stream` + a tiny page running `AgoraVoiceAI`. **Estimated cost: 4-8 hours of new harness work.** Not required for architecture lock since narration (E1) is locked and Q&A naturally uses Agora's native loop; only matters when picking between Agora-resold OpenAI vs BYOK Gemini at scale. |
 > | E3 — Mode discipline (Option B sanity) | **DEFERRED** | Same blocker as E2. Lower priority now that Option C is locked — Option B is no longer required for narration; mode-discipline matters only if we ever want to swap Q&A mechanism via `/update` (currently we don't plan to). |
 > | E4 — Resume bridge timing | DEFERRED until orchestrator scaffold exists | Integration-phase work; not architecture work. |

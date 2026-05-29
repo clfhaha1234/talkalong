@@ -7,8 +7,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Resolve repo root: scripts/e1/aggregate.ts -> ../../..
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+// Resolve subproject root: scripts/e1/aggregate.ts -> ../..
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const EXPERIMENT_DIR = join(repoRoot, 'docs/experiments/2026-05-27-e1-agora-narration-control');
 const DATA_DIR = join(EXPERIMENT_DIR, 'data');
 

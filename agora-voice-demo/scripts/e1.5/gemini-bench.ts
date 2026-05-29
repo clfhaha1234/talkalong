@@ -178,8 +178,8 @@ async function main() {
     }
   }
 
-  // Resolve repo root: scripts/e1.5/gemini-bench.ts -> ../../..
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+  // Resolve subproject root: scripts/e1.5/gemini-bench.ts -> ../..
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const outPath = join(
     repoRoot,
     'docs/experiments/2026-05-28-e1.5-gemini-model-pick/data',

@@ -3,7 +3,7 @@
 > **Status:** Pre-registered. Locked before any data collection.
 > **Date:** 2026-05-27
 > **Owner:** Lifei
-> **Parent PRD:** [`docs/plans/2026-05-27-proactive-tutor-engine-prd.md`](../../plans/2026-05-27-proactive-tutor-engine-prd.md) §9.E1
+> **Parent PRD:** [`docs/proactive-tutor-engine-prd.md`](../../proactive-tutor-engine-prd.md) §9.E1
 > **Skill used:** auto-lab
 > **Compute budget:** ~1 day end-to-end. ≤3 Phase-4 iterations.
 
