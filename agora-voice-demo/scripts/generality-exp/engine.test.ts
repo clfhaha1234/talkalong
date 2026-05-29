@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { runAgenda } from './engine';
 import { TranscriptActuator, ScriptedListener, fakeLlm } from './testing';
-import type { Agenda } from './types';
+import type { Agenda, Listener, UserTurn } from './types';
+
+class AlwaysListener implements Listener {
+  constructor(private turn: UserTurn) {}
+  async nextUserTurn(): Promise<UserTurn> { return this.turn; }
+}
 
 const deliverOnly: Agenda = { id: 'story', title: 'Story', segments: [
   { id: 's1', kind: 'deliver', text: 'Lina crept toward the tree.', load_bearing: true },
@@ -44,5 +49,12 @@ describe('engine — elicit', () => {
     const t = await runAgenda(elicitOnly, act, listener, llm, {});
     expect(t.flags.elicitation_enabled).toBe(false);
     expect(t.coverage.skipped_policy).toContain('q1');
+  });
+  it('terminates under an unbounded HOW stream (does not hang)', async () => {
+    const act = new TranscriptActuator();
+    const listener = new AlwaysListener({ kind: 'text', text: 'slower please' });
+    const llm = fakeLlm(['{"kind":"how","directive":{"type":"set_pace","value":"slow"}}']); // forever
+    const t = await runAgenda(elicitOnly, act, listener, llm, { maxTurns: 8 });
+    expect(t.coverage.given_up).toContain('q1'); // ceiling fired → graceful give-up
   });
 });

@@ -16,7 +16,7 @@ function applyDirective(flags: PolicyFlags, d: { type: string; value?: string })
 
 export async function runAgenda(
   agenda: Agenda, actuator: Actuator, listener: Listener,
-  llm: (p: string) => Promise<string>, opts: { maxAttempts?: number },
+  llm: (p: string) => Promise<string>, opts: { maxAttempts?: number; maxTurns?: number },
 ): Promise<RunResult> {
   const flags: PolicyFlags = { elicitation_enabled: true, language: 'en', style: null };
   const transcript: TranscriptEntry[] = [];
@@ -29,7 +29,13 @@ export async function runAgenda(
     await say(seg.question, seg.id);
     let attempts = 0;
     let done = false;
+    let turns = 0;
     while (!done) {
+      if (++turns > (opts.maxTurns ?? 8)) {
+        await say("That's alright — let's move on.", seg.id);
+        coverage.given_up.push(seg.id);
+        break;
+      }
       const turn = await listener.nextUserTurn();
       let answer: string | null = null;
       if (turn.kind === 'text') {
@@ -40,14 +46,14 @@ export async function runAgenda(
           if (cls.directive.type === 'stop_eliciting') { coverage.skipped_policy.push(seg.id); done = true; break; }
           continue; // re-listen after a non-stop HOW change
         }
-        if (cls.kind === 'what') { await say('That keeps to the tale, friend — let us go on.'); continue; }
+        if (cls.kind === 'what') { await say('That keeps to the tale, friend — let us go on.', seg.id); continue; }
         answer = turn.text; // 'answer' or 'qa' → treat as an adequacy attempt
       }
       const d = await decideElicitTurn({ segment: seg, answer, attempts, maxAttempts: opts.maxAttempts }, llm);
       attempts++;
       if (d.action === 'accept') { coverage.covered.push(seg.id); done = true; }
       else if (d.action === 'follow_up') { await say(d.text ?? 'Could you say a bit more?', seg.id); }
-      else { await say("That's alright — let's move on."); coverage.given_up.push(seg.id); done = true; }
+      else { await say("That's alright — let's move on.", seg.id); coverage.given_up.push(seg.id); done = true; }
     }
   }
   return { transcript, flags, coverage };
