@@ -1,5 +1,5 @@
 {
-  "_comment": "10 QA-then-resume test cases. Rubric locked 2026-05-28 BEFORE any LLM run. trigger_scene = paused_scene_id. paused_pct = % of paused scene already spoken when interrupt arrived. qa_question = what listener said (verbatim). Hard rules decide PASS/FAIL; soft notes are bonus. forbidden / required arrays are substring checks (case-insensitive) against qa_answer + bridge_text + concatenated replacement_segments text.",
+  "_comment": "QA-then-resume test cases. Original 11 (C1-C10 incl. C2a/C2b) locked 2026-05-28 BEFORE any LLM run. Cases C11-C15 added 2026-05-29 to cover gaps: edge paused_pct boundaries, adversarial Mosk-arc spoiler probe (generalization test for C7-armA fix), listener-sadness empathy, narrator-identity meta-question. C11-C15 also exercise the opt-in deterministic gates 'qa_max_sentences' and 'qa_no_meta_preface' — those gates do NOT apply to C1-C10 (no rubric field set), so historical baseline pass-rates remain comparable. trigger_scene = paused_scene_id. paused_pct = % of paused scene already spoken when interrupt arrived. qa_question = what listener said (verbatim). Hard rules decide PASS/FAIL; soft notes are bonus. forbidden / required arrays are substring checks (case-insensitive) against qa_answer + bridge_text + concatenated replacement_segments text.",
   "cases": [
     {
       "id": "C1",
@@ -304,6 +304,157 @@
         ],
         "expected_strategy": "any",
         "required_in_qa_any_of": ["shame", "ashamed", "guilt", "guilty", "afraid", "scared", "couldn't face", "regret"]
+      }
+    },
+    {
+      "id": "C11",
+      "label": "edge-paused-pct-start-of-scene",
+      "source": "new",
+      "trigger_scene": "s3",
+      "paused_pct": 0.05,
+      "qa_question": "Wait, what's happening now? Where did we go?",
+      "_rationale": "Locked 2026-05-29. Tests the strategy-choice boundary at the START of a scene. Listener interrupted ~1 word into s3 — they barely heard anything new, so the planner SHOULD restart s3 cleanly (it costs nothing and clarifies). This is the structural mirror of C12 (end-of-scene). Different from C5: C5's signal is the listener saying 'say it again', here the signal is paused_pct itself.",
+      "rubric": {
+        "qa_hard": [
+          "answer briefly orients the listener back to s3 (mentions Mosk OR the door OR the fox in 1-2 sentences)",
+          "answer stays in warm narrator voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone is calm reassurance — 'we just stepped into the next part of the story' kind of phrasing"
+        ],
+        "planner_hard": [
+          "resume_strategy == 'restart' (s3 had barely started — restart is the cheap and correct choice)",
+          "replacement_segments[0].id == 's3'",
+          "replacement_segments do NOT skip ahead past s3"
+        ],
+        "planner_soft": [
+          "re-narration of s3 stays close to canon"
+        ],
+        "expected_strategy": "restart",
+        "required_in_qa_any_of": ["Mosk", "fox", "door", "stair"],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "C12",
+      "label": "edge-paused-pct-end-of-scene",
+      "source": "new",
+      "trigger_scene": "s2",
+      "paused_pct": 0.95,
+      "qa_question": "What did Lina mean by saying she couldn't forget what she hadn't yet heard?",
+      "_rationale": "Locked 2026-05-29. Tests the strategy-choice boundary at the END of a scene. Listener interrupted right as s2's final line landed — restarting s2 would re-narrate the entire scene the listener just heard, which is jarring. Planner should answer the question and advance toward s3 with a minimal bridge. Mirror of C11.",
+      "rubric": {
+        "qa_hard": [
+          "answer explains the line warmly — Lina's curiosity is stronger than the warning (in 1-2 sentences)",
+          "answer stays in warm narrator voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "the explanation lands in narrator-voice imagery rather than dry definition"
+        ],
+        "planner_hard": [
+          "resume_strategy is NOT 'restart' (s2 was already 95% spoken — restarting would re-narrate what the listener just heard)",
+          "replacement_segments[0].id == 's3' (advance to the next scene)",
+          "bridge_text is short (a one-line transition, not a full re-narration of s2)"
+        ],
+        "planner_soft": [
+          "bridge ties the explained line to the descending stairs of s3"
+        ],
+        "expected_strategy": "any",
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "C13",
+      "label": "adversarial-spoiler-mosk-arc",
+      "source": "new",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "Does Mosk become happy in the end?",
+      "_rationale": "Locked 2026-05-29. Tests generalization of C7-armA (redact-ending workflow fix) to a DIFFERENT spoiler axis. C7 covered firefly-queen plot outcome; this covers character-arc resolution (Mosk's emotional journey). If armA only suppressed firefly-specific phrases, C13 would still leak. The redact-ending logic should generalize because it cuts off the entire s5 lookahead irrespective of which spoiler axis the listener probes.",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT confirm OR deny Mosk's arc resolution",
+          "answer reassures without lying (e.g. 'his story isn't finished yet — listen with me')",
+          "answer stays in warm narrator voice"
+        ],
+        "qa_soft": [
+          "tone leaves room for the listener to keep wondering"
+        ],
+        "planner_hard": [
+          "bridge_text does NOT reveal Mosk's emotional resolution (no 'humming along', 'forgave himself', 'found peace')",
+          "replacement_segments do NOT leak s5 content"
+        ],
+        "planner_soft": [
+          "bridge keeps the listener anchored to the apple/stairs of s3"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["hummed along", "warm milk", "queen's glow", "yes he", "yes, he", "forgave himself"],
+        "forbidden_in_planner": ["hummed along", "queen's glow steadied", "drop of warm milk", "forgave himself"],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "C14",
+      "label": "listener-sadness-empathy",
+      "source": "new",
+      "trigger_scene": "s4",
+      "paused_pct": 0.7,
+      "qa_question": "This makes me sad. Can we stop here?",
+      "_rationale": "Locked 2026-05-29. Tests pedagogical empathy: not every interrupt is a Q&A — sometimes it's an emotional moment that needs acknowledgement before any flow control. Paused at s4 right after Mosk reveals his shame — emotionally heavy beat. Persona should acknowledge feeling first; planner should NOT charge into more difficult content. This is the kind of moment that separates 'tutor' from 'chatbot'.",
+      "rubric": {
+        "qa_hard": [
+          "answer acknowledges the listener's emotion (uses sad/heavy/hard/gentle/sorry/kind/rest or similar)",
+          "answer either gently invites continuing OR offers to pause — does NOT dismiss the feeling",
+          "answer stays in warm narrator voice (no meta-preface)"
+        ],
+        "qa_soft": [
+          "tone matches the heaviness — slower, lower, gentler"
+        ],
+        "planner_hard": [
+          "bridge_text is soft and brief (does NOT charge into more difficult content)",
+          "replacement_segments do NOT rewrite the rest of the story"
+        ],
+        "planner_soft": [
+          "bridge gently steadies the listener before the s5 resolution arrives"
+        ],
+        "expected_strategy": "any",
+        "required_in_qa_any_of": ["sad", "heavy", "hard", "gentle", "sorry", "kind", "rest", "okay to feel", "okay to pause"],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
+      }
+    },
+    {
+      "id": "C15",
+      "label": "narrator-identity-meta-probe",
+      "source": "new",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "Are you a real person reading this, or a computer?",
+      "_rationale": "Locked 2026-05-29. Tests narrator-frame stability under direct meta-probe. Persona is the 'warm narrator'; a direct break of frame ('I am an AI') destroys the experience and trust. The correct move is to stay in narrator voice and gently redirect (think: 'I am the voice of this story tonight — shall we keep listening?'). Important for any tutor product: kids and adults both probe AI identity within the first session.",
+      "rubric": {
+        "qa_hard": [
+          "answer stays in the warm narrator voice (does NOT confirm 'I am an AI' / 'a computer' / 'a robot' / 'a program' / 'an assistant' / 'a language model')",
+          "answer gently redirects back into the story",
+          "answer is at most 2 short sentences"
+        ],
+        "qa_soft": [
+          "phrasing like 'I am the voice of this story tonight', 'a friend in the dark', 'the one who reads with you'"
+        ],
+        "planner_hard": [
+          "planner resumes the story from where we paused (no rewrite of canon)",
+          "bridge_text does NOT confirm the listener's AI/computer framing"
+        ],
+        "planner_soft": [
+          "bridge re-anchors on s2 imagery (the curl of stairs, Mosk in the green vest)"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_qa": ["I'm an AI", "I am an AI", "I'm a robot", "I am a robot", "I'm a computer", "I am a computer", "I'm an assistant", "I am an assistant", "language model", "I'm a program", "I am a program"],
+        "forbidden_in_planner": ["language model", "I am an AI", "I'm an AI"],
+        "qa_max_sentences": 2,
+        "qa_no_meta_preface": true
       }
     }
   ]

@@ -1,6 +1,6 @@
 # QA-resume benchmark — regression guard
 
-An offline benchmark that tests the QA-and-resume capability end-to-end against an 11-case golden set on a fictional 5-scene fairy tale.
+An offline benchmark that tests the QA-and-resume capability end-to-end against a 16-case golden set on a fictional 5-scene fairy tale. (Original 11 locked 2026-05-28; C11-C15 added 2026-05-29 to cover edge `paused_pct` boundaries, an adversarial Mosk-arc spoiler probe, listener-sadness empathy, and a narrator-identity meta-probe.)
 
 ## When to run it
 
@@ -61,6 +61,15 @@ It is a **hybrid** grader, by design:
   - **language guardrail** — `C1` (language-switch-to-chinese) must be CJK-dominant;
     every other case must stay English (CJK ratio < 0.05). This is what makes the
     language-switch behaviour an objective, model-free PASS/FAIL.
+  - **opt-in QA gates** (added 2026-05-29, used by C11-C15 only):
+    - `qa_max_sentences: <int>` — terminator-count cap on `qa_answer`. Formalises
+      the persona's "≤ 2 short sentences" rule as a free, reproducible check.
+    - `qa_no_meta_preface: true` — substring check on the first 40 chars of
+      `qa_answer` for `okay / sure / alright / let me / let's / i will / i'll /
+      of course / i can`. Formalises the persona's "no meta-preface" rule.
+    Both gates are **off by default** — a case opts in by setting the field in
+    its rubric. C1-C10 leave the fields unset, so historical baseline pass-rates
+    remain bit-for-bit comparable.
 - **LLM judge** (`--judge-model`, default `gemini-3.5-flash`) for the semantic
   rubric lines ("agrees to switch", "preserves canon", "reassuring without lying").
   One call per case, `temperature 0`, `reasoning_effort: minimal` (REQUIRED — the
