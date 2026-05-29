@@ -149,7 +149,7 @@ The bench is the reason we trust "we changed the persona prompt" before a demo, 
 
 - [2026-05-29 climax-leak](./agora-voice-demo/docs/experiments/2026-05-29-climax-leak/) — **workflow** fix for the last residual: near the climax the planner was being *handed the ending scene's full text* and intermittently leaked it (C7). Redacting the final scene in the planner's lookahead to its first sentence closed **C7 0/3 → 3/3** (hit 11/11 twice) and generalized to a held-out climax question. A stronger planner model (gemini-3.5-flash) was tested as the rival arm and **falsified** — it didn't fix C7 and destabilized the set, proving the leak was structural, not model-tier.
 
-Resume-to-main-line latency stays **~1.4 s** throughout. The prod e2e interrupt sweep now passes **9/10 (+1 semantic-skip), C7 included**; the lone remaining mechanical miss (C4) is a benchmark-rubric substring artifact, not a model failure.
+Resume-to-main-line latency stays **~1.4 s** throughout. The prod e2e interrupt sweep now passes **10/10 (+1 semantic-skip)** — every interrupt case the harness can mechanically check. (The last miss, C4, turned out to be a benchmark-rubric bug: its `required_in_qa` demanded all five of plant/soft/green/damp/grow as literal substrings, which a correct moss definition need not contain; fixed to any-of.)
 
 ## 🗂️ What's in the repo
 
