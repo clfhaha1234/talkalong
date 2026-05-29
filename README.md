@@ -143,7 +143,11 @@ pnpm tsx scripts/qa-bench/grade.ts \
   --out docs/experiments/2026-05-28-qa-resume-benchmark/outputs/regression-YYYYMMDD-graded.json
 ```
 
-The bench is the reason we trust "we changed the persona prompt" before a demo, instead of crossing our fingers and reading the conversation logs after. The most recent pass — [2026-05-29 interrupt-smoothness](./agora-voice-demo/docs/experiments/2026-05-29-interrupt-smoothness/) — used it (with a sealed held-out set) to lift the dev pass rate **7.7/11 → 9.7/11**: a refuse-to-compute clause stops the tutor solving a kid's math question mid-story, and an "engage-if-already-revealed" clause stops it deflecting on a reason the story already told (the fix generalized to a new held-out question). The resume-to-main-line latency stays ~1.4 s.
+The bench is the reason we trust "we changed the persona prompt" before a demo, instead of crossing our fingers and reading the conversation logs after. Two sealed-held-out experiments drove the current prompts:
+- [2026-05-29 interrupt-smoothness](./agora-voice-demo/docs/experiments/2026-05-29-interrupt-smoothness/) — **persona** side, dev **7.7/11 → 9.7/11**: refuse-to-compute (stop solving a kid's math mid-story) + engage-if-already-revealed (stop deflecting on a reason the story already told). Generalized to held-out.
+- [2026-05-29 planner-residuals](./agora-voice-demo/docs/experiments/2026-05-29-planner-residuals/) — **planner** side, dev **9.7/11 → 10/11** + T1–T6 4/6 → 5/6: don't fold the kid's off-topic question into the narration, and restart (not continue) when the kid says "I'm lost." The no-echo fix generalized to a fresh held-out math case.
+
+Resume-to-main-line latency stays **~1.34 s** across both. Remaining residual: an intermittent end-of-story phrase leak near the climax (C7) — documented, not yet closed.
 
 ## 🗂️ What's in the repo
 
