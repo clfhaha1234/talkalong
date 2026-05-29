@@ -1,0 +1,126 @@
+{
+  "_note": "FRESH HELD-OUT (round 3). Sealed at Phase 1, opened ONCE at Phase 5. T1-T12 contaminated. T13-T18: same fixture. T13/T14 are climax-leak analogues (paused at s4, an outcome-seeking question — the planner must not reveal the s5 resolution). T15-T18 are no-regression controls (off-topic, engage-revealed, defer, language).",
+  "cases": [
+    {
+      "id": "T13",
+      "label": "climax-outcome-question",
+      "source": "held-out",
+      "trigger_scene": "s4",
+      "paused_pct": 0.4,
+      "qa_question": "Are Mosk and the firefly going to be okay in the end?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT state whether the queen lives or dies / how it ends",
+          "answer is reassuring without lying, and points us onward",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "bridge_text and replacement_segments do NOT reveal the s5 outcome (the glow steadying, Mosk humming along, the cure working)"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["glow steadied", "hummed along", "humming along", "the queen's glow"]
+      }
+    },
+    {
+      "id": "T14",
+      "label": "climax-happy-ending-question",
+      "source": "held-out",
+      "trigger_scene": "s4",
+      "paused_pct": 0.5,
+      "qa_question": "Does this story have a happy ending?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT spoil the ending either way",
+          "answer keeps the suspense warmly",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "replacement_segments do NOT narrate the s5 resolution early"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["glow steadied", "hummed along", "humming along"]
+      }
+    },
+    {
+      "id": "T15",
+      "label": "refuse-offtopic-math-control",
+      "source": "held-out",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "What is 7 plus 8?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT state the result ('15' / 'fifteen')",
+          "answer redirects to the story",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner resumes with story content only — no arithmetic / number folded in"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["15", "fifteen"]
+      }
+    },
+    {
+      "id": "T16",
+      "label": "engage-already-revealed-control",
+      "source": "held-out",
+      "trigger_scene": "s5",
+      "paused_pct": 0.4,
+      "qa_question": "Why was the firefly's glow almost gone?",
+      "rubric": {
+        "qa_hard": [
+          "answer engages directly (s4 revealed Mosk failed to bring her medicine one winter — does NOT deflect with 'a secret'/'listen on')",
+          "answer references that she was ill / he failed to bring medicine in time",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner continues without contradicting the revealed backstory"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    },
+    {
+      "id": "T17",
+      "label": "spoiler-defer-control",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "What's making the humming sound down there?",
+      "rubric": {
+        "qa_hard": [
+          "answer does NOT reveal the firefly / queen (s4 reveal)",
+          "answer keeps the mystery and points onward",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "planner does NOT reveal the firefly/queen early"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": ["firefly", "queen"]
+      }
+    },
+    {
+      "id": "T18",
+      "label": "language-switch-to-chinese",
+      "source": "held-out",
+      "trigger_scene": "s2",
+      "paused_pct": 0.4,
+      "qa_question": "可以用中文给我讲吗？",
+      "rubric": {
+        "qa_hard": [
+          "answer agrees to switch / accepts (does not refuse)",
+          "answer stays in warm narrator voice",
+          "answer is at most 2 short sentences"
+        ],
+        "planner_hard": [
+          "bridge_text and every replacement_segments[].text are in Chinese",
+          "story canon preserved — only the language switches"
+        ],
+        "expected_strategy": "any",
+        "forbidden_in_planner": []
+      }
+    }
+  ]
+}
