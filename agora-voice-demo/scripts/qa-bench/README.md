@@ -117,6 +117,36 @@ What it does NOT measure:
 - **MTBI** (mean time between interrupts) — the bench is single-shot, no chains. Will be measurable when interrupt-cascade cases land.
 - **Real-session TOR** — `qa_question` is synthetic, so TOR is comparable across arms but not directly comparable to a live session.
 
+## Reanchor-judge mode (B10) — pedagogical quality, not just correctness
+
+`grade.ts` has an optional `--reanchor-judge` flag. When set, after the primary PASS/FAIL grading, it fires one extra judge call per case scoring 0-3 how well the bridge_text re-anchors the listener to the paused-scene content:
+
+| Score | Meaning |
+|---|---|
+| 0 | bridge ignores the paused scene (listener jarred or lost) |
+| 1 | tangential reference, no concrete detail |
+| 2 | clearly threads back with **one** specific element (character, image, action) |
+| 3 | explicitly re-anchors with 2+ concrete details and signals "left off at X → continuing toward Y" |
+
+```bash
+pnpm tsx scripts/qa-bench/grade.ts \
+  --in       .../regression-YYYYMMDD.json \
+  --cases    .../cases.json \
+  --fixture  .../fixture.json \
+  --out      .../regression-YYYYMMDD-graded.json \
+  --reanchor-judge
+```
+
+Reanchor is **advisory** — it NEVER gates PASS/FAIL. PASS/FAIL is whether the answer was correct; reanchor is whether the bridge was *good teaching*. A case can PASS with reanchor=0 (correct but jarring) or FAIL with reanchor=3 (smooth but wrong). Both are useful signal.
+
+Surfaced in:
+- `graded.cases[].reanchor.{score, reason}` — per case
+- `scorecard.kpis.reanchor_quality` — `{n_scored, mean, distribution: {s0, s1, s2, s3}}`
+
+The scorecard adds a "Reanchor quality (mean 0-3)" row when present and hides it otherwise. Off in CI; turn on for the "tutor health" deep-dive on a chosen run. This lifts the eval from "language layer" (did the planner say the right thing) to "teaching layer" (did the listener actually re-anchor) — the separator between `tutor` and `chatbot`.
+
+If `--reanchor-judge` is set without an accessible fixture (no `--fixture` flag and no `meta.fixture_path`), scoring is skipped per case with a `WARN` — no silent score-fabrication.
+
 ## Cross-domain transfer sub-bench (B9) — 3 verticals × 5 axes
 
 The dev set + spoiler-hunt both live on the fairy-tale fixture. A prompt clause that ships only because it works on the fairy tale is suspect — the moat claim is "AI tutor across high-value verticals", not "AI tutor for fairy tales". `run.ts` and `grade.ts` accept a `--fixture <path>` flag, and three vertical fixtures are committed:

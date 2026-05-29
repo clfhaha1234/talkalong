@@ -87,7 +87,11 @@ interface CaseSpec {
   label: string;
   qa_question: string;
   rubric: Rubric;
+  trigger_scene?: string;
+  paused_pct?: number;
 }
+interface FixtureScene { id: string; text: string }
+interface Fixture { story_title?: string; canon_summary?: string; scenes?: FixtureScene[] }
 interface ReplacementSeg { id: string; text: string }
 interface Plan {
   bridge_text: string;
@@ -110,12 +114,21 @@ interface Check {
   pass: boolean;
   reason: string;
 }
+interface ReanchorVerdict {
+  score: 0 | 1 | 2 | 3;
+  reason: string;
+}
 interface GradedCase {
   case_id: string;
   label: string;
   pass: boolean;
   checks: Check[];
   soft_notes: string[];
+  // Set only when --reanchor-judge is on. The score-0-3 measures whether the
+  // bridge_text successfully re-anchors the listener to the paused-scene
+  // content — the "tutor vs chatbot" capability that PASS/FAIL alone cannot
+  // capture. Aggregated by scorecard.ts as reanchor_quality.
+  reanchor?: ReanchorVerdict;
 }
 
 function parseArgs() {
@@ -137,10 +150,15 @@ function parseArgs() {
   // a new domain (B9), drop a canon_summary field in that fixture.
   const casesPath = get('--cases');
   const fixturePath = get('--fixture');
+  // --reanchor-judge fires one extra judge call per case scoring 0-3 how well
+  // the bridge_text re-anchors the listener to the paused-scene content.
+  // Off by default (cost: +1 judge call per case). Off in CI; on for the
+  // "tutor health" deep-dive on a chosen run.
+  const reanchorJudge = args.includes('--reanchor-judge');
   if (!inPath || !outPath) {
-    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>] [--cases <path>] [--fixture <path>]');
+    throw new Error('usage: --in <outputs.json> --out <graded.json> [--no-judge] [--judge-model <id>] [--cases <path>] [--fixture <path>] [--reanchor-judge]');
   }
-  return { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath };
+  return { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath, reanchorJudge };
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -402,8 +420,79 @@ async function judgeCase(
   return { hard, soft };
 }
 
+// ── reanchor-judge (B10) ──────────────────────────────────────────────
+// Builds a structured prompt asking the judge to rate how well the bridge
+// re-anchors the listener to the paused-scene content. Score is 0-3:
+//   0 — bridge ignores the paused scene (listener jarred)
+//   1 — tangential reference, no concrete detail
+//   2 — clearly threads back with ONE specific element
+//   3 — explicitly re-anchors with 2+ details and signals "left off at X →
+//       continuing toward Y"
+// One call per case; one JSON object back. Cheap and bounded.
+function buildReanchorPrompt(c: CaseSpec, r: CaseResult, pausedSceneText: string): string {
+  const plan = r.planner_plan;
+  const firstSeg = plan.replacement_segments[0]?.text ?? '(no replacement segment)';
+  return `You are evaluating whether a tutor's BRIDGE successfully re-anchors a listener to where they paused in a long-form session.
+
+LISTENER PAUSED AT scene "${c.trigger_scene ?? '?'}", ${Math.round((c.paused_pct ?? 0) * 100)}% through.
+
+PAUSED-SCENE CONTENT (the listener already heard this before pausing):
+"""
+${pausedSceneText}
+"""
+
+THE BRIDGE the tutor said after answering the listener's question:
+"${plan.bridge_text}"
+
+FIRST RESUME SEGMENT after the bridge:
+"${firstSeg}"
+
+Score 0-3 how well the bridge re-anchors the listener to the paused content:
+  0 — bridge does not relate to the paused scene at all (listener would feel jarred)
+  1 — bridge tangentially relates but lacks concrete detail from the paused scene
+  2 — bridge clearly threads back with ONE specific element (character, image, action)
+  3 — bridge explicitly re-anchors with 2+ concrete details and signals "we left off at <X>, now toward <Y>"
+
+Output ONLY a JSON object, no prose, no fences:
+{"score": 0|1|2|3, "reason": "<≤20 words>"}`;
+}
+
+function parseReanchorJson(raw: string): ReanchorVerdict {
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  const first = cleaned.indexOf('{');
+  const last = cleaned.lastIndexOf('}');
+  if (first < 0 || last < first) throw new Error('no JSON object in reanchor output');
+  const obj = JSON.parse(cleaned.slice(first, last + 1));
+  const score = Number(obj.score);
+  if (![0, 1, 2, 3].includes(score)) throw new Error(`bad score: ${obj.score}`);
+  return { score: score as 0 | 1 | 2 | 3, reason: String(obj.reason ?? '') };
+}
+
+async function judgeReanchor(
+  c: CaseSpec,
+  r: CaseResult,
+  judge: (p: string) => Promise<string>,
+  fixture: Fixture | null,
+): Promise<ReanchorVerdict | null> {
+  // Need fixture scenes to look up the paused scene's text. If unavailable,
+  // skip the case (don't fabricate a score from nothing).
+  if (!fixture?.scenes || !c.trigger_scene) return null;
+  const pausedScene = fixture.scenes.find((s) => s.id === c.trigger_scene);
+  if (!pausedScene) return null;
+  try {
+    return parseReanchorJson(await judge(buildReanchorPrompt(c, r, pausedScene.text)));
+  } catch (err) {
+    // Surface a failed reanchor as score 0 with the error reason — keeps the
+    // mean honest about judge flakiness rather than silently dropping cases.
+    return { score: 0, reason: `judge error: ${(err as Error).message}` };
+  }
+}
+
 async function main() {
-  const { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath } = parseArgs();
+  const { inPath, outPath, noJudge, judgeModel, casesPath, fixturePath, reanchorJudge } = parseArgs();
   const cases = (JSON.parse(readFileSync(casesPath ?? join(expDir, 'cases.json'), 'utf8')).cases as CaseSpec[]);
   const caseById = new Map(cases.map((c) => [c.id, c]));
   const inFile = JSON.parse(readFileSync(inPath, 'utf8')) as {
@@ -411,23 +500,28 @@ async function main() {
     results: CaseResult[];
   };
 
-  // Resolve canon for the judge: explicit --fixture flag wins; else use the
-  // fixture_path the runner recorded in meta (so a cross-domain run that
-  // forgot to re-pass --fixture to grade.ts still works); else default canon.
+  // Resolve canon (and the full fixture for reanchor-judge): explicit
+  // --fixture flag wins; else use the fixture_path the runner recorded in
+  // meta (so a cross-domain run that forgot to re-pass --fixture to grade.ts
+  // still works); else default canon, no fixture.
   let canonSummary = DEFAULT_CANON_SUMMARY;
+  let fixture: Fixture | null = null;
   const resolvedFixture = fixturePath ?? inFile.meta?.fixture_path;
   if (resolvedFixture) {
     try {
       const fixtureAbs = resolvedFixture.startsWith('/') ? resolvedFixture : join(repoRoot, resolvedFixture);
-      const fx = JSON.parse(readFileSync(fixtureAbs, 'utf8')) as { canon_summary?: string };
-      if (typeof fx.canon_summary === 'string' && fx.canon_summary.trim()) {
-        canonSummary = fx.canon_summary;
+      fixture = JSON.parse(readFileSync(fixtureAbs, 'utf8')) as Fixture;
+      if (typeof fixture.canon_summary === 'string' && fixture.canon_summary.trim()) {
+        canonSummary = fixture.canon_summary;
       } else {
         console.warn(`[grade] WARN: fixture ${resolvedFixture} has no canon_summary — using default fairy-tale canon (judge may misread cross-domain runs)`);
       }
     } catch (err) {
       console.warn(`[grade] WARN: could not read fixture ${resolvedFixture} (${(err as Error).message}) — using default canon`);
     }
+  }
+  if (reanchorJudge && !fixture?.scenes) {
+    console.warn('[grade] WARN: --reanchor-judge requires fixture scenes; none found — reanchor scoring will be skipped per case');
   }
 
   const judge = noJudge ? null : createJudge(judgeModel);
@@ -447,10 +541,19 @@ async function main() {
         const { hard, soft } = judge ? await judgeCase(c, r, judge, canonSummary) : { hard: [], soft: [] };
         const checks = [...det, ...hard];
         const pass = checks.every((x) => x.pass);
+        // Reanchor is advisory, NEVER gates PASS/FAIL — its score is a
+        // *quality* signal layered on top of correctness, not a correctness
+        // check itself.
+        let reanchor: ReanchorVerdict | undefined;
+        if (reanchorJudge && judge) {
+          const v = await judgeReanchor(c, r, judge, fixture);
+          if (v) reanchor = v;
+        }
+        const reanchorStr = reanchor ? ` reanchor=${reanchor.score}` : '';
         console.log(
-          `  ${r.case_id} (${c.label}): ${pass ? 'PASS' : `FAIL (${checks.filter((x) => !x.pass).map((x) => x.criterion).join('; ')})`}`,
+          `  ${r.case_id} (${c.label}): ${pass ? 'PASS' : `FAIL (${checks.filter((x) => !x.pass).map((x) => x.criterion).join('; ')})`}${reanchorStr}`,
         );
-        return { case_id: r.case_id, label: c.label, pass, checks, soft_notes: soft };
+        return { case_id: r.case_id, label: c.label, pass, checks, soft_notes: soft, reanchor };
       }),
     )
   ).filter((g): g is GradedCase => g !== null);
