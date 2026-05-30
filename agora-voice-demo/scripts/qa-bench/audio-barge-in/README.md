@@ -39,6 +39,27 @@ node scripts/qa-bench/audio-barge-in/run.mjs --only B01,B03
 
 Per-case: one headless Chromium launch (~50s observation window). 3 cases → ~3 minutes total. Writes `/tmp/spike-mic/barge-in/graded.json` (same shape as `scripts/qa-bench/grade.ts` output) and prints a markdown verdict table + the FBR KPI.
 
+## Latency + quality (`run-latency.mjs`)
+
+`run.mjs` answers *did the barge-in fire correctly?* `run-latency.mjs` answers *how fast, and how good?* — the two layers the MVP list below called out as missing.
+
+```bash
+node scripts/qa-bench/audio-barge-in/run-latency.mjs --only B01 --trials 3
+node scripts/qa-bench/audio-barge-in/run-latency.mjs --judge          # + LLM quality score
+```
+
+It measures three latencies a listener actually feels, by polling the **user-visible DOM** (Voice Orb copy + branch overlay + "now reading" header) every 100ms — no app instrumentation, it tests the same surface the child sees:
+
+| metric | gap measured | "feels like" |
+|---|---|---|
+| **T1** interrupt → pause | question audio onset → story pauses | how fast it stops talking when you speak |
+| **T2** pause → reply | pause → answer text appears | how fast it answers |
+| **T3** reply → resume | answer done → narrator resumes main line | how fast it gets back to the story |
+
+`--trials N` repeats each case and reports **p50/p95** (VAD/LLM latency is non-deterministic — single-shot numbers mislead). `--judge` adds a 0–5 quality score on the spoken answer via `GOOGLE_API_KEY` (warm / correct / concise / returns to the tale). Interrupt onset is taken from the WAV's lead silence, validated deterministic to ±6ms by the [fake-mic spike](../../../docs/experiments/2026-05-30-fake-mic-spike/) (Spike 2).
+
+The pure latency math (`deriveLatencies`, percentiles) is unit-tested on synthetic timelines; the **full run needs a dev server with real Agora + LLM keys** (this worktree has none — same constraint as `run.mjs`).
+
 ## KPIs
 
 - **IRSR (Interrupt-Recovery Success Rate)** — same as offline bench: `n_pass / n_cases`. Cases here are mostly audio-correctness, not recovery — so for this sub-bench treat IRSR as `audio-pipeline-correctness rate`.
