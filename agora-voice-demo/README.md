@@ -1,10 +1,44 @@
-# Agora Conversational AI Next.js Quickstart
+# The AI Teacher — a proactive, interruptible voice storybook tutor
 
-[![Build](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs/actions/workflows/build-check.yml/badge.svg)](https://github.com/AgoraIO-Conversational-AI/agent-quickstart-nextjs/actions/workflows/build-check.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org/)
 
-Build a production-style voice agent in minutes with Next.js and the Agora Conversational AI Engine, including voice agent visualizer ([Agent UIKit](https://agoraio-conversational-ai.github.io/agent-uikit/)), live transcript, and real-time pipeline latency via `AGENT_METRICS` ([Agent Toolkit](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts)).
+**A proactive AI storyteller that turns any topic into an illustrated lesson, reads it
+aloud, and pauses to answer your questions — then smoothly returns to the tale.**
+
+Type a topic (or paste a paper); the app generates a 5-scene illustrated story,
+narrates it scene by scene, and lets you **barge in by voice at any time** to ask
+a question. A fast voice agent answers in character, then a slower "decision brain"
+plans how to resume — continue, re-tell, or skip — and the narrator picks back up.
+The story's *pacing and style* adapt to you; its *plot* does not get derailed.
+
+The main app is the storybook tutor at [`/tutor`](app/tutor/page.tsx). This repo is
+built on the Agora Conversational AI Next.js quickstart, and the original
+conversation demo still ships alongside it (see [Legacy conversation demo](#legacy-conversation-demo)).
+
+## How it works (the storybook tutor)
+
+The architecture is **two LLM roles + a deterministic spine** (a "proposer / disposer"
+pattern), NOT an agentic tool loop — a choice [validated with data](docs/experiments/2026-05-29-agentic-vs-singleshot/conclusion.md)
+(agentic was equal quality at ~3.6× latency, ~5× tokens).
+
+1. **Generate** — a Gemini pass composes the lesson: scenes, narration script,
+   one illustration + short "draw-on" video per scene ([`lib/lesson/`](lib/lesson)).
+2. **Narrate** — the deterministic spine ([`lib/orchestrator/progress-state.ts`](lib/orchestrator/progress-state.ts))
+   is the single source of truth for "where are we in the story". A fast
+   Agora-hosted voice agent speaks each scene; the UI reveals text + plays the
+   scene's clip in lockstep ([`components/tutor/StoryScreen.tsx`](components/tutor/StoryScreen.tsx)).
+3. **Barge in** — Agora's server-side VAD detects you speaking and pauses the
+   narration (no button needed once the mic is on). The voice agent answers your
+   question in the storyteller's voice.
+4. **Resume** — when you go quiet, a single-shot Gemini "resume planner"
+   ([`lib/orchestrator/resume-planner.ts`](lib/orchestrator/resume-planner.ts))
+   composes a one-line bridge and decides the strategy (continue / restart /
+   skip); the narrator resumes on the right scene.
+
+Per-session conversation + latency is logged for debugging via
+[`lib/orchestrator/session-logger.ts`](lib/orchestrator/session-logger.ts)
+(console always; `logs/sessions/<ts>-<id>.txt` locally).
 
 ## Prerequisites
 
@@ -117,7 +151,15 @@ pnpm run verify         # doctor + lint + typecheck + verify:api + build
 
 Run `pnpm run verify` before shipping changes — it covers local prerequisites, lint, type safety, the core API route contracts, and the production build.
 
-## Architecture
+## Legacy conversation demo
+
+> The sections below (Architecture, What You Get, How It Works, Optional BYOK,
+> Troubleshooting) document the **original Agora conversation quickstart** — the
+> plain voice-chat demo at `/`. The storybook tutor at `/tutor` is described in
+> [How it works (the storybook tutor)](#how-it-works-the-storybook-tutor) above.
+> Both ship in this repo and share the Agora token + RTC/RTM plumbing.
+
+### Architecture
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./system-architecture-dark.svg">
@@ -126,7 +168,7 @@ Run `pnpm run verify` before shipping changes — it covers local prerequisites,
 
 The browser fetches a combined RTC + RTM token (`buildTokenWithRtm`) from this app, joins the channel using a single RTC client, and uses RTM as the data channel for transcript, agent state, metrics, and error events. The Conversational AI Engine joins the same channel as the configured `NEXT_PUBLIC_AGENT_UID` and runs the STT → LLM → TTS pipeline in Agora Cloud.
 
-## What You Get
+### What You Get
 
 - browser voice client built with Next.js App Router
 - RTC audio plus RTM transcript and state events
@@ -135,7 +177,7 @@ The browser fetches a combined RTC + RTM token (`buildTokenWithRtm`) from this a
 - per-stage latency header driven by `AGENT_METRICS`
 - Agora-managed default STT, LLM, and TTS configuration
 
-## How It Works
+### How It Works
 
 1. The browser requests an RTC + RTM token from `/api/generate-agora-token`.
 2. The backend invites an Agora cloud agent with `/api/invite-agent`.
@@ -143,7 +185,7 @@ The browser fetches a combined RTC + RTM token (`buildTokenWithRtm`) from this a
 4. The client receives transcript, agent state, and `AGENT_METRICS` (per-stage latency) events over RTM.
 5. On end, the client unpublishes and stops the local microphone track, then calls `/api/stop-conversation` to terminate the agent session.
 
-## Optional BYOK
+### Optional BYOK
 
 The quickstart defaults to Agora-managed inference. To bring your own keys, uncomment the matching blocks in [`app/api/invite-agent/route.ts`](app/api/invite-agent/route.ts) and add the corresponding env vars.
 
@@ -162,19 +204,31 @@ NEXT_ELEVENLABS_VOICE_ID=...
 
 ## Repo Map
 
-- `app/api/generate-agora-token/route.ts` — issues RTC + RTM tokens
+**Storybook tutor (`/tutor` — the main app):**
+
+- `app/tutor/page.tsx` — the tutor route
+- `components/TutorPage.tsx` — client orchestration: SSE pipeline, Agora RTC/RTM, barge-in detection, mic
+- `components/tutor/` — UI screens (`InputScreen`, `LoadingScreen`, `StoryScreen`) + theme/ornaments
+- `app/api/lesson/start/route.ts` — SSE: compose lesson → generate images/videos → start session
+- `app/api/tutor/qa-ended/route.ts` — barge-in resume trigger (bridge + rescript)
+- `lib/lesson/` — lesson generation: scene composition, image-gen, video-gen, script-generator
+- `lib/orchestrator/` — the deterministic spine: `progress-state.ts` (source of truth),
+  `narrator.ts`, `resume-planner.ts` (single-shot resume brain), `session-logger.ts` (debug log)
+- `docs/experiments/` — data-backed decisions (agentic-vs-singleshot, climax-leak, typed-segment, …)
+- `scripts/qa-bench/` — offline eval: the qa-resume benchmark + grader + audio barge-in harness
+
+**Legacy conversation demo (`/`):**
+
+- `app/api/generate-agora-token/route.ts` — issues RTC + RTM tokens (shared by both)
 - `app/api/invite-agent/route.ts` — starts the agent session and configures the pipeline
 - `app/api/stop-conversation/route.ts` — stops the agent session
 - `components/LandingPage.tsx` — entry point: token fetch, RTM login, conversation lifecycle
 - `components/ConversationComponent.tsx` — RTC client, transcript state, `AGENT_METRICS`, mic release
-- `components/QuickstartConversationLayout.tsx` — in-call header, transcript rail, controls dock
-- `components/QuickstartPipelineMetrics.tsx` — per-stage latency chips in the header
-- `components/QuickstartTranscriptPanel.tsx` — live transcript rail
-- `components/QuickstartPreCallCard.tsx` — pre-call hero card
+- `components/Quickstart*.tsx` — conversation layout, latency chips, transcript rail, pre-call card
 - `lib/conversation.ts` — transcript normalization and visualizer state mapping
 - `AGENTS.md` — primary agent-facing guide
 
-## Troubleshooting
+### Troubleshooting
 
 - **Agent does not join or transcripts are missing:** run `agora project doctor --deep`.
 - **`pnpm run doctor` fails:** run `agora project env write .env.local`, then retry.
