@@ -3,7 +3,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // TUTOR_LOG_DIR / TUTOR_SESSION_LOG are read at the logger's module-load time,
 // so they must be set BEFORE that module is imported. Vitest hoists `import`
@@ -93,6 +94,114 @@ describe('session-logger', () => {
     const files = readdirSync(LOG_DIR);
     expect(files.some((f) => f.includes('TSTA'))).toBe(true);
     expect(files.some((f) => f.includes('TSTB'))).toBe(true);
+  });
+
+  // Defensive: qa-ended can fire for a session whose attachSessionLogger never
+  // ran on this module instance (split-bundle / cross-route, the exact bug
+  // 4145e67 fixed via globalThis). logSessionQa must NOT crash on the unknown
+  // sid — it should still emit to the console sink (no file path), with the
+  // fallback "?ms" stamp so the line still correlates by sid.
+  it('logSessionQa for an unknown session — no crash, falls through to console-only', () => {
+    expect(() =>
+      logSessionQa('NEVER_ATTACHED', [
+        { role: 'user', text: 'hello' },
+        { role: 'agent', text: 'hi' },
+      ]),
+    ).not.toThrow();
+    // The unknown session has no file path, so no file appears in LOG_DIR for it.
+    const files = readdirSync(LOG_DIR);
+    expect(files.some((f) => f.includes('NEVER_ATTACHED'))).toBe(false);
+  });
+
+  // Symmetric defensive: closeSessionLogger for an unknown sid is a no-op.
+  it('closeSessionLogger for an unknown session — no crash', () => {
+    expect(() => closeSessionLogger('NEVER_ATTACHED_2')).not.toThrow();
+  });
+
+  // bridge_started can arrive WITHOUT a preceding barge-in (e.g. agent-initiated
+  // recap). The "resume latency" annotation must only fire when there's a real
+  // gap to measure — otherwise the log gets a meaningless 0ms or stale-state
+  // number.
+  it('bridge_started without preceding branch_started does NOT log "resume latency"', () => {
+    const { handle, emit } = fakeHandle('TSTC');
+    attachSessionLogger(handle);
+    emit({ type: 'segment_started', segment_id: 's1', text: 'opening' });
+    emit({ type: 'bridge_started', text: 'agent recap' }); // no branch_started before
+    emit({ type: 'bridge_completed' });
+    closeSessionLogger('TSTC');
+
+    const t = readTranscript('TSTC');
+    expect(t).toContain('bridge_started');
+    expect(t).not.toContain('resume latency');
+  });
+
+  // describeEvent has a JSON fallback for event types the switch doesn't know
+  // about. New event shapes in the progress stream should still appear in the
+  // log, not be silently dropped.
+  it('unknown event types fall through to JSON-tail formatting', () => {
+    const { handle, emit } = fakeHandle('TSTD');
+    attachSessionLogger(handle);
+    emit({ type: 'some_future_event', some_field: 42, nested: { ok: true } });
+    closeSessionLogger('TSTD');
+
+    const t = readTranscript('TSTD');
+    expect(t).toContain('some_future_event');
+    expect(t).toContain('"some_field":42');
+  });
+
+  // QA text > 200 chars gets truncated in the log line to keep file size
+  // bounded. Verify the cap holds — important for long user paste-ins.
+  it('logSessionQa truncates per-turn text to 200 chars', () => {
+    const { handle } = fakeHandle('TSTE');
+    attachSessionLogger(handle);
+    const long = 'X'.repeat(500);
+    logSessionQa('TSTE', [{ role: 'user', text: long }]);
+    closeSessionLogger('TSTE');
+
+    const t = readTranscript('TSTE');
+    // Find the QA line and measure the text inside the quotes.
+    const m = t.match(/QA user: "(X+)"/);
+    expect(m).not.toBeNull();
+    expect(m![1].length).toBe(200);
+  });
+
+  // Static wire-guard. Commit 419f3dc fixed the bug "logger module + tests
+  // existed but nothing called attachSessionLogger — the feature was inert".
+  // This is the kind of bug a merge-and-lose-an-edit can silently
+  // re-introduce. Assert the call site is present in index.ts so any future
+  // accidental unwiring is caught by `pnpm test`.
+  it('index.ts wires attachSessionLogger at the buildTutorHandle seam', () => {
+    const indexSrc = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), 'index.ts'),
+      'utf8',
+    );
+    expect(indexSrc).toContain("import { attachSessionLogger } from './session-logger'");
+    // At least one call site exists (buildTutorHandle covers both
+    // startTutorSession and startTutorSessionFromScenes).
+    expect((indexSrc.match(/attachSessionLogger\(/g) ?? []).length).toBeGreaterThanOrEqual(1);
+  });
+
+  // Same wire-guard for the qa-ended route — logSessionQa was wired in
+  // 419f3dc alongside the index.ts attach. If a future merge drops this
+  // import + call, the conversation-text side of the log goes dark while
+  // event timestamps keep flowing, which is exactly the partial-breakage
+  // mode the original bug had.
+  it('qa-ended route wires logSessionQa', () => {
+    const routeSrc = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        'app',
+        'api',
+        'tutor',
+        'qa-ended',
+        'route.ts',
+      ),
+      'utf8',
+    );
+    expect(routeSrc).toContain('logSessionQa');
+    expect((routeSrc.match(/logSessionQa\(/g) ?? []).length).toBeGreaterThanOrEqual(1);
   });
 });
 
