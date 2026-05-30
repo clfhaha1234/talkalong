@@ -102,7 +102,6 @@ describe('session-logger', () => {
     expect(files.some((f) => f.includes('TSTB'))).toBe(true);
   });
 
-<<<<<<< HEAD
   // ── regression: code-review findings ──────────────────────────────────────
 
   it('never logs Agora rtc/rtm tokens (security)', () => {
@@ -148,7 +147,8 @@ describe('session-logger', () => {
     again.emit({ type: 'segment_completed', segment_id: 's9' });
     closeSessionLogger('TSTLEAK');
     expect(readTranscript('TSTLEAK')).toContain('segment_completed s9');
-=======
+  });
+
   // Defensive: qa-ended can fire for a session whose attachSessionLogger never
   // ran on this module instance (split-bundle / cross-route, the exact bug
   // 4145e67 fixed via globalThis). logSessionQa must NOT crash on the unknown
@@ -255,7 +255,6 @@ describe('session-logger', () => {
     );
     expect(routeSrc).toContain('logSessionQa');
     expect((routeSrc.match(/logSessionQa\(/g) ?? []).length).toBeGreaterThanOrEqual(1);
->>>>>>> origin/main
   });
 });
 
