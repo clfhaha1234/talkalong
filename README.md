@@ -8,8 +8,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/tests-82%20unit%20%2B%2011%20bench-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
+[![Tests](https://img.shields.io/badge/tests-186%20unit%20%2B%20benches-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
 [![Built on](https://img.shields.io/badge/voice%20I%2FO-Agora%20Conversational%20AI-D77757?style=flat-square)](https://www.agora.io/en/products/conversational-ai-engine/)
+
+<br>
+
+<img src="agora-voice-demo/docs/screenshots/tutor-storybook.png" alt="talkalong storybook tutor — an illustrated scene read aloud, with narration on the right and a tap-to-talk mic to interrupt" width="900">
 
 </div>
 
@@ -193,7 +197,7 @@ The two halves are **independent** npm/pnpm projects (different package managers
 ```bash
 cd agora-voice-demo
 pnpm install
-cp env.local.example .env.local           # fill in: Agora App ID + Cert + GOOGLE_API_KEY
+cp .env.example .env.local                # fill in: Agora App ID + Cert + GOOGLE_API_KEY
 pnpm run dev                               # → http://localhost:3000/tutor
 ```
 
@@ -233,7 +237,7 @@ Deeper: [docs/remotion.md](docs/remotion.md).
 ```bash
 cd agora-voice-demo
 pnpm run typecheck                         # tsc --noEmit
-pnpm test                                  # vitest — 80 unit tests, ~3s
+pnpm test                                  # vitest — 186 unit tests, ~1s
 pnpm run verify                            # full: typecheck + API contract + build
 pnpm tsx scripts/qa-bench/e2e-interrupt.ts # 4-case smoke against PROD planner
 ```
