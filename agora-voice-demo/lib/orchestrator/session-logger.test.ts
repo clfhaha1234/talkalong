@@ -16,23 +16,29 @@ import { attachSessionLogger, logSessionQa, closeSessionLogger } from './session
 
 function fakeHandle(sessionId: string) {
   let sub: ((e: unknown) => void) | null = null;
+  const tracker = { unsubscribed: false };
   const handle = {
     session_id: sessionId,
     // Only .progress.subscribe is touched by the logger.
     progress: {
       subscribe: (fn: (e: unknown) => void) => {
         sub = fn;
-        return () => {};
+        return () => {
+          tracker.unsubscribed = true;
+          sub = null; // mimic real EventEmitter off(): listener stops firing
+        };
       },
     },
   } as never;
-  return { handle, emit: (e: unknown) => sub?.(e) };
+  return { handle, tracker, emit: (e: unknown) => sub?.(e) };
 }
 
 function readTranscript(sid: string): string {
-  const f = readdirSync(LOG_DIR).find((x) => x.includes(sid) && x.endsWith('.txt'));
-  if (!f) throw new Error(`no log file for ${sid} in ${LOG_DIR}`);
-  return readFileSync(join(LOG_DIR, f), 'utf8');
+  // Concatenate ALL files for this sid — a re-attach after close lands in a
+  // new per-millisecond filename, and we want the full picture across them.
+  const files = readdirSync(LOG_DIR).filter((x) => x.includes(sid) && x.endsWith('.txt'));
+  if (files.length === 0) throw new Error(`no log file for ${sid} in ${LOG_DIR}`);
+  return files.map((f) => readFileSync(join(LOG_DIR, f), 'utf8')).join('\n');
 }
 
 afterEach(() => {
@@ -93,6 +99,53 @@ describe('session-logger', () => {
     const files = readdirSync(LOG_DIR);
     expect(files.some((f) => f.includes('TSTA'))).toBe(true);
     expect(files.some((f) => f.includes('TSTB'))).toBe(true);
+  });
+
+  // ── regression: code-review findings ──────────────────────────────────────
+
+  it('never logs Agora rtc/rtm tokens (security)', () => {
+    const { handle, emit } = fakeHandle('TSTSEC');
+    attachSessionLogger(handle);
+    emit({
+      type: 'session_started',
+      channel: 'lesson-1-abcd',
+      agent_id: 'AGENT123',
+      rtc_token: 'SECRET_RTC_TOKEN_xyz',
+      rtm_token: 'SECRET_RTM_TOKEN_xyz',
+      client_uid: '100000',
+    });
+    closeSessionLogger('TSTSEC');
+    const t = readTranscript('TSTSEC');
+    expect(t).toContain('session_started channel=lesson-1-abcd');
+    expect(t).not.toContain('SECRET_RTC_TOKEN');
+    expect(t).not.toContain('SECRET_RTM_TOKEN');
+    expect(t).not.toContain('rtc_token');
+  });
+
+  it('a throwing event never propagates (logging must not break a session)', () => {
+    const { handle, emit } = fakeHandle('TSTTHROW');
+    attachSessionLogger(handle);
+    // A malformed event whose field access inside describeEvent could throw;
+    // the listener must swallow it. emit() must not throw.
+    expect(() => emit({ type: 'segment_started', get segment_id(): string { throw new Error('boom'); } })).not.toThrow();
+    closeSessionLogger('TSTTHROW');
+  });
+
+  it('close tears down the listener + frees state (no leak)', () => {
+    const { handle, tracker, emit } = fakeHandle('TSTLEAK');
+    attachSessionLogger(handle);
+    emit({ type: 'segment_started', segment_id: 's1', segment_index: 0, text: 'hi' });
+    closeSessionLogger('TSTLEAK');
+    expect(tracker.unsubscribed).toBe(true); // the progress listener was removed
+
+    // After close, a fresh attach with the SAME id must work — proving the
+    // `attached` entry was freed (without that fix the guard would skip it and
+    // s9 would never log).
+    const again = fakeHandle('TSTLEAK');
+    attachSessionLogger(again.handle);
+    again.emit({ type: 'segment_completed', segment_id: 's9' });
+    closeSessionLogger('TSTLEAK');
+    expect(readTranscript('TSTLEAK')).toContain('segment_completed s9');
   });
 });
 

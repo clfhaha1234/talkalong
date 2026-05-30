@@ -25,7 +25,7 @@ import { splitToSegments } from './splitter';
 import { ProgressState } from './progress-state';
 import { runNarration, type RunNarrationOptions } from './narrator';
 import { planResume } from './resume-planner';
-import { attachSessionLogger } from './session-logger';
+import { attachSessionLogger, closeSessionLogger } from './session-logger';
 import { createGeminiCompletion } from './gemini-client';
 import { register, unregister } from './session-registry';
 import type { Segment, ProgressEvent } from './types';
@@ -242,6 +242,10 @@ async function buildTutorHandle(args: {
   const stop = async () => {
     try { await session.stop(); } catch {}
     unregister(session_id);
+    // Tear down the debug logger's listener + globalThis state for this session
+    // (this is the common sink for all routes' teardown — tutor/start &
+    // lesson/start finally blocks and the tutor/stop route all call stop()).
+    closeSessionLogger(session_id);
   };
 
   const handleQaEnded: RunTutorHandle['handleQaEnded'] = async ({ qa_history }) => {

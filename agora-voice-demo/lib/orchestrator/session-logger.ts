@@ -36,6 +36,7 @@ interface SessionLogState {
   startedAt: number;
   filePath: string | null;
   lastBranchAt: number | null; // for resume-latency (branch_started → bridge_started)
+  unsubscribe: (() => void) | null; // progress listener teardown, called on close
 }
 
 // CRITICAL: stash on globalThis, NOT a module-scoped `const`. In Next.js dev,
@@ -103,8 +104,18 @@ function describeEvent(e: ProgressEvent): string {
       return `narration_complete`;
     case 'error':
       return `ERROR ${anyE.message}`;
+    case 'session_started':
+      // NEVER log rtc_token / rtm_token — they are live Agora join credentials
+      // and the console sink reaches production (Vercel) logs. Log only the
+      // non-sensitive identifiers.
+      return `session_started channel=${anyE.channel} agent_id=${anyE.agent_id} client_uid=${anyE.client_uid}`;
     default: {
+      // Defense-in-depth: strip any *token*/secret-ish key so a future event
+      // type can't leak credentials through this fallback.
       const { type, ...rest } = anyE;
+      for (const k of Object.keys(rest)) {
+        if (/token|secret|password|key/i.test(k)) rest[k] = '<redacted>';
+      }
       const tail = Object.keys(rest).length ? ' ' + JSON.stringify(rest).slice(0, 120) : '';
       return `${String(type)}${tail}`;
     }
@@ -140,26 +151,35 @@ export function attachSessionLogger(handle: RunTutorHandle): void {
     }
   }
 
-  states.set(sid, { startedAt, filePath, lastBranchAt: null });
+  const state: SessionLogState = { startedAt, filePath, lastBranchAt: null, unsubscribe: null };
+  states.set(sid, state);
 
   const log = (line: string) => writeLine(sid, `${stamp(nowMinus(startedAt))} ${line}`);
   log(`START${filePath ? ` · file=${filePath}` : ' · console-only'}`);
 
-  handle.progress.subscribe((e: ProgressEvent) => {
-    // `snapshot` fires after almost every other event and is a truncated dump of
-    // internal pointer state — pure noise in a human-readable debug log (it was
-    // ~50% of every transcript). The meaningful lifecycle events below carry the
-    // same information in readable form, so drop snapshots from the log.
-    if (e.type === 'snapshot') return;
-    const st = states.get(sid);
-    if (e.type === 'branch_started' && st) st.lastBranchAt = Date.now();
-    // Resume latency = gap from barge-in to the bridge actually starting —
-    // entirely within this one long-lived SSE invocation, so reliable on Vercel.
-    if (e.type === 'bridge_started' && st?.lastBranchAt != null) {
-      log(`↳ resume latency ${Date.now() - st.lastBranchAt}ms (barge-in → bridge)`);
-      st.lastBranchAt = null;
+  // The listener runs inside ProgressState's EventEmitter.emit(), which is
+  // called synchronously on the narration/resume hot path. A throw here would
+  // bubble through emit() and break the session — so the ENTIRE body is wrapped:
+  // logging must NEVER break a session (the load-bearing invariant of this file).
+  state.unsubscribe = handle.progress.subscribe((e: ProgressEvent) => {
+    try {
+      // `snapshot` fires after almost every other event and is a truncated dump
+      // of internal pointer state — pure noise in a human-readable debug log (it
+      // was ~50% of every transcript). The meaningful lifecycle events below
+      // carry the same information in readable form, so drop snapshots.
+      if (e.type === 'snapshot') return;
+      const st = states.get(sid);
+      if (e.type === 'branch_started' && st) st.lastBranchAt = Date.now();
+      // Resume latency = gap from barge-in to the bridge actually starting —
+      // entirely within this one long-lived SSE invocation, so reliable on Vercel.
+      if (e.type === 'bridge_started' && st?.lastBranchAt != null) {
+        log(`↳ resume latency ${Date.now() - st.lastBranchAt}ms (barge-in → bridge)`);
+        st.lastBranchAt = null;
+      }
+      log(describeEvent(e));
+    } catch {
+      // never let a logging failure propagate into emit() and break narration.
     }
-    log(describeEvent(e));
   });
 }
 
@@ -182,9 +202,23 @@ export function logSessionQa(
   }
 }
 
-/** Flush + drop per-session state on close. */
+/**
+ * Flush + drop ALL per-session resources on close. Must be called when a
+ * session ends (wired into handle.stop) so nothing leaks for the process
+ * lifetime: the progress listener is removed, and both globalThis maps drop
+ * their entries. Idempotent + never throws (logging must not break teardown).
+ */
 export function closeSessionLogger(sessionId: string): void {
   const st = states.get(sessionId);
-  if (st) writeLine(sessionId, `${stamp(nowMinus(st.startedAt))} CLOSE`);
+  if (st) {
+    writeLine(sessionId, `${stamp(nowMinus(st.startedAt))} CLOSE`);
+    try {
+      st.unsubscribe?.();
+    } catch {
+      // teardown best-effort; never throw out of close.
+    }
+  }
   states.delete(sessionId);
+  attached.delete(sessionId); // else id is permanently "attached" → leak + a
+  // reused id would be silently skipped by attachSessionLogger's guard.
 }
