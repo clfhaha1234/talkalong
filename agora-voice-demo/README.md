@@ -68,7 +68,15 @@ Getting started is quick and easy: install the CLI _(skip if you already have it
    pnpm dev
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) and click **Start conversation**.
+3. **Open the storybook tutor** at [http://localhost:3000/tutor](http://localhost:3000/tutor)
+   — pick a topic, click **Begin**, and the lesson generates + narrates. Tap the
+   mic once to enable voice, then just speak to interrupt. (The original
+   conversation demo is at [http://localhost:3000](http://localhost:3000) →
+   **Start conversation**.)
+
+> **Note** — the tutor needs `GOOGLE_API_KEY` (Gemini) in addition to the Agora
+> credentials; see [Environment variables](#environment-variables). The Agora CLI
+> writes only the Agora keys, so add the Gemini key to `.env.local` yourself.
 
 If the agent does not join or transcripts do not appear, run **`agora project doctor --deep`** to check credentials, feature enablement, network reachability, and local env binding.
 
