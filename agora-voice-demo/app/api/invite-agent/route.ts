@@ -91,24 +91,66 @@ export async function POST(request: NextRequest) {
       failureMessage: 'Please wait a moment.',
       maxHistory: 50,
       // VAD controls how the agent detects the start and end of a user's turn.
-      turnDetection: {
-        config: {
-          speech_threshold: 0.5,
-          start_of_speech: {
-            mode: 'vad',
-            vad_config: {
-              interrupt_duration_ms: 160, // ms of speech before interruption triggers
-              prefix_padding_ms: 300, // audio captured before speech is detected
+      //
+      // BARGE_IN_TUNING="1" applies the back-channel-resistant config measured
+      // by the audio-barge-in bench. Default Agora-managed config has FBR≈50%
+      // ("uh huh" / "yeah" / "okay" all steal the agent's turn). Tuning bumps:
+      //   - speech_threshold 0.5 → 0.6   (VAD ignores weaker sounds)
+      //   - interrupt_duration_ms 160 → 600 (a 200ms "uh huh" no longer counts)
+      //   - end_of_speech mode vad → semantic + pause_state_enabled (semantic
+      //     understanding distinguishes pause from end; "hold on" doesn't
+      //     prematurely fire EoS)
+      // See docs/experiments/2026-05-30-barge-in-tuning/ for the A/B.
+      turnDetection: process.env.BARGE_IN_TUNING === '1'
+        ? {
+            config: {
+              // Locked at iter4. Best result from the 2026-05-30-barge-in-tuning
+              // experiment: FBR 57.1% → 14.3% but recall 100% → 75% (B06
+              // "Can you repeat that please?" missed). Doesn't meet the
+              // pre-registered ship criteria (FBR ≤10% AND recall=100%).
+              // BARGE_IN_TUNING stays OFF in prod until next experiment
+              // explores keywords-mode SoS or a different vendor stack.
+              speech_threshold: 0.5,
+              start_of_speech: {
+                mode: 'vad',
+                vad_config: {
+                  interrupt_duration_ms: 600,
+                  speaking_interrupt_duration_ms: 600,
+                  prefix_padding_ms: 300,
+                },
+              },
+              end_of_speech: {
+                mode: 'semantic',
+                semantic_config: {
+                  silence_duration_ms: 320,
+                  max_wait_ms: 3000,
+                  // pause_state_enabled is in the Agora REST API docs but not
+                  // in agora-agent-server-sdk@1.3.2 typings — would help "hold
+                  // on" detection but skipping for now keeps the SDK happy and
+                  // the SoS interrupt_duration_ms bump is the primary lever
+                  // for FBR anyway.
+                },
+              },
+            },
+          }
+        : {
+            config: {
+              speech_threshold: 0.5,
+              start_of_speech: {
+                mode: 'vad',
+                vad_config: {
+                  interrupt_duration_ms: 160, // ms of speech before interruption triggers
+                  prefix_padding_ms: 300, // audio captured before speech is detected
+                },
+              },
+              end_of_speech: {
+                mode: 'vad',
+                vad_config: {
+                  silence_duration_ms: 480, // ms of silence before turn ends
+                },
+              },
             },
           },
-          end_of_speech: {
-            mode: 'vad',
-            vad_config: {
-              silence_duration_ms: 480, // ms of silence before turn ends
-            },
-          },
-        },
-      },
       // RTM is required for transcript events in the browser client.
       // enable_tools is required for MCP tool invocation.
       advancedFeatures: { enable_rtm: true, enable_tools: true },

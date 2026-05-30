@@ -1,0 +1,2293 @@
+{
+  "generated_at": "2026-05-30T02:46:51.846Z",
+  "base_url": "http://localhost:3001",
+  "observe_window_s": 50,
+  "n_cases": 11,
+  "n_pass": 10,
+  "n_fail": 1,
+  "cases": [
+    {
+      "case_id": "B01",
+      "label": "barge-in-true-question",
+      "axis": "true-positive",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == true",
+          "pass": true,
+          "reason": "got true (n_final_transcripts=8)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "stt text includes any of [moss, what is]",
+          "pass": true,
+          "reason": "matched \"what is\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reached states [thinking, speaking]",
+          "pass": true,
+          "reason": "reached silent, speaking, listening, thinking"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == true",
+          "pass": true,
+          "reason": "replied with: \"MOS stands for Mean Opinion Score,which is a measure used to\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reply excludes [didn't come through, didn't catch that]",
+          "pass": true,
+          "reason": "absent"
+        }
+      ],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "What is MOS?",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 10215
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 10216
+          },
+          {
+            "text": "What is MOS?",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 10520
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10521
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11395
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11804
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12261
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12643
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12893
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12975
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4571
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4572
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4839
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4839
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5203
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5203
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5477
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5477
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5545
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5545
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10216
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10521
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11395
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11395
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,which is a measure used to evaluate the quality of voice communications.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11803
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11804
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,which is a measure used to evaluate the quality of voice communications.It typically ranges from 1 to 5, with higher scores indicating better quality.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12261
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12261
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,which is a measure used to evaluate the quality of voice communications.It typically ranges from 1 to 5, with higher scores indicating better quality.If you need more details about its application in Agora,",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12643
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12643
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,which is a measure used to evaluate the quality of voice communications.It typically ranges from 1 to 5, with higher scores indicating better quality.If you need more details about its application in Agora,let me know!",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12893
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12893
+          },
+          {
+            "text": "MOS stands for Mean Opinion Score,which is a measure used to evaluate the quality of voice communications.It typically ranges from 1 to 5, with higher scores indicating better quality.If you need more details about its application in Agora,let me know!",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12975
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12975
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B02",
+      "label": "barge-in-back-channel",
+      "axis": "false-positive-risk",
+      "pass": false,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == true",
+          "pass": false,
+          "reason": "got false (n_final_transcripts=0)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reached states [thinking, speaking]",
+          "pass": true,
+          "reason": "reached speaking, listening, thinking, silent"
+        }
+      ],
+      "events": {
+        "user_transcriptions": [],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4273
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4274
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4496
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4497
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4876
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4876
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5115
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5115
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5168
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5168
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 8969
+          },
+          {
+            "text": "It looks like your message didn't come through.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10636
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10637
+          },
+          {
+            "text": "It looks like your message didn't come through.Could you try asking again?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10919
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10920
+          },
+          {
+            "text": "It looks like your message didn't come through.Could you try asking again?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10975
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10976
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B03",
+      "label": "barge-in-silence-only",
+      "axis": "false-positive-clean",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == false",
+          "pass": true,
+          "reason": "got false (n_final_transcripts=0)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent state did NOT transition due to user turn",
+          "pass": true,
+          "reason": "no states with turnID>=2"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == false",
+          "pass": true,
+          "reason": "no reply observed"
+        }
+      ],
+      "events": {
+        "user_transcriptions": [],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3579
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3579
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3807
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3807
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4113
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4113
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4417
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4417
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4475
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4475
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B04",
+      "label": "barge-in-strong-question",
+      "axis": "true-positive",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == true",
+          "pass": true,
+          "reason": "got true (n_final_transcripts=5)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "stt text includes any of [fox, grumpy, why]",
+          "pass": true,
+          "reason": "matched \"fox\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reached states [thinking, speaking]",
+          "pass": true,
+          "reason": "reached silent, speaking, listening, thinking"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == true",
+          "pass": true,
+          "reason": "replied with: \"It sounds like you're referencing a specific story or charac\""
+        }
+      ],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "Why is the old fox so",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 10065
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 10065
+          },
+          {
+            "text": "Why is the old fox so grumpy?",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 10678
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 10678
+          },
+          {
+            "text": "Why is the old fox so grumpy?",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 10998
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10998
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12240
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12520
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12574
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5459
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5459
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5796
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5797
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6117
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6117
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6372
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6372
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6428
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6429
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9275
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10065
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10678
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10998
+          },
+          {
+            "text": "It sounds like you're referencing a specific story or character.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12239
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12240
+          },
+          {
+            "text": "It sounds like you're referencing a specific story or character.Can you share a bit more context?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12520
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12520
+          },
+          {
+            "text": "It sounds like you're referencing a specific story or character.Can you share a bit more context?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12573
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12574
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B05",
+      "label": "barge-in-real-short-intent",
+      "axis": "true-positive",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == true",
+          "pass": true,
+          "reason": "got true (n_final_transcripts=5)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "stt text includes any of [disagree]",
+          "pass": true,
+          "reason": "matched \"disagree\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reached states [thinking, speaking]",
+          "pass": true,
+          "reason": "reached silent, speaking, listening, thinking"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == true",
+          "pass": true,
+          "reason": "replied with: \"I understand.Can you share what you disagree with?\""
+        }
+      ],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "I disagree.",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 9749
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 9749
+          },
+          {
+            "text": "I disagree.",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 10181
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10181
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10818
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11139
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11192
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5835
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5835
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6087
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6087
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6491
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6491
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6730
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6730
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6789
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 6789
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9235
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9749
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10181
+          },
+          {
+            "text": "I understand.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10818
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10818
+          },
+          {
+            "text": "I understand.Can you share what you disagree with?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11138
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11139
+          },
+          {
+            "text": "I understand.Can you share what you disagree with?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11191
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11192
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B06",
+      "label": "barge-in-true-followup",
+      "axis": "true-positive",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == true",
+          "pass": true,
+          "reason": "got true (n_final_transcripts=7)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "stt text includes any of [repeat]",
+          "pass": true,
+          "reason": "matched \"repeat\""
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent reached states [thinking, speaking]",
+          "pass": true,
+          "reason": "reached silent, speaking, listening, thinking"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == true",
+          "pass": true,
+          "reason": "replied with: \"Sure!I'm Ada,your virtual assistant from Agora.How can I hel\""
+        }
+      ],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "Can you",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 9272
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 9272
+          },
+          {
+            "text": "Can you repeat that, please?",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 10270
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 10271
+          },
+          {
+            "text": "Can you repeat that, please?",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 10367
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 10367
+          },
+          {
+            "text": "Can you repeat that, please?",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 10775
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10775
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11842
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12072
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12442
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12775
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 12850
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4167
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4167
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4443
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4444
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4758
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4758
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4998
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4998
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5054
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5055
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9084
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9272
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10271
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10367
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10775
+          },
+          {
+            "text": "Sure!",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11841
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11842
+          },
+          {
+            "text": "Sure!I'm Ada,",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12071
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12072
+          },
+          {
+            "text": "Sure!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12442
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12442
+          },
+          {
+            "text": "Sure!I'm Ada,your virtual assistant from Agora.How can I help you today?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12774
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12775
+          },
+          {
+            "text": "Sure!I'm Ada,your virtual assistant from Agora.How can I help you today?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 12850
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 12850
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B07",
+      "label": "barge-in-yeah",
+      "axis": "false-positive-risk",
+      "pass": true,
+      "checks": [],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "Yeah.",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 8861
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 8861
+          },
+          {
+            "text": "Yeah.",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 9215
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 9215
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10178
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10232
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3490
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3490
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3721
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3721
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4058
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4059
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4335
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4336
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4390
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4390
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 8702
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 8861
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9215
+          },
+          {
+            "text": "What would you like to know or discuss about Agora's Conversational AI Engine?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10177
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10178
+          },
+          {
+            "text": "What would you like to know or discuss about Agora's Conversational AI Engine?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10232
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10232
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B08",
+      "label": "barge-in-mmhmm",
+      "axis": "false-positive-risk",
+      "pass": true,
+      "checks": [],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "M m",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 9117
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 9117
+          },
+          {
+            "text": "M m",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 9514
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 9514
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11019
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11368
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 11433
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4558
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4558
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4801
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4801
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5175
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5176
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5433
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5433
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5497
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5497
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 8908
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9117
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9514
+          },
+          {
+            "text": "It looks like your message got cut off.",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11018
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11019
+          },
+          {
+            "text": "It looks like your message got cut off.Could you please share more about what you need help with?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11368
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11368
+          },
+          {
+            "text": "It looks like your message got cut off.Could you please share more about what you need help with?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 11433
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 11433
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B09",
+      "label": "barge-in-okay",
+      "axis": "false-positive-risk",
+      "pass": true,
+      "checks": [],
+      "events": {
+        "user_transcriptions": [
+          {
+            "text": "Okay.",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 8830
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 8831
+          },
+          {
+            "text": "Okay.",
+            "final": false,
+            "language": "en-US",
+            "t_ms": 9152
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": false,
+            "language": "",
+            "t_ms": 9153
+          },
+          {
+            "text": "Okay.",
+            "final": true,
+            "language": "en-US",
+            "t_ms": 9484
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 9485
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10082
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10522
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "final": true,
+            "language": "",
+            "t_ms": 10594
+          }
+        ],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3744
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3745
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3984
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3985
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4374
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4374
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4622
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4622
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4681
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4681
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 8831
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9153
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 9485
+          },
+          {
+            "text": "Great!",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10082
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10082
+          },
+          {
+            "text": "Great!What would you like to know about the Agora Conversational AI Engine?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10522
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10522
+          },
+          {
+            "text": "Great!What would you like to know about the Agora Conversational AI Engine?",
+            "turn_id": 2,
+            "is_greeting": false,
+            "t_ms": 10594
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 10594
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "listening",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "thinking",
+            "turnID": 2
+          },
+          {
+            "state": "speaking",
+            "turnID": 2
+          },
+          {
+            "state": "silent",
+            "turnID": 2
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B10",
+      "label": "barge-in-noise-cough",
+      "axis": "false-positive-clean",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == false",
+          "pass": true,
+          "reason": "got false (n_final_transcripts=0)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent state did NOT transition due to user turn",
+          "pass": true,
+          "reason": "no states with turnID>=2"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == false",
+          "pass": true,
+          "reason": "no reply observed"
+        }
+      ],
+      "events": {
+        "user_transcriptions": [],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3757
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3757
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3982
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 3982
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4303
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4303
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4660
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4660
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4715
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4715
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "B11",
+      "label": "barge-in-noise-tv-background",
+      "axis": "false-positive-clean",
+      "pass": true,
+      "checks": [
+        {
+          "kind": "deterministic",
+          "criterion": "stt_received_final == false",
+          "pass": true,
+          "reason": "got false (n_final_transcripts=0)"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent state did NOT transition due to user turn",
+          "pass": true,
+          "reason": "no states with turnID>=2"
+        },
+        {
+          "kind": "deterministic",
+          "criterion": "agent_replied == false",
+          "pass": true,
+          "reason": "no reply observed"
+        }
+      ],
+      "events": {
+        "user_transcriptions": [],
+        "assistant_transcriptions": [
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4104
+          },
+          {
+            "text": "Hi there!",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4104
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4347
+          },
+          {
+            "text": "Hi there!I'm Ada,",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4347
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4685
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 4686
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5023
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5023
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5079
+          },
+          {
+            "text": "Hi there!I'm Ada,your virtual assistant from Agora.How can I help?",
+            "turn_id": 1,
+            "is_greeting": true,
+            "t_ms": 5079
+          }
+        ],
+        "agent_states": [
+          {
+            "state": "silent",
+            "turnID": 0
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "speaking",
+            "turnID": 1
+          },
+          {
+            "state": "silent",
+            "turnID": 1
+          }
+        ]
+      }
+    }
+  ]
+}
