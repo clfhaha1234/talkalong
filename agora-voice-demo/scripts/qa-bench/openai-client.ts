@@ -9,10 +9,19 @@ export interface OpenAIClientOpts {
   baseUrl?: string;
   temperature?: number;
   maxTokens?: number;
+  // Azure OpenAI uses `api-key:` instead of `Authorization: Bearer`. The
+  // baseUrl for Azure looks like `https://<resource>.openai.azure.com/openai/v1`
+  // and chat-completions appends `/chat/completions` to that.
+  authMode?: 'bearer' | 'azure';
 }
 
 export function createOpenAICompletion(opts: OpenAIClientOpts): LlmFn {
-  const baseUrl = opts.baseUrl ?? 'https://api.openai.com/v1/chat/completions';
+  const base = opts.baseUrl ?? 'https://api.openai.com/v1/chat/completions';
+  // Azure baseUrl is typically the v1 root (no /chat/completions suffix).
+  // Auto-append if it looks like the Azure root.
+  const url = (opts.authMode === 'azure' && !base.endsWith('/chat/completions'))
+    ? base.replace(/\/+$/, '') + '/chat/completions'
+    : base;
   // gpt-5 series ignores `temperature` / accept only default; gpt-4 series honors it.
   const isGpt5 = /^gpt-5/i.test(opts.model);
   return async (prompt: string) => {
@@ -33,12 +42,15 @@ export function createOpenAICompletion(opts: OpenAIClientOpts): LlmFn {
       body[isGpt5 ? 'max_completion_tokens' : 'max_tokens'] =
         isGpt5 ? Math.max(opts.maxTokens, 2048) : opts.maxTokens;
     }
-    const res = await fetch(baseUrl, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (opts.authMode === 'azure') {
+      headers['api-key'] = opts.apiKey;
+    } else {
+      headers['Authorization'] = `Bearer ${opts.apiKey}`;
+    }
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${opts.apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     });
     if (!res.ok) {

@@ -200,19 +200,60 @@ async function main() {
   const selected = only ? cases.filter((c) => only.includes(c.id)) : cases;
   if (selected.length === 0) throw new Error('no cases selected');
 
-  // Planner ALWAYS runs on Gemini (matches prod server-side reality).
-  // --planner-model overrides the model (R3 arm B); defaults to the prod model.
-  const plannerModelId = plannerModel ?? env.geminiModel;
-  const plannerLlm = createGeminiCompletion({
-    apiKey: env.geminiApiKey,
-    model: plannerModelId,
-    temperature: 0.7,
-    maxTokens: 1024,
-  });
+  // Planner defaults to Gemini. --planner-model accepts model name (Gemini)
+  // or a "anthropic:<model>" / "azure:<model>" prefix to swap family. Used by
+  // the 2026-05-30 planner-tier experiment.
+  const plannerSpec = plannerModel ?? env.geminiModel;
+  let plannerLlm: ReturnType<typeof createGeminiCompletion>;
+  let plannerModelLabel: string;
+  if (plannerSpec.startsWith('anthropic:')) {
+    const m = plannerSpec.slice('anthropic:'.length);
+    if (!env.anthropicApiKey) throw new Error('ANTHROPIC_API_KEY missing — set it in .env.local');
+    plannerLlm = createAnthropicCompletion({
+      apiKey: env.anthropicApiKey,
+      model: m,
+      temperature: 0.7,
+      maxTokens: 1024,
+    });
+    plannerModelLabel = `anthropic:${m}`;
+  } else if (plannerSpec.startsWith('azure:')) {
+    const m = plannerSpec.slice('azure:'.length);
+    const azureBase = process.env.AZURE_OPENAI_BASE_URL;
+    const azureKey = process.env.AZURE_OPENAI_API_KEY ?? env.openaiApiKey;
+    if (!azureBase) throw new Error('AZURE_OPENAI_BASE_URL missing — set to e.g. https://<resource>.openai.azure.com/openai/v1');
+    if (!azureKey) throw new Error('AZURE_OPENAI_API_KEY (or OPENAI_API_KEY) missing');
+    plannerLlm = createOpenAICompletion({
+      apiKey: azureKey,
+      model: m,
+      baseUrl: azureBase,
+      authMode: 'azure',
+      temperature: 0.7,
+      maxTokens: 1024,
+    });
+    plannerModelLabel = `azure:${m}`;
+  } else {
+    plannerLlm = createGeminiCompletion({
+      apiKey: env.geminiApiKey,
+      model: plannerSpec,
+      temperature: 0.7,
+      maxTokens: 1024,
+    });
+    plannerModelLabel = plannerSpec;
+  }
 
-  // QA-answer LLM follows --qa-model. Default = Gemini (same as planner);
-  // pass `openai:<model>` to match the managed-Agora-agent LLM in prod.
-  let qaLlm = plannerLlm;
+  // QA-answer LLM follows --qa-model. Default = Gemini-flash-lite (a fresh
+  // client, NOT the planner LlmFn — historically these were shared when both
+  // were Gemini, but the 2026-05-30 planner-tier experiment swaps the planner
+  // family. Sharing would silently make qaLlm also call Anthropic/Azure,
+  // defeating "QA constant, planner varies" design and was caught by pilot
+  // when A3 returned empty qa_answer because gpt-5.4-mini's content filter
+  // blanked it. ALWAYS construct qaLlm explicitly).
+  let qaLlm = createGeminiCompletion({
+    apiKey: env.geminiApiKey,
+    model: env.geminiModel,
+    temperature: 0.7,
+    maxTokens: 512,
+  });
   let qaModelLabel = env.geminiModel;
   if (qaModel.startsWith('openai:')) {
     const model = qaModel.slice('openai:'.length);
@@ -238,7 +279,7 @@ async function main() {
     throw new Error(`unknown --qa-model: ${qaModel} (use "gemini", "openai:<model>", or "anthropic:<model>")`);
   }
 
-  console.log(`[bench] qa_model=${qaModelLabel} planner_model=${plannerModelId}${redactEnding ? ' redact_ending=on' : ''} cases=${selected.length} trials=${trials} prompts=${promptsPath}`);
+  console.log(`[bench] qa_model=${qaModelLabel} planner_model=${plannerModelLabel}${redactEnding ? ' redact_ending=on' : ''} cases=${selected.length} trials=${trials} prompts=${promptsPath}`);
 
   const results: CaseResult[] = [];
   for (const c of selected) {
@@ -255,7 +296,7 @@ async function main() {
   const meta = {
     run_at: new Date().toISOString(),
     qa_model: qaModelLabel,
-    planner_model: env.geminiModel,
+    planner_model: plannerModelLabel,
     prompts_path: promptsPath.replace(repoRoot + '/', ''),
     fixture_path: (fixturePath ?? join(expDir, 'fixture.json')).replace(repoRoot + '/', ''),
     cases_path: (casesPath ?? join(expDir, 'cases.json')).replace(repoRoot + '/', ''),
