@@ -45,6 +45,8 @@ describe('session-logger', () => {
     attachSessionLogger(handle);
 
     emit({ type: 'segment_started', segment_id: 's1', segment_index: 0, text: 'Young Albert sat on a hill.' });
+    // snapshot events are noise — they must NOT appear in the transcript.
+    emit({ type: 'snapshot', snapshot: { session_id: 'TST1' } });
     emit({ type: 'segment_completed', segment_id: 's1' });
     emit({ type: 'branch_started', paused_segment_id: 's1' });
     logSessionQa('TST1', [
@@ -66,6 +68,8 @@ describe('session-logger', () => {
     expect(t).toContain('resume latency'); // barge-in → bridge gap computed
     expect(t).toContain('ERROR simerr');
     expect(t).toContain('CLOSE');
+    // snapshot events are filtered out (noise).
+    expect(t).not.toContain('snapshot');
     // Relative-ms stamp on every logged line.
     expect(/\[\+\s*\d+ms\]/.test(t)).toBe(true);
   });

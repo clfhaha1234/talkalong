@@ -30,16 +30,33 @@ const ENABLED = process.env.TUTOR_SESSION_LOG !== '0';
 const FILE_SINK = ENABLED && !process.env.VERCEL;
 const LOG_DIR = process.env.TUTOR_LOG_DIR || 'logs/sessions';
 
-// Per-session bookkeeping. Keyed by session_id so the qa-ended route (a
-// separate request, possibly a separate Vercel instance) can still emit
-// correlated console lines even without the in-memory file handle.
+// Per-session bookkeeping. Keyed by session_id so the qa-ended route can find
+// the session the lesson/start SSE path created.
 interface SessionLogState {
   startedAt: number;
   filePath: string | null;
   lastBranchAt: number | null; // for resume-latency (branch_started → bridge_started)
 }
-const states = new Map<string, SessionLogState>();
-const attached = new WeakSet<object>();
+
+// CRITICAL: stash on globalThis, NOT a module-scoped `const`. In Next.js dev,
+// and across separately-bundled route handlers, each route can get its own copy
+// of this module's graph — a module-scoped Map would make lesson/start and
+// qa-ended write to DIFFERENT Maps, so logSessionQa (in qa-ended) couldn't find
+// the session attachSessionLogger (in the SSE path) created, dropping the Q&A
+// turns + their timestamps from the file. This is the same hazard, and the same
+// fix, as session-registry.ts.
+declare global {
+  // eslint-disable-next-line no-var
+  var __tutorSessionLogStates: Map<string, SessionLogState> | undefined;
+  // eslint-disable-next-line no-var
+  var __tutorSessionLogAttached: Set<string> | undefined;
+}
+const states: Map<string, SessionLogState> =
+  globalThis.__tutorSessionLogStates ?? (globalThis.__tutorSessionLogStates = new Map());
+// Idempotency guard keyed by session_id (was a WeakSet on the handle; a string
+// Set survives across the module-graph boundary the same way `states` does).
+const attached: Set<string> =
+  globalThis.__tutorSessionLogAttached ?? (globalThis.__tutorSessionLogAttached = new Set());
 
 function stamp(ms: number): string {
   return `[+${String(ms).padStart(6, ' ')}ms]`;
@@ -101,8 +118,8 @@ function describeEvent(e: ProgressEvent): string {
  */
 export function attachSessionLogger(handle: RunTutorHandle): void {
   if (!ENABLED) return;
-  if (attached.has(handle)) return;
-  attached.add(handle);
+  if (attached.has(handle.session_id)) return;
+  attached.add(handle.session_id);
 
   const sid = handle.session_id;
   const startedAt = Date.now();
@@ -129,6 +146,11 @@ export function attachSessionLogger(handle: RunTutorHandle): void {
   log(`START${filePath ? ` · file=${filePath}` : ' · console-only'}`);
 
   handle.progress.subscribe((e: ProgressEvent) => {
+    // `snapshot` fires after almost every other event and is a truncated dump of
+    // internal pointer state — pure noise in a human-readable debug log (it was
+    // ~50% of every transcript). The meaningful lifecycle events below carry the
+    // same information in readable form, so drop snapshots from the log.
+    if (e.type === 'snapshot') return;
     const st = states.get(sid);
     if (e.type === 'branch_started' && st) st.lastBranchAt = Date.now();
     // Resume latency = gap from barge-in to the bridge actually starting —
