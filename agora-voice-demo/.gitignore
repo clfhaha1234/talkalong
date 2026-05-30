@@ -141,3 +141,6 @@ dist
 # Generated storybook scene image cache (content-addressed by sha256 of prompt)
 public/lesson-cache/
 public/lesson-cache/scripts/
+
+# Per-session debug logs (session-logger.ts)
+logs/
