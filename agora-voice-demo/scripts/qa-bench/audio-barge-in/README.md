@@ -58,7 +58,18 @@ It measures three latencies a listener actually feels, by polling the **user-vis
 
 `--trials N` repeats each case and reports **p50/p95** (VAD/LLM latency is non-deterministic — single-shot numbers mislead). `--judge` adds a 0–5 quality score on the spoken answer via `GOOGLE_API_KEY` (warm / correct / concise / returns to the tale). Interrupt onset is taken from the WAV's lead silence, validated deterministic to ±6ms by the [fake-mic spike](../../../docs/experiments/2026-05-30-fake-mic-spike/) (Spike 2).
 
-The pure latency math (`deriveLatencies`, percentiles) is unit-tested on synthetic timelines; the **full run needs a dev server with real Agora + LLM keys** (this worktree has none — same constraint as `run.mjs`).
+### User-experience framing
+
+The report answers the three things a listener actually feels, with 🟢/🟡/🔴 bands (voice-UX norms: <1s instant, 1–2s natural, 2–4s noticeable, >4s sluggish):
+
+1. **stop-talking (T1)** — how fast it shuts up when you speak
+2. **answer (T2)** — how fast it replies
+3. **back-to-story (T3)** — how fast it resumes after you go quiet
+4. **round-trip** — T1+T2+T3, the whole felt loop
+
+It also prints a **resume budget** that splits T3 into the one *fixed, tunable product knob* — `SILENCE_TIMEOUT_MS` (the silence-confirm wait, **2000ms** in `components/TutorPage.tsx`, the dominant component of "how long after I go quiet does the story continue") — vs the variable live plan+bridge work. A drift guard greps the source so the harness constant can't silently fall out of sync. Lowering the fixed wait is the single highest-leverage resume-snappiness change; the budget table tells you whether it's actually the bottleneck for each case.
+
+The pure logic (`deriveLatencies`, percentiles, bands, budget split) is unit-tested on synthetic timelines; the **full run needs a dev server with real Agora + LLM keys** (this worktree has none — same constraint as `run.mjs`).
 
 ## KPIs
 

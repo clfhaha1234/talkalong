@@ -47,6 +47,35 @@ const POLL_MS = 100;
 // configured lead as the interrupt onset; override per case via case.lead_ms.
 const DEFAULT_LEAD_MS = Number(process.env.BARGE_LEAD_MS || 5000);
 
+// ── Known FIXED timings baked into the app (not measured — read from source).
+// Surfaced in the report so the end-to-end budget separates "tunable product
+// decision" from "live LLM/network latency". If you change the source, change
+// this — there's a guard test that greps the constant.
+const KNOWN_FIXED = {
+  // components/TutorPage.tsx — how long the user must be silent before we
+  // decide their question is finished and start planning the resume. Pure UX
+  // knob: lower = snappier resume but risks cutting a mid-thought pause; higher
+  // = safer but feels sluggish. THIS is the dominant component of "how long
+  // after I stop talking does the story continue".
+  silence_confirm_ms: 2000,
+};
+
+// ── UX target bands (ms). What a listener perceives, from voice-UX norms:
+// <1s instant, 1-2s natural, 2-4s noticeable, >4s sluggish. Used to colour the
+// report so a number means "good/ok/slow", not just a raw figure.
+const BANDS = {
+  t1_pause: { good: 600, ok: 1200 },   // it should stop talking fast
+  t2_reply: { good: 1500, ok: 3000 },  // answer onset
+  t3_resume: { good: 3500, ok: 5500 }, // includes the 2s silence-confirm wait
+  total: { good: 5000, ok: 8000 },     // whole round trip
+};
+function band(ms, b) {
+  if (ms == null) return '—';
+  if (ms <= b.good) return '🟢';
+  if (ms <= b.ok) return '🟡';
+  return '🔴';
+}
+
 const args = process.argv.slice(2);
 const flag = (k) => args.includes(k);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -229,6 +258,16 @@ async function main() {
       quality = await judgeAnswer(testCase, trials[trials.length - 1].answer_text);
       console.log(`  quality: ${quality.score ?? quality.skipped ?? quality.error}`);
     }
+    // End-to-end round trip a listener feels: speak → pause → reply → (silence
+    // confirm) → resume. T3 already spans the silence-confirm wait + plan +
+    // bridge, so total = T1+T2+T3 per trial (only when all three measured).
+    const totals = trials
+      .map((t) => {
+        const { t1_pause_ms: a, t2_reply_ms: b, t3_resume_ms: c } = t.latencies;
+        return a != null && b != null && c != null ? a + b + c : null;
+      })
+      .filter((x) => x != null);
+
     out.push({
       id: testCase.id,
       label: testCase.label,
@@ -240,23 +279,45 @@ async function main() {
         t2_p95: pct(trials.map((t) => t.latencies.t2_reply_ms), 95),
         t3_p50: pct(trials.map((t) => t.latencies.t3_resume_ms), 50),
         t3_p95: pct(trials.map((t) => t.latencies.t3_resume_ms), 95),
+        total_p50: pct(totals, 50),
+        total_p95: pct(totals, 95),
       },
       quality,
     });
   }
 
-  writeFileSync(join(OUT_DIR, 'latency.json'), JSON.stringify(out, null, 2));
+  writeFileSync(
+    join(OUT_DIR, 'latency.json'),
+    JSON.stringify({ known_fixed: KNOWN_FIXED, bands: BANDS, cases: out }, null, 2),
+  );
 
-  // Markdown report.
-  console.log('\n## Barge-in latency (ms)\n');
-  console.log('| id | T1 pause p50/p95 | T2 reply p50/p95 | T3 resume p50/p95 | quality |');
-  console.log('|---|---|---|---|---|');
+  // ── Report, framed as the three UX questions a listener actually asks.
+  console.log('\n# Barge-in user-experience timeline\n');
+  console.log('Maps the three things a listener feels. p50/p95 in ms; 🟢 good 🟡 ok 🔴 sluggish.\n');
+  console.log('| case | ①stop-talking T1 | ②answer T2 | ③back-to-story T3 | round-trip | quality |');
+  console.log('|---|---|---|---|---|---|');
   for (const o of out) {
     const a = o.agg;
-    const q = o.quality?.score != null ? `${o.quality.score}/5` : o.quality?.skipped ? '—' : '';
+    const cell = (p50, p95, b) => (p50 == null ? '—' : `${band(p50, b)} ${p50}/${p95}`);
+    const q = o.quality?.score != null ? `${o.quality.score}/5` : '—';
     console.log(
-      `| ${o.id} | ${a.t1_p50 ?? '—'}/${a.t1_p95 ?? '—'} | ${a.t2_p50 ?? '—'}/${a.t2_p95 ?? '—'} | ${a.t3_p50 ?? '—'}/${a.t3_p95 ?? '—'} | ${q} |`,
+      `| ${o.id} | ${cell(a.t1_p50, a.t1_p95, BANDS.t1_pause)} | ${cell(a.t2_p50, a.t2_p95, BANDS.t2_reply)} | ${cell(a.t3_p50, a.t3_p95, BANDS.t3_resume)} | ${cell(a.total_p50, a.total_p95, BANDS.total)} | ${q} |`,
     );
+  }
+
+  // ── "Back to story after I stop talking" budget — decompose T3 into the
+  // FIXED tunable wait vs the variable live work. This is the knob you asked
+  // about: of the resume time, how much is the hardcoded silence-confirm?
+  console.log('\n## "How long after I go quiet does the story continue?" — budget\n');
+  console.log(`Fixed silence-confirm wait (tunable product knob): **${KNOWN_FIXED.silence_confirm_ms}ms** (\`SILENCE_TIMEOUT_MS\`, components/TutorPage.tsx)\n`);
+  console.log('| case | total resume (T3 p50) | — fixed wait | = live plan+bridge | tune fixed→? |');
+  console.log('|---|---|---|---|---|');
+  for (const o of out) {
+    const t3 = o.agg.t3_p50;
+    if (t3 == null) { console.log(`| ${o.id} | — | ${KNOWN_FIXED.silence_confirm_ms} | — | — |`); continue; }
+    const live = Math.max(0, t3 - KNOWN_FIXED.silence_confirm_ms);
+    const hint = live > 1500 ? 'live work dominates — fixed wait not the bottleneck' : 'fixed wait is a big share — lowering it helps most';
+    console.log(`| ${o.id} | ${t3} | ${KNOWN_FIXED.silence_confirm_ms} | ${live} | ${hint} |`);
   }
   console.log(`\nwrote ${join(OUT_DIR, 'latency.json')}`);
 }
