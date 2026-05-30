@@ -274,6 +274,27 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     // ignore the promise; setEnabled is idempotent and the SDK queues it
     void localMicrophoneTrack.setEnabled(!micMuted);
   }, [localMicrophoneTrack, micMuted]);
+
+  // Live mic amplitude (0..1) for the Voice Orb's level ring. Polled at ~12fps
+  // (80ms) — fast enough to feel alive, slow enough not to thrash React. Only
+  // runs while the mic is actually live; muted/absent → 0 so the ring rests.
+  // This is also the *visible* echo guard: if the agent's own voice ever leaks
+  // into a hot mic, the ring blooms while the user is silent — you can see it.
+  const [micLevel, setMicLevel] = useState(0);
+  useEffect(() => {
+    if (!localMicrophoneTrack || micMuted) {
+      setMicLevel(0);
+      return;
+    }
+    const id = setInterval(() => {
+      try {
+        setMicLevel(localMicrophoneTrack.getVolumeLevel?.() ?? 0);
+      } catch {
+        // track may be mid-teardown; ignore
+      }
+    }, 80);
+    return () => clearInterval(id);
+  }, [localMicrophoneTrack, micMuted]);
   const onToggleMic = useCallback(() => {
     // Tapping clears any prior denial so the browser can re-prompt (e.g. the
     // user fixed a blocked permission and wants to retry).
@@ -781,6 +802,8 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             qaHistoryByScene={qaHistoryByScene}
             micMuted={micMuted}
             micDenied={micDenied}
+            micLevel={micLevel}
+            agentState={agentState}
             onToggleMic={onToggleMic}
             onExit={onExit}
           />

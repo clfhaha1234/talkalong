@@ -66,6 +66,14 @@ interface StoryScreenProps {
   /** True if the user has the mic muted right now. The mic button toggles
    *  this. */
   micMuted: boolean;
+  /** Live mic amplitude 0..1 (parent polls the AgoraRTC track). Drives the
+   *  Voice Orb's level ring so the user can SEE they're being heard — and so a
+   *  stray echo into a hot mic is visible. 0 when muted/absent. */
+  micLevel: number;
+  /** The agent's live conversational state ('idle' | 'speaking' | 'listening'
+   *  | 'silent' …) from Agora ConvoAI. Drives the Orb's mode copy so the user
+   *  always knows whether the teacher is talking or waiting on them. */
+  agentState: string;
   /** Toggle the AgoraRTC local mic enabled/disabled. The orchestrator's
    *  Agora VAD does the actual barge-in detection — the toggle is purely the
    *  user's wish to be heard. */
@@ -543,6 +551,186 @@ function BranchOverlay({ qaHistory }: BranchOverlayProps) {
   );
 }
 
+interface VoiceOrbProps {
+  micMuted: boolean;
+  micDenied: boolean;
+  /** Live amplitude 0..1 — drives the reactive level ring. */
+  micLevel: number;
+  /** True while the agent is mid-sentence (Agora 'speaking'). Lets the orb
+   *  invite a barge-in ("speak any time") vs. waiting for the user. */
+  agentSpeaking: boolean;
+  /** True during a real BRANCH — the teacher has stopped to hear the user. */
+  inBranch: boolean;
+  onToggleMic: () => void;
+}
+
+// The Voice Orb — one control that tells the whole truth about the mic:
+// whether it's live, whether you're being heard (the reactive level ring),
+// and what the system is doing (the copy beneath). It collapses the old
+// button-with-two-meanings + a separate status line into a single, honest
+// affordance. Crucially: once live, the user does NOT tap again to speak —
+// the copy says so, and the level ring proves the mic hears them.
+function VoiceOrb({
+  micMuted,
+  micDenied,
+  micLevel,
+  agentSpeaking,
+  inBranch,
+  onToggleMic,
+}: VoiceOrbProps) {
+  const live = !micMuted && !micDenied;
+  // Ring bloom tracks amplitude. Floor keeps a faint resting ring when live so
+  // the control reads "armed" even in silence; ceiling caps the bloom so a
+  // shout doesn't blow out the layout.
+  const lvl = Math.min(1, Math.max(0, micLevel));
+  const ringScale = 1 + (live ? 0.12 + lvl * 0.85 : 0);
+  const ringOpacity = live ? 0.18 + lvl * 0.6 : 0;
+
+  // Colour language: rose = the teacher is listening to YOU (branch); ink =
+  // armed-and-idle; muted-ink = off; rose-alert = blocked.
+  const orbBg = micDenied
+    ? T.rose
+    : inBranch
+      ? T.rose
+      : live
+        ? T.ink
+        : T.inkSoft;
+
+  const label = micDenied
+    ? 'Microphone blocked'
+    : inBranch
+      ? 'Listening — go ahead'
+      : !live
+        ? 'Tap once to talk'
+        : agentSpeaking
+          ? 'Speak any time — I’ll stop and listen'
+          : 'I’m listening — just speak';
+
+  const sublabel = micDenied
+    ? 'allow it in your browser, then tap again'
+    : !live
+      ? 'then just speak — no need to tap again'
+      : 'tap the orb to mute';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 9,
+        position: 'relative',
+      }}
+    >
+      <div style={{ position: 'relative', width: 76, height: 76 }}>
+        {/* Reactive level ring — blooms with the user's voice. Also the
+            visible echo guard: if the agent's audio ever leaks into a hot
+            mic, this ring lights up while the user is silent. */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 6,
+            borderRadius: '50%',
+            border: `2px solid ${inBranch ? T.rose : T.gold}`,
+            transform: `scale(${ringScale})`,
+            opacity: ringOpacity,
+            transition: 'transform 90ms linear, opacity 90ms linear',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Soft "you may interrupt" halo while the teacher is speaking. */}
+        {live && agentSpeaking && !inBranch && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              boxShadow: `0 0 0 5px rgba(196,154,75,0.14)`,
+              animation: 'orbBreathe 2.6s ease-in-out infinite',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        <button
+          type="button"
+          onClick={onToggleMic}
+          style={{
+            position: 'absolute',
+            inset: 6,
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            background: orbBg,
+            color: T.paper,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: inBranch
+              ? '0 0 0 6px rgba(199,123,106,0.18), 0 6px 16px rgba(60,40,20,0.2)'
+              : '0 4px 12px rgba(60,40,20,0.18)',
+            transition: 'background 0.25s, box-shadow 0.25s',
+          }}
+          aria-label={live ? 'mute microphone' : 'turn on microphone'}
+          aria-pressed={live}
+        >
+          <MicIcon color={T.paper} size={22} />
+          {!live && (
+            <svg
+              aria-hidden
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              style={{ position: 'absolute', inset: 8, pointerEvents: 'none' }}
+            >
+              <line
+                x1="6"
+                y1="42"
+                x2="42"
+                y2="6"
+                stroke={T.paper}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      <div style={{ textAlign: 'center', minHeight: 30 }}>
+        <div
+          style={{
+            fontFamily: F_HEAD,
+            fontStyle: 'italic',
+            fontSize: 14,
+            color: micDenied ? T.rose : inBranch || live ? T.ink : T.inkSoft,
+            letterSpacing: '0.02em',
+            transition: 'color 0.2s',
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontFamily: F_MONO,
+            fontSize: 9.5,
+            letterSpacing: '0.16em',
+            color: T.inkWhisper,
+            textTransform: 'uppercase',
+            marginTop: 3,
+          }}
+        >
+          {sublabel}
+        </div>
+      </div>
+      <style>{`@keyframes orbBreathe { 0%,100% { box-shadow: 0 0 0 5px rgba(196,154,75,0.10); } 50% { box-shadow: 0 0 0 9px rgba(196,154,75,0.05); } }`}</style>
+    </div>
+  );
+}
+
 interface StoryFooterProps {
   sceneIndex: number;
   sceneCount: number;
@@ -551,6 +739,8 @@ interface StoryFooterProps {
   finished: boolean;
   micMuted: boolean;
   micDenied: boolean;
+  micLevel: number;
+  agentState: string;
   onToggleMic: () => void;
 }
 
@@ -562,30 +752,10 @@ function StoryFooter({
   finished,
   micMuted,
   micDenied,
+  micLevel,
+  agentState,
   onToggleMic,
 }: StoryFooterProps) {
-  const iconBtn: React.CSSProperties = {
-    width: 36,
-    height: 36,
-    borderRadius: '50%',
-    border: `1px solid ${T.paperEdge}`,
-    background: T.paperHi,
-    cursor: 'default',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.4,
-  };
-
-  // The mic glow swaps colour when we're actively in BRANCH so the user
-  // sees the system is listening server-side. Local mic mute also shifts
-  // the colour to muted-gray.
-  const micActive = inBranch;
-  const micBg = micMuted ? T.inkSoft : micActive ? T.rose : T.ink;
-  const micGlow = micActive
-    ? '0 0 0 6px rgba(199,123,106,0.18), 0 0 0 14px rgba(199,123,106,0.08)'
-    : '0 4px 12px rgba(60,40,20,0.18)';
-
   return (
     <div
       style={{
@@ -593,7 +763,7 @@ function StoryFooter({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 110,
+        height: 120,
         borderTop: `1px solid ${T.paperEdge}`,
         background: T.paper,
         padding: '0 50px',
@@ -603,11 +773,7 @@ function StoryFooter({
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <SceneStrip
-          count={sceneCount}
-          current={sceneIndex}
-          ready={readyCount}
-        />
+        <SceneStrip count={sceneCount} current={sceneIndex} ready={readyCount} />
         <div
           style={{
             fontFamily: F_MONO,
@@ -626,104 +792,18 @@ function StoryFooter({
           <Flourish size={56} />
         </div>
       ) : (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* Prev / next disabled — narrator drives advance. We render them
-            for visual parity but don't wire them; the agent decides when to
-            turn the page. */}
-        <button type="button" style={iconBtn} disabled aria-label="previous">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M 9 2 L 4 7 L 9 12"
-              stroke={T.ink}
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative' }}>
-          <button
-            type="button"
-            onClick={onToggleMic}
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: micBg,
-              color: T.paper,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: micGlow,
-              position: 'relative',
-              transition: 'all 0.2s',
-            }}
-            aria-label={micMuted ? 'tap to talk' : 'tap to stop'}
-          >
-            <MicIcon color={T.paper} size={22} />
-            {micMuted && (
-              <svg
-                aria-hidden
-                width="48"
-                height="48"
-                viewBox="0 0 48 48"
-                style={{
-                  position: 'absolute',
-                  inset: 8,
-                  pointerEvents: 'none',
-                }}
-              >
-                <line
-                  x1="6"
-                  y1="42"
-                  x2="42"
-                  y2="6"
-                  stroke={T.paper}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-              </svg>
-            )}
-          </button>
-          {/* Push-to-talk hint pinned under the mic so it never gets lost. */}
-          <div
-            style={{
-              fontFamily: F_HEAD,
-              fontStyle: 'italic',
-              fontSize: 12,
-              color: micDenied ? T.rose : micMuted ? T.inkSoft : T.rose,
-              letterSpacing: '0.05em',
-              minHeight: 16,
-              transition: 'color 0.2s',
-            }}
-          >
-            {micDenied
-              ? 'mic blocked — tap to retry'
-              : inBranch
-                ? 'listening…'
-                : micMuted
-                  ? 'tap to talk'
-                  : 'tap to mute'}
-          </div>
-        </div>
-
-        <button type="button" style={iconBtn} disabled aria-label="next">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M 5 2 L 10 7 L 5 12"
-              stroke={T.ink}
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
+        <VoiceOrb
+          micMuted={micMuted}
+          micDenied={micDenied}
+          micLevel={micLevel}
+          agentSpeaking={agentState === 'speaking'}
+          inBranch={inBranch}
+          onToggleMic={onToggleMic}
+        />
       )}
 
+      {/* Right column — quiet contextual line; the Orb now carries the
+          primary mic copy, so this stays a soft narration of session state. */}
       <div
         style={{
           fontFamily: F_HEAD,
@@ -735,13 +815,9 @@ function StoryFooter({
       >
         {finished
           ? 'The end · ← back to start'
-          : micDenied
-            ? 'Microphone blocked · allow it in your browser, then tap again'
-            : inBranch
-              ? 'Paused for question · I am listening'
-              : micMuted
-                ? 'Mic muted · click to speak'
-                : 'Speak any time · I will stop and listen'}
+          : inBranch
+            ? 'Paused for your question'
+            : '· now reading ·'}
       </div>
     </div>
   );
@@ -755,6 +831,8 @@ export function StoryScreen({
   qaHistoryByScene,
   micMuted,
   micDenied,
+  micLevel,
+  agentState,
   onToggleMic,
   onExit,
 }: StoryScreenProps) {
@@ -931,6 +1009,8 @@ export function StoryScreen({
         finished={finished}
         micMuted={micMuted}
         micDenied={micDenied}
+        micLevel={micLevel}
+        agentState={agentState}
         onToggleMic={onToggleMic}
       />
     </div>
