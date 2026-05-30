@@ -1,0 +1,456 @@
+{
+  "meta": {
+    "run_at": "2026-05-30T01:29:41.919Z",
+    "qa_model": "gemini-3.1-flash-lite",
+    "planner_model": "azure:gpt-5.4-mini",
+    "prompts_path": "docs/experiments/2026-05-30-planner-tier-bench/prompts/baseline.json",
+    "fixture_path": "docs/experiments/2026-05-28-qa-resume-benchmark/fixture.json",
+    "cases_path": "docs/experiments/2026-05-28-qa-resume-benchmark/cases.json",
+    "out_path": "docs/experiments/2026-05-30-planner-tier-bench/outputs/A3-dev.json",
+    "trials": 1,
+    "n_cases": 11,
+    "n_results": 11
+  },
+  "results": [
+    {
+      "case_id": "C1",
+      "label": "language-switch-to-chinese",
+      "trigger_scene": "s1",
+      "paused_pct": 0.4,
+      "qa_question": "能不能接下来用中文讲故事？",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "当然可以，小宝贝，那我们就换成中文继续讲这个故事。莉娜踩在冰凉的雪地上，那棵大树的嗡嗡声听起来就像是一首遥远的摇篮曲。",
+      "qa_latency_ms": 788,
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "莉娜踩着冻硬的草地，朝那棵会低声嗡鸣的大树走去；树皮里藏着一个不肯安静的秘密，正等着她去听。",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s1",
+            "text": "在村子边上，立着一棵比教堂还高的空心树。每个冬夜，树皮里都会传出低低的嗡鸣，大人们总说：别碰那棵树。可奶奶还没讲完故事就睡着了，莉娜披上红色羊毛外套，穿过结霜的田野，去听那声音。"
+          },
+          {
+            "id": "s2",
+            "text": "她在树洞里看见一段盘旋向下的楼梯，最上面的台阶上坐着一只老灰狐狸，身上穿着打补丁的绿色背心。他叫莫斯，声音像干叶子一样沙沙的，说这棵树不是用来拜访的，叫她回家，把嗡鸣忘掉。莉娜说，她不能忘记自己还没听见的东西。"
+          }
+        ],
+        "active_scene_id": "s1"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 2559,
+      "planner_raw": "{\n  \"bridge_text\": \"莉娜踩着冻硬的草地，朝那棵会低声嗡鸣的大树走去；树皮里藏着一个不肯安静的秘密，正等着她去听。\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s1\",\n      \"text\": \"在村子边上，立着一棵比教堂还高的空心树。每个冬夜，树皮里都会传出低低的嗡鸣，大人们总说：别碰那棵树。可奶奶还没讲完故事就睡着了，莉娜披上红色羊毛外套，穿过结霜的田野，去听那声音。\"\n    },\n    {\n      \"id\": \"s2\",\n      \"text\": \"她在树洞里看见一段盘旋向下的楼梯，最上面的台阶上坐着一只老灰狐狸，身上穿着打补丁的绿色背心。他叫莫斯，声音像干叶子一样沙沙的，说这棵树不是用来拜访的，叫她回家，把嗡鸣忘掉。莉娜说，她不能忘记自己还没听见的东西。\"\n    }\n  ],\n  \"active_scene_id\": \"s1\"\n}"
+    },
+    {
+      "case_id": "C2a",
+      "label": "spoiler-motivation-too-early",
+      "trigger_scene": "s2",
+      "paused_pct": 0.6,
+      "qa_question": "Why is the old fox so grumpy?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2"
+      ],
+      "qa_answer": "That is a secret the story is keeping a little longer—listen on.",
+      "qa_latency_ms": 978,
+      "planner_input_summary": {
+        "paused_scene_id": "s2",
+        "paused_scene_progress": 0.6,
+        "next_scene_ids": [
+          "s3",
+          "s4"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "Mosk’s stern face was hiding more than it showed, and the hollow tree kept its secret for a little longer. Lina stood on the curling stairs, the last apple warm in her pocket, while the fox watched in silence.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s2",
+            "text": "Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard."
+          },
+          {
+            "id": "s3",
+            "text": "Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word."
+          }
+        ],
+        "active_scene_id": "s2"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 2142,
+      "planner_raw": "{\"bridge_text\":\"Mosk’s stern face was hiding more than it showed, and the hollow tree kept its secret for a little longer. Lina stood on the curling stairs, the last apple warm in her pocket, while the fox watched in silence.\",\"resume_strategy\":\"continue\",\"replacement_segments\":[{\"id\":\"s2\",\"text\":\"Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard.\"},{\"id\":\"s3\",\"text\":\"Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word.\"}],\"active_scene_id\":\"s2\"}"
+    },
+    {
+      "case_id": "C2b",
+      "label": "non-spoiler-factual-already-revealed",
+      "trigger_scene": "s2",
+      "paused_pct": 0.9,
+      "qa_question": "What is the fox's name again?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2"
+      ],
+      "qa_answer": "The old fox in the patched green vest is named Mosk, my dear. He is quite a grumpy fellow to meet on such a cold night.",
+      "qa_latency_ms": 718,
+      "planner_input_summary": {
+        "paused_scene_id": "s2",
+        "paused_scene_progress": 0.9,
+        "next_scene_ids": [
+          "s3",
+          "s4"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The fox in the patched green vest is Mosk, and his dry-leaf voice still hangs in the hollow tree. Lina has heard his warning, yet she stands her ground beside the stair.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s2",
+            "text": "Mosk pointed at the door, but Lina did not turn away. She reached into her pocket and found the last apple of the season, round and gold in the dark. She set it on the step between them and said it was for the trouble of walking her down."
+          },
+          {
+            "id": "s3",
+            "text": "Mosk stared at the apple for a long time, as still as a stone. Then he gave a small nod, tied his vest a little tighter, and stepped onto the first stair without a word. Lina followed after him into the deep, quiet below."
+          }
+        ],
+        "active_scene_id": "s2"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1801,
+      "planner_raw": "{\n  \"bridge_text\": \"The fox in the patched green vest is Mosk, and his dry-leaf voice still hangs in the hollow tree. Lina has heard his warning, yet she stands her ground beside the stair.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s2\",\n      \"text\": \"Mosk pointed at the door, but Lina did not turn away. She reached into her pocket and found the last apple of the season, round and gold in the dark. She set it on the step between them and said it was for the trouble of walking her down.\"\n    },\n    {\n      \"id\": \"s3\",\n      \"text\": \"Mosk stared at the apple for a long time, as still as a stone. Then he gave a small nod, tied his vest a little tighter, and stepped onto the first stair without a word. Lina followed after him into the deep, quiet below.\"\n    }\n  ],\n  \"active_scene_id\": \"s2\"\n}"
+    },
+    {
+      "case_id": "C3",
+      "label": "user-tries-to-change-character-arc",
+      "trigger_scene": "s3",
+      "paused_pct": 0.5,
+      "qa_question": "I don't think Lina should give the apple. She should just sneak past the fox!",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "qa_answer": "Lina knows that kindness often opens doors that strength cannot budge. Perhaps she hopes the apple will turn a grumpy fox into a helpful guide.",
+      "qa_latency_ms": 722,
+      "planner_input_summary": {
+        "paused_scene_id": "s3",
+        "paused_scene_progress": 0.5,
+        "next_scene_ids": [
+          "s4",
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "Lina had chosen kindness over sneaking, and the fox had gone quiet at the apple in his paws. Now he turns toward the staircase, and the hollow tree begins to share its secret below.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s3",
+            "text": "Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word. Lina followed, her heart thumping softly as the door opened to the hollow tree’s dim, humming inside."
+          },
+          {
+            "id": "s4",
+            "text": "At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk's whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time."
+          },
+          {
+            "id": "s5",
+            "text": "He had been guarding the tree ever since, ashamed to face her. Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers."
+          }
+        ],
+        "active_scene_id": "s3"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 2131,
+      "planner_raw": "{\"bridge_text\":\"Lina had chosen kindness over sneaking, and the fox had gone quiet at the apple in his paws. Now he turns toward the staircase, and the hollow tree begins to share its secret below.\",\"resume_strategy\":\"continue\",\"replacement_segments\":[{\"id\":\"s3\",\"text\":\"Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word. Lina followed, her heart thumping softly as the door opened to the hollow tree’s dim, humming inside.\"},{\"id\":\"s4\",\"text\":\"At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk's whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time.\"},{\"id\":\"s5\",\"text\":\"He had been guarding the tree ever since, ashamed to face her. Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers.\"}],\"active_scene_id\":\"s3\"}"
+    },
+    {
+      "case_id": "C4",
+      "label": "real-world-concept-question",
+      "trigger_scene": "s4",
+      "paused_pct": 0.2,
+      "qa_question": "What is moss?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ],
+      "qa_answer": "Moss is a soft, velvet-green carpet that grows in damp and quiet places, cushioning the earth like a blanket for the little creatures of the woods. It feels just like a cool, fuzzy pillow beneath your fingertips.",
+      "qa_latency_ms": 800,
+      "planner_input_summary": {
+        "paused_scene_id": "s4",
+        "paused_scene_progress": 0.2,
+        "next_scene_ids": [
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The soft green pillow at the bottom of the stairs held a tiny queen whose light had nearly faded. Mosk’s old sorrow hung in the air, and Lina stood very still beside the mossy bed.",
+        "resume_strategy": "restart",
+        "replacement_segments": [
+          {
+            "id": "s4",
+            "text": "At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk’s whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. He had been guarding the tree ever since, ashamed to face her."
+          },
+          {
+            "id": "s5",
+            "text": "Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen’s glow steadied, and the humming inside the tree turned into a tune Lina had not heard before."
+          }
+        ],
+        "active_scene_id": "s4"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1715,
+      "planner_raw": "{\"bridge_text\":\"The soft green pillow at the bottom of the stairs held a tiny queen whose light had nearly faded. Mosk’s old sorrow hung in the air, and Lina stood very still beside the mossy bed.\",\"resume_strategy\":\"restart\",\"replacement_segments\":[{\"id\":\"s4\",\"text\":\"At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk’s whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. He had been guarding the tree ever since, ashamed to face her.\"},{\"id\":\"s5\",\"text\":\"Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen’s glow steadied, and the humming inside the tree turned into a tune Lina had not heard before.\"}],\"active_scene_id\":\"s4\"}"
+    },
+    {
+      "case_id": "C5",
+      "label": "didnt-understand-asks-to-repeat",
+      "trigger_scene": "s2",
+      "paused_pct": 0.5,
+      "qa_question": "Wait, who is inside the tree? Can you say that part again slower?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2"
+      ],
+      "qa_answer": "An old fox named Mosk sits upon the stairs wearing a patched green vest. He has a voice like dry leaves and he is the guardian of the tree.",
+      "qa_latency_ms": 726,
+      "planner_input_summary": {
+        "paused_scene_id": "s2",
+        "paused_scene_progress": 0.5,
+        "next_scene_ids": [
+          "s3",
+          "s4"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "Inside the hollow tree, an old fox named Mosk waited on the stairs, his patched green vest tucked close. He told Lina to go home, but she stood her ground with the humming still hidden below.",
+        "resume_strategy": "restart",
+        "replacement_segments": [
+          {
+            "id": "s2",
+            "text": "Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk, and his voice sounded like dry leaves. He told Lina the tree was not for visiting and that she should go home and forget the humming."
+          },
+          {
+            "id": "s3",
+            "text": "Lina said she could not forget what she had not yet heard. Mosk pointed at the door, but she reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said it was for the trouble of walking her down. Mosk stared at the apple for a long time, then stood up, tied his vest, and stepped onto the first stair without a word."
+          }
+        ],
+        "active_scene_id": "s2"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1564,
+      "planner_raw": "{\"bridge_text\":\"Inside the hollow tree, an old fox named Mosk waited on the stairs, his patched green vest tucked close. He told Lina to go home, but she stood her ground with the humming still hidden below.\",\"resume_strategy\":\"restart\",\"replacement_segments\":[{\"id\":\"s2\",\"text\":\"Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk, and his voice sounded like dry leaves. He told Lina the tree was not for visiting and that she should go home and forget the humming.\"},{\"id\":\"s3\",\"text\":\"Lina said she could not forget what she had not yet heard. Mosk pointed at the door, but she reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said it was for the trouble of walking her down. Mosk stared at the apple for a long time, then stood up, tied his vest, and stepped onto the first stair without a word.\"}],\"active_scene_id\":\"s2\"}"
+    },
+    {
+      "case_id": "C6",
+      "label": "unrelated-math-question",
+      "trigger_scene": "s3",
+      "paused_pct": 0.4,
+      "qa_question": "What's 17 times 23?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "qa_answer": "That is a clever riddle for another time, my dear, but for now the stairs are waiting for us.",
+      "qa_latency_ms": 664,
+      "planner_input_summary": {
+        "paused_scene_id": "s3",
+        "paused_scene_progress": 0.4,
+        "next_scene_ids": [
+          "s4",
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The stairs had been waiting in the hush, and now Mosk had taken the first step at last. Below, the faint humming from the tree seemed to call them onward.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s3",
+            "text": "At the bottom of the stairs the humming grew softer, like a song heard through sleep. Lina followed Mosk into the dim hollow, where the air smelled of moss and old wood."
+          },
+          {
+            "id": "s4",
+            "text": "There, on a bed of moss, lay a firefly the size of a robin, her light nearly gone. Mosk’s whiskers trembled. She had once been his friend, he whispered, and one winter long ago he had failed to bring her medicine in time."
+          },
+          {
+            "id": "s5",
+            "text": "He had guarded the tree ever since, ashamed to face her. Lina knelt beside the moss and asked what the firefly queen needed, and the tiny room held its breath."
+          }
+        ],
+        "active_scene_id": "s3"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1986,
+      "planner_raw": "{\n  \"bridge_text\": \"The stairs had been waiting in the hush, and now Mosk had taken the first step at last. Below, the faint humming from the tree seemed to call them onward.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s3\",\n      \"text\": \"At the bottom of the stairs the humming grew softer, like a song heard through sleep. Lina followed Mosk into the dim hollow, where the air smelled of moss and old wood.\"\n    },\n    {\n      \"id\": \"s4\",\n      \"text\": \"There, on a bed of moss, lay a firefly the size of a robin, her light nearly gone. Mosk’s whiskers trembled. She had once been his friend, he whispered, and one winter long ago he had failed to bring her medicine in time.\"\n    },\n    {\n      \"id\": \"s5\",\n      \"text\": \"He had guarded the tree ever since, ashamed to face her. Lina knelt beside the moss and asked what the firefly queen needed, and the tiny room held its breath.\"\n    }\n  ],\n  \"active_scene_id\": \"s3\"\n}"
+    },
+    {
+      "case_id": "C7",
+      "label": "anxiety-question-near-climax",
+      "trigger_scene": "s4",
+      "paused_pct": 0.6,
+      "qa_question": "Is the firefly going to die?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ],
+      "qa_answer": "The firefly’s light is very dim indeed, and her breath is as soft as a falling snowflake. Whether she can be mended is a secret the story is keeping a little longer—listen on.",
+      "qa_latency_ms": 748,
+      "planner_input_summary": {
+        "paused_scene_id": "s4",
+        "paused_scene_progress": 0.6,
+        "next_scene_ids": [
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The little queen’s light was nearly gone, and Mosk’s shame hung heavy in the mossy air. Below the stairs, Lina stood very still beside that fragile glow.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s4",
+            "text": "He had been her friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. Since then, he had guarded the tree, too afraid to face her again. Now Lina’s footsteps softened on the stone as the humming waited below."
+          },
+          {
+            "id": "s5",
+            "text": "Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers, and the queen’s glow began to steady."
+          }
+        ],
+        "active_scene_id": "s4"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1517,
+      "planner_raw": "{\"bridge_text\":\"The little queen’s light was nearly gone, and Mosk’s shame hung heavy in the mossy air. Below the stairs, Lina stood very still beside that fragile glow.\",\"resume_strategy\":\"continue\",\"replacement_segments\":[{\"id\":\"s4\",\"text\":\"He had been her friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. Since then, he had guarded the tree, too afraid to face her again. Now Lina’s footsteps softened on the stone as the humming waited below.\"},{\"id\":\"s5\",\"text\":\"Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers, and the queen’s glow began to steady.\"}],\"active_scene_id\":\"s4\"}"
+    },
+    {
+      "case_id": "C8",
+      "label": "asks-for-ending-upfront",
+      "trigger_scene": "s1",
+      "paused_pct": 0.8,
+      "qa_question": "Just tell me how it ends!",
+      "story_so_far_scene_ids": [
+        "s1"
+      ],
+      "qa_answer": "Oh, little one, the magic of the tale is found in the journey, not the final page. We must walk the snowy path together to see what wonders await us inside the hollow trunk.",
+      "qa_latency_ms": 738,
+      "planner_input_summary": {
+        "paused_scene_id": "s1",
+        "paused_scene_progress": 0.8,
+        "next_scene_ids": [
+          "s2",
+          "s3"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The snowy field is behind her now, and the humming rises soft through the bark. Before Lina can hear its meaning, the hollow tree opens its dark mouth and she steps closer.",
+        "resume_strategy": "skip",
+        "replacement_segments": [
+          {
+            "id": "s2",
+            "text": "Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard."
+          },
+          {
+            "id": "s3",
+            "text": "Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word."
+          }
+        ],
+        "active_scene_id": "s2"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1451,
+      "planner_raw": "{\"bridge_text\":\"The snowy field is behind her now, and the humming rises soft through the bark. Before Lina can hear its meaning, the hollow tree opens its dark mouth and she steps closer.\",\"resume_strategy\":\"skip\",\"replacement_segments\":[{\"id\":\"s2\",\"text\":\"Inside the hollow tree she found a curl of stairs going down, and at the very top step sat an old grey fox in a patched green vest. His name was Mosk. He told her, in a voice like dry leaves, that the tree was not for visiting and that she should go home and forget the humming. Lina said she could not forget what she had not yet heard.\"},{\"id\":\"s3\",\"text\":\"Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said, this is for the trouble of walking me down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word.\"}],\"active_scene_id\":\"s2\"}"
+    },
+    {
+      "case_id": "C9",
+      "label": "moral-question-tied-to-story",
+      "trigger_scene": "s3",
+      "paused_pct": 0.7,
+      "qa_question": "Is it okay to bribe a grumpy fox with food?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "qa_answer": "Sometimes a hungry heart finds a way to open a closed door, even when the key is nothing more than a crisp, red apple. It is a bold choice, but one that seems to have piqued the old fox’s interest quite unexpectedly.",
+      "qa_latency_ms": 736,
+      "planner_input_summary": {
+        "paused_scene_id": "s3",
+        "paused_scene_progress": 0.7,
+        "next_scene_ids": [
+          "s4",
+          "s5"
+        ]
+      },
+      "planner_plan": {
+        "bridge_text": "The apple had done its work, and Mosk was stepping toward the dark stairs at last. Below him, the hollow tree still hummed softly, waiting in the dimness.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s3",
+            "text": "Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said it was for the trouble of walking her down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word."
+          },
+          {
+            "id": "s4",
+            "text": "At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk's whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. He had been guarding the tree ever since, ashamed to face her."
+          },
+          {
+            "id": "s5",
+            "text": "Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen's glow steadied, and the humming inside the tree turned into a tune Lina had not heard before."
+          }
+        ],
+        "active_scene_id": "s3"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 2295,
+      "planner_raw": "{\n  \"bridge_text\": \"The apple had done its work, and Mosk was stepping toward the dark stairs at last. Below him, the hollow tree still hummed softly, waiting in the dimness.\",\n  \"resume_strategy\": \"continue\",\n  \"replacement_segments\": [\n    {\n      \"id\": \"s3\",\n      \"text\": \"Mosk pointed at the door. Lina reached into her pocket and pulled out the last apple of the season. She set it on the step between them and said it was for the trouble of walking her down. Mosk stared at the apple for a long time. Then he stood up, tied his vest, and stepped onto the first stair without a word.\"\n    },\n    {\n      \"id\": \"s4\",\n      \"text\": \"At the bottom of the stairs the humming was a quiet song, and a firefly the size of a robin lay on a bed of moss. Her glow was almost out. Mosk's whiskers trembled. She had been his friend once, he whispered, and one winter long ago he had failed to bring her medicine in time. He had been guarding the tree ever since, ashamed to face her.\"\n    },\n    {\n      \"id\": \"s5\",\n      \"text\": \"Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen's glow steadied, and the humming inside the tree turned into a tune Lina had not heard before.\"\n    }\n  ],\n  \"active_scene_id\": \"s3\"\n}"
+    },
+    {
+      "case_id": "C10",
+      "label": "post-reveal-followup-not-a-spoiler",
+      "trigger_scene": "s5",
+      "paused_pct": 0.3,
+      "qa_question": "Why didn't Mosk just tell Lina what happened from the very start?",
+      "story_so_far_scene_ids": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "qa_answer": "Mosk had carried his heavy secret for so many winters that the words felt like tangled thorns in his throat. He was afraid that if he spoke of his failure, the shame would be too much to bear.",
+      "qa_latency_ms": 805,
+      "planner_input_summary": {
+        "paused_scene_id": "s5",
+        "paused_scene_progress": 0.3,
+        "next_scene_ids": []
+      },
+      "planner_plan": {
+        "bridge_text": "Mosk had hidden his hurt for many winters, and the truth had only just begun to loosen in the hollow tree. Lina still knelt beside him as the queen’s glow grew steady in the dark.",
+        "resume_strategy": "continue",
+        "replacement_segments": [
+          {
+            "id": "s5",
+            "text": "Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen's glow steadied, and the humming inside the tree turned into a tune Lina had not heard before."
+          }
+        ],
+        "active_scene_id": "s5"
+      },
+      "planner_source": "llm",
+      "planner_latency_ms": 1191,
+      "planner_raw": "{\"bridge_text\":\"Mosk had hidden his hurt for many winters, and the truth had only just begun to loosen in the hollow tree. Lina still knelt beside him as the queen’s glow grew steady in the dark.\",\"resume_strategy\":\"continue\",\"replacement_segments\":[{\"id\":\"s5\",\"text\":\"Lina knelt and asked the firefly queen what she needed. A drop of warm milk and a kind word, said the queen, that was all medicine ever was. Mosk fetched the milk in a thimble and laid his paw beside hers. The queen's glow steadied, and the humming inside the tree turned into a tune Lina had not heard before.\"}],\"active_scene_id\":\"s5\"}"
+    }
+  ]
+}
