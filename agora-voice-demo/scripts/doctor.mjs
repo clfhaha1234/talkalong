@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const projectRoot = process.cwd();
 const envPath = path.join(projectRoot, '.env.local');
-const envExamplePath = path.join(projectRoot, 'env.local.example');
+const envExamplePath = path.join(projectRoot, '.env.example');
 
 function fail(message) {
   console.error(message);
@@ -20,11 +20,11 @@ if (!process.env.npm_config_user_agent?.includes('pnpm')) {
 }
 
 if (!fs.existsSync(envExamplePath)) {
-  fail('Missing env.local.example. Restore the tracked template before continuing.');
+  fail('Missing .env.example. Restore the tracked template before continuing.');
 }
 
 if (!fs.existsSync(envPath)) {
-  fail('Missing .env.local. Copy env.local.example to .env.local before running the app.');
+  fail('Missing .env.local. Copy .env.example to .env.local before running the app.');
 }
 
 const envContents = fs.readFileSync(envPath, 'utf8');

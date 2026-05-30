@@ -28,10 +28,10 @@ pnpm install
 3. Set up your environment variables:
 
 ```bash
-cp env.local.example .env.local
+cp .env.example .env.local
 ```
 
-Use the Agora CLI to create or select a project, then copy the exported values into `.env.local` using the variable names from `env.local.example`:
+Use the Agora CLI to create or select a project, then copy the exported values into `.env.local` using the variable names from `.env.example`:
 
 ```bash
 agora login

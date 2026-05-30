@@ -100,7 +100,7 @@ Vercel:
 When setup docs/config change:
 
 1. Update `README.md` environment/commands sections.
-2. Update `env.local.example` if variable set changes.
+2. Update `.env.example` if variable set changes.
 3. Update `docs/ai/L1/01_setup.md` and `L0_repo_card.md` `Last Reviewed`.
 4. Run at least `pnpm run typecheck` and `pnpm run verify:api`.
 

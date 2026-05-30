@@ -81,7 +81,7 @@ Bootstrap behavior:
 ## Workflow: Enable BYOK Provider Path
 
 1. Uncomment relevant provider block in invite route.
-2. Add env vars to `.env.local` and `env.local.example`.
+2. Add env vars to `.env.local` and `.env.example`.
 3. Keep default no-key path intact for baseline quickstart behavior.
 4. Document changes in README environment section.
 5. Re-run `pnpm run verify` before shipping.

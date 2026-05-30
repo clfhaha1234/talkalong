@@ -16,6 +16,8 @@ The main app is the storybook tutor at [`/tutor`](app/tutor/page.tsx). This repo
 built on the Agora Conversational AI Next.js quickstart, and the original
 conversation demo still ships alongside it (see [Legacy conversation demo](#legacy-conversation-demo)).
 
+![The AI Teacher — illustrated storybook tutor reading a scene aloud, with the narration on the right and a tap-to-talk mic to interrupt](docs/screenshots/tutor-storybook.png)
+
 ## How it works (the storybook tutor)
 
 The architecture is **two LLM roles + a deterministic spine** (a "proposer / disposer"
@@ -24,6 +26,10 @@ pattern), NOT an agentic tool loop — a choice [validated with data](docs/exper
 
 1. **Generate** — a Gemini pass composes the lesson: scenes, narration script,
    one illustration + short "draw-on" video per scene ([`lib/lesson/`](lib/lesson)).
+   The story is told in the **same language the listener typed the topic in**
+   (auto-detected in [`lib/lesson/script-generator.ts`](lib/lesson/script-generator.ts);
+   the detected language also drives the agent's persona via
+   [`lib/language-config.ts`](lib/language-config.ts)).
 2. **Narrate** — the deterministic spine ([`lib/orchestrator/progress-state.ts`](lib/orchestrator/progress-state.ts))
    is the single source of truth for "where are we in the story". A fast
    Agora-hosted voice agent speaks each scene; the UI reveals text + plays the
@@ -77,6 +83,18 @@ Getting started is quick and easy: install the CLI _(skip if you already have it
 > **Note** — the tutor needs `GOOGLE_API_KEY` (Gemini) in addition to the Agora
 > credentials; see [Environment variables](#environment-variables). The Agora CLI
 > writes only the Agora keys, so add the Gemini key to `.env.local` yourself.
+
+> **About Agora auth** — running the app does **not** trigger any web sign-in.
+> The app only reads your project's **App ID + App Certificate** from `.env.local`
+> and mints RTC/RTM join tokens locally. The `agora login` browser step is a
+> one-time **developer** action that fetches those credentials into `.env.local`;
+> you can skip the CLI entirely and just paste the two values from
+> [Agora Console](https://console.agora.io) → your project. The App ID/Certificate
+> do **not** expire — but if you **switch Agora accounts or projects**, the old
+> credentials become invalid and the agent fails to join with
+> `401 Invalid token`; re-run `agora login && agora project env write .env.local`
+> (or paste the new values) to fix it. (The CLI *login session* itself does expire
+> periodically — re-run `agora login` if `agora` commands start failing auth.)
 
 If the agent does not join or transcripts do not appear, run **`agora project doctor --deep`** to check credentials, feature enablement, network reachability, and local env binding.
 
@@ -159,6 +177,34 @@ pnpm run verify         # doctor + lint + typecheck + verify:api + build
 
 Run `pnpm run verify` before shipping changes — it covers local prerequisites, lint, type safety, the core API route contracts, and the production build.
 
+## Evaluation & tests
+
+The tutor is verified at four layers, cheapest first. Layers 1–3 need no Agora
+session; layer 4 drives a real one.
+
+```bash
+# 1. Unit tests (free, deterministic) — language detection, transcript
+#    attribution + barge-in Q&A filtering, the shared system-message builder.
+pnpm test
+
+# 2. Voice-AI Q&A bench (needs GOOGLE_API_KEY; ~10s) — runs the REAL persona
+#    through a proxy model across 8 interrupt types × 3 stories × 2 languages
+#    (answer-vs-tease, no-spoiler, off-topic deflect, stay-in-character, brevity).
+pnpm tsx scripts/voice-qa-bench/comprehensive.ts --trials 3   # add --with-claude for cross-model
+
+# 3. Session-log grader — LLM-grades real logs/sessions/*.txt, so any manual
+#    /tutor test you run becomes a graded eval data point.
+pnpm tsx scripts/session-eval/grade-logs.ts
+
+# 4. Audio barge-in e2e (needs a running dev server + Agora; macOS `say` + ffmpeg)
+#    — fake-mics a spoken question during narration and reads the real agent's
+#    answer back from the session log.
+node scripts/qa-bench/audio-barge-in/cat-name-e2e.mjs
+```
+
+The QA-resume planner has its own benchmark + grader — see
+[`scripts/qa-bench/README.md`](scripts/qa-bench/README.md).
+
 ## Legacy conversation demo
 
 > The sections below (Architecture, What You Get, How It Works, Optional BYOK,
@@ -219,11 +265,16 @@ NEXT_ELEVENLABS_VOICE_ID=...
 - `components/tutor/` — UI screens (`InputScreen`, `LoadingScreen`, `StoryScreen`) + theme/ornaments
 - `app/api/lesson/start/route.ts` — SSE: compose lesson → generate images/videos → start session
 - `app/api/tutor/qa-ended/route.ts` — barge-in resume trigger (bridge + rescript)
-- `lib/lesson/` — lesson generation: scene composition, image-gen, video-gen, script-generator
+- `lib/lesson/` — lesson generation: scene composition, image-gen, video-gen, `script-generator.ts` (incl. input-language detection)
 - `lib/orchestrator/` — the deterministic spine: `progress-state.ts` (source of truth),
   `narrator.ts`, `resume-planner.ts` (single-shot resume brain), `session-logger.ts` (debug log)
+- `lib/language-config.ts` — per-language persona + the shared `buildStorytellerSystemMessage` (single source of truth for the agent's runtime context, used by both prod and the bench)
+- `components/tutor/transcript-mapping.ts` — pure user/agent transcript attribution + barge-in Q&A filtering (unit-tested)
 - `docs/experiments/` — data-backed decisions (agentic-vs-singleshot, climax-leak, typed-segment, …)
 - `scripts/qa-bench/` — offline eval: the qa-resume benchmark + grader + audio barge-in harness
+- `scripts/voice-qa-bench/` — prod-faithful voice-AI Q&A bench (8 interrupt types × stories × languages)
+- `scripts/session-eval/` — LLM-grades real `logs/sessions/*.txt` so manual tests become eval data
+- `scripts/probes/` — live Agora probes (does `say()` feed context; does `session.update` work)
 
 **Legacy conversation demo (`/`):**
 
@@ -239,17 +290,31 @@ NEXT_ELEVENLABS_VOICE_ID=...
 ### Troubleshooting
 
 - **Agent does not join or transcripts are missing:** run `agora project doctor --deep`.
+- **`401 Invalid token` (lesson starts, images/videos load, then errors at session start):** the Agora App ID/Certificate in `.env.local` belong to a different/old account or project. Re-run `agora login && agora project use <project> && agora project env write .env.local` (or paste the current project's App ID + Certificate from [Agora Console](https://console.agora.io)), then restart the dev server. If `env write` errors with a stale "Project … not found", delete `.agora/project.json` and re-bind with `agora project use`.
 - **`pnpm run doctor` fails:** run `agora project env write .env.local`, then retry.
 - **Manual clone / env values:** `agora project use <your-project>` then `agora project env write .env.local`.
 - **RTM login fails:** keep [`app/api/generate-agora-token/route.ts`](app/api/generate-agora-token/route.ts) on `RtcTokenBuilder.buildTokenWithRtm` — RTC-only tokens will not satisfy `rtm.login`.
 - **Transcript speakers inverted:** check the `uid === "0"` remap in [`components/ConversationComponent.tsx`](components/ConversationComponent.tsx).
 - **Agent never appears in channel:** ensure `NEXT_PUBLIC_AGENT_UID` matches the value used in [`app/api/invite-agent/route.ts`](app/api/invite-agent/route.ts).
 
+## Building with an AI assistant
+
+This quickstart follows Agora's standard setup conventions — credentials from
+[Agora Console](https://console.agora.io) (App ID + App Certificate) with the
+`agora` CLI automating env export, and tokens minted server-side from the App
+Certificate. If you build with an AI coding assistant (Claude Code, Cursor,
+Windsurf, Copilot), install the official **[AgoraIO/skills](https://github.com/AgoraIO/skills)**
+knowledge pack — it teaches the assistant product selection, credential setup,
+and running demos against the live Agora platform.
+
 ## More Docs
 
-- [DOCS/GUIDE.md](./DOCS/GUIDE.md)
-- [DOCS/TEXT_STREAMING_GUIDE.md](./DOCS/TEXT_STREAMING_GUIDE.md)
-- [AGENTS.md](./AGENTS.md)
+- [AGENTS.md](./AGENTS.md) — primary agent-facing guide to the codebase
+- [AgoraIO/skills](https://github.com/AgoraIO/skills) — official Agora skill pack for AI coding assistants
+- [docs/proactive-tutor-engine-prd.md](./docs/proactive-tutor-engine-prd.md) — the storybook tutor product/engine spec
+- [docs/experiments/](./docs/experiments) — data-backed design decisions (agentic-vs-singleshot, climax-leak, …)
+- [scripts/qa-bench/README.md](./scripts/qa-bench/README.md) — the offline QA-resume benchmark
+- [scripts/qa-bench/audio-barge-in/README.md](./scripts/qa-bench/audio-barge-in/README.md) — the fake-mic audio barge-in harness
 
 ## Contributing
 

@@ -13,7 +13,7 @@
 - Keep `NEXT_AGORA_APP_CERTIFICATE` server-side only.
 - Do not expose BYOK provider API keys to client bundles.
 - Store secrets in `.env.local` for dev and deployment secret store in Vercel.
-- `env.local.example` documents expected keys without real values.
+- `.env.example` documents expected keys without real values.
 
 ## Token Security Model
 
@@ -78,7 +78,7 @@
 - `app/api/generate-agora-token/route.ts`
 - `app/api/invite-agent/route.ts`
 - `app/api/stop-conversation/route.ts`
-- `env.local.example`
+- `.env.example`
 - `README.md` environment section
 
 ## Audit Trigger Events
