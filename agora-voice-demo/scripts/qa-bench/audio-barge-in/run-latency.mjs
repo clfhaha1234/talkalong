@@ -33,6 +33,14 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  BANDS,
+  KNOWN_FIXED,
+  band,
+  deriveLatencies,
+  pct,
+  resumeBudget,
+} from './run-latency-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CASES = JSON.parse(readFileSync(join(__dirname, 'cases.json'), 'utf8')).cases;
@@ -47,34 +55,8 @@ const POLL_MS = 100;
 // configured lead as the interrupt onset; override per case via case.lead_ms.
 const DEFAULT_LEAD_MS = Number(process.env.BARGE_LEAD_MS || 5000);
 
-// ── Known FIXED timings baked into the app (not measured — read from source).
-// Surfaced in the report so the end-to-end budget separates "tunable product
-// decision" from "live LLM/network latency". If you change the source, change
-// this — there's a guard test that greps the constant.
-const KNOWN_FIXED = {
-  // components/TutorPage.tsx — how long the user must be silent before we
-  // decide their question is finished and start planning the resume. Pure UX
-  // knob: lower = snappier resume but risks cutting a mid-thought pause; higher
-  // = safer but feels sluggish. THIS is the dominant component of "how long
-  // after I stop talking does the story continue".
-  silence_confirm_ms: 2000,
-};
-
-// ── UX target bands (ms). What a listener perceives, from voice-UX norms:
-// <1s instant, 1-2s natural, 2-4s noticeable, >4s sluggish. Used to colour the
-// report so a number means "good/ok/slow", not just a raw figure.
-const BANDS = {
-  t1_pause: { good: 600, ok: 1200 },   // it should stop talking fast
-  t2_reply: { good: 1500, ok: 3000 },  // answer onset
-  t3_resume: { good: 3500, ok: 5500 }, // includes the 2s silence-confirm wait
-  total: { good: 5000, ok: 8000 },     // whole round trip
-};
-function band(ms, b) {
-  if (ms == null) return '—';
-  if (ms <= b.good) return '🟢';
-  if (ms <= b.ok) return '🟡';
-  return '🔴';
-}
+// BANDS / KNOWN_FIXED / band() are now exported from run-latency-lib.mjs so the
+// pure logic can be unit-tested. See the import at the top of this file.
 
 const args = process.argv.slice(2);
 const flag = (k) => args.includes(k);
@@ -106,28 +88,7 @@ function pageSnapshot() {
   };
 }
 
-// Derive the three latencies from a timestamped snapshot timeline.
-function deriveLatencies(timeline, leadMs) {
-  // interrupt onset = when the question audio became audible (deterministic
-  // from the WAV lead silence; the fake-mic spike validated ~lead+40ms).
-  const interruptT = leadMs;
-  const firstBranch = timeline.find((s) => s.t >= interruptT && s.inBranch);
-  const t1 = firstBranch ? firstBranch.t - interruptT : null;
-
-  let t2 = null;
-  let t3 = null;
-  if (firstBranch) {
-    const firstAnswer = timeline.find(
-      (s) => s.t >= firstBranch.t && s.answerText && s.answerText.length > 1,
-    );
-    t2 = firstAnswer ? firstAnswer.t - firstBranch.t : null;
-    // resume = branch clears (back to now-reading) after the answer.
-    const base = firstAnswer ?? firstBranch;
-    const resume = timeline.find((s) => s.t >= base.t && !s.inBranch && s.nowReading);
-    t3 = resume ? resume.t - base.t : null;
-  }
-  return { interrupt_ms: interruptT, t1_pause_ms: t1, t2_reply_ms: t2, t3_resume_ms: t3 };
-}
+// deriveLatencies is now in run-latency-lib.mjs (imported at the top).
 
 async function runTrial(testCase, trialIdx) {
   const wavPath = join(WAV_DIR, testCase.wav);
@@ -215,12 +176,7 @@ Output ONLY JSON: {"score":<0-5>,"reason":"<=12 words"}`;
   }
 }
 
-function pct(arr, p) {
-  const xs = arr.filter((x) => x != null).sort((a, b) => a - b);
-  if (!xs.length) return null;
-  const i = Math.min(xs.length - 1, Math.ceil((p / 100) * xs.length) - 1);
-  return xs[i];
-}
+// pct is now in run-latency-lib.mjs (imported at the top).
 
 async function main() {
   if (!existsSync(WAV_DIR)) {
