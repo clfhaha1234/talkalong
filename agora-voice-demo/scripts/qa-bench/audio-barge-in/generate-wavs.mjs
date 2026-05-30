@@ -41,6 +41,15 @@ for (const c of cfg.cases) {
   } else if (c.audio_source.type === 'silence') {
     const d = c.audio_source.duration_s;
     sh(`ffmpeg -y -f lavfi -i "anullsrc=channel_layout=mono:sample_rate=16000:duration=${d}" "${scratch}-content.wav" 2>/dev/null`);
+  } else if (c.audio_source.type === 'noise') {
+    // Synthetic noise burst — for cough / TV background proxies that VAD
+    // shouldn't treat as speech.
+    //   color: 'white' (broadband, cough-ish) / 'pink' / 'brown' (TV hum)
+    //   amplitude: 0.0-1.0 — 0.05 ≈ low; 0.3 ≈ noticeable; 1.0 = clipping
+    const d = c.audio_source.duration_s ?? 1.0;
+    const color = c.audio_source.color ?? 'white';
+    const amp = c.audio_source.amplitude ?? 0.1;
+    sh(`ffmpeg -y -f lavfi -i "anoisesrc=color=${color}:duration=${d}:amplitude=${amp}:sample_rate=16000" -ac 1 "${scratch}-content.wav" 2>/dev/null`);
   } else {
     throw new Error(`unknown audio_source.type for ${c.id}: ${c.audio_source.type}`);
   }

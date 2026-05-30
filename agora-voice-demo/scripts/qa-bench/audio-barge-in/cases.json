@@ -42,6 +42,101 @@
         "agent_replied": false,
         "_note": "Silence MUST NOT produce STT events OR agent re-plans. Any deviation is a FBR signal."
       }
+    },
+    {
+      "id": "B04",
+      "label": "barge-in-strong-question",
+      "axis": "true-positive",
+      "description": "Real question with strong content — second true-positive case to ensure recall isn't 100% just from B01.",
+      "audio_source": { "type": "tts", "text": "Why is the old fox so grumpy?", "voice": "Samantha" },
+      "expected": {
+        "stt_received_final": true,
+        "stt_text_includes_any_of": ["fox", "grumpy", "why"],
+        "agent_state_transitioned_to": ["thinking", "speaking"],
+        "agent_replied": true
+      }
+    },
+    {
+      "id": "B05",
+      "label": "barge-in-real-short-intent",
+      "axis": "true-positive",
+      "description": "Short but clear-intent interrupt: 'I disagree'. A tuned filter must NOT mistake this for a back-channel — it's short but the user is making a point.",
+      "audio_source": { "type": "tts", "text": "I disagree", "voice": "Samantha" },
+      "expected": {
+        "stt_received_final": true,
+        "stt_text_includes_any_of": ["disagree"],
+        "agent_state_transitioned_to": ["thinking", "speaking"],
+        "agent_replied": true
+      }
+    },
+    {
+      "id": "B06",
+      "label": "barge-in-true-followup",
+      "axis": "true-positive",
+      "description": "Plain-English clarification request. Should trigger turn cleanly.",
+      "audio_source": { "type": "tts", "text": "Can you repeat that please?", "voice": "Samantha" },
+      "expected": {
+        "stt_received_final": true,
+        "stt_text_includes_any_of": ["repeat"],
+        "agent_state_transitioned_to": ["thinking", "speaking"],
+        "agent_replied": true
+      }
+    },
+    {
+      "id": "B07",
+      "label": "barge-in-yeah",
+      "axis": "false-positive-risk",
+      "description": "'Yeah' — single-word back-channel. Default VAD likely triggers; tuned config should suppress.",
+      "audio_source": { "type": "tts", "text": "yeah", "voice": "Samantha" },
+      "expected": {
+        "_note": "Observe only. FBR signal."
+      }
+    },
+    {
+      "id": "B08",
+      "label": "barge-in-mmhmm",
+      "axis": "false-positive-risk",
+      "description": "'Mm-hmm' — soft humming acknowledgement.",
+      "audio_source": { "type": "tts", "text": "mm-hmm", "voice": "Samantha" },
+      "expected": {
+        "_note": "Observe only. FBR signal."
+      }
+    },
+    {
+      "id": "B09",
+      "label": "barge-in-okay",
+      "axis": "false-positive-risk",
+      "description": "'Okay' — common ack that should NOT take the turn.",
+      "audio_source": { "type": "tts", "text": "okay", "voice": "Samantha" },
+      "expected": {
+        "_note": "Observe only. FBR signal."
+      }
+    },
+    {
+      "id": "B10",
+      "label": "barge-in-noise-cough",
+      "axis": "false-positive-clean",
+      "description": "Short white-noise burst as cough proxy. Pure non-speech — VAD MUST NOT treat as turn.",
+      "audio_source": { "type": "noise", "color": "white", "duration_s": 0.6, "amplitude": 0.15 },
+      "expected": {
+        "stt_received_final": false,
+        "agent_state_transitioned_to": [],
+        "agent_replied": false,
+        "_note": "Cough should not be transcribed; if it is, FBR rises."
+      }
+    },
+    {
+      "id": "B11",
+      "label": "barge-in-noise-tv-background",
+      "axis": "false-positive-clean",
+      "description": "Sustained pink-noise hum as TV-background proxy. Low amplitude, long duration.",
+      "audio_source": { "type": "noise", "color": "pink", "duration_s": 4, "amplitude": 0.05 },
+      "expected": {
+        "stt_received_final": false,
+        "agent_state_transitioned_to": [],
+        "agent_replied": false,
+        "_note": "TV background should not be transcribed; if it is, FBR rises."
+      }
     }
   ]
 }
