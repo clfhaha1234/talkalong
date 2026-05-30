@@ -69,16 +69,32 @@ Copy those two values into Vercel Project Settings -> Environment Variables.
 
 ### Environment variables
 
-Defined in [`env.local.example`](env.local.example).
+Copy the committed template and fill in your own values:
+
+```bash
+cp .env.example .env.local
+```
+
+[`.env.example`](.env.example) is the source of truth — every variable the code
+reads, grouped by purpose (A: the `/tutor` storybook tutor; B: the legacy
+conversation quickstart; C: offline eval/bench) with required-vs-optional notes.
+`.env.local` is gitignored and never committed.
+
+The required minimum to run the **`/tutor` storybook tutor**:
 
 | Variable                     | Required | Default  | Notes                                                                                          |
 | ---------------------------- | :------: | :------: | ---------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_AGORA_APP_ID`   |    ✅    |    —     | Agora Console → Project → App ID.                                                              |
 | `NEXT_AGORA_APP_CERTIFICATE` |    ✅    |    —     | Agora Console → Project → App Certificate. **Server-side only.**                               |
+| `GOOGLE_API_KEY`             |    ✅    |    —     | [Gemini API key](https://aistudio.google.com/apikey). Drives all lesson generation + the resume planner. |
 | `NEXT_PUBLIC_AGENT_UID`      |          | `123456` | Must match the `agentUid` in [`app/api/invite-agent/route.ts`](app/api/invite-agent/route.ts). |
 | `NEXT_AGENT_GREETING`        |          |    —     | Override the agent's opening line.                                                             |
 
-The default agent configuration in [`app/api/invite-agent/route.ts`](app/api/invite-agent/route.ts) uses Agora-managed STT, LLM, and TTS, so no extra vendor API keys are required for the base quickstart.
+Legacy-quickstart BYOK keys (Deepgram / OpenAI-compatible LLM / ElevenLabs) and
+offline-bench keys are documented in [`.env.example`](.env.example) — see also
+[Optional BYOK](#optional-byok) below. The default agent config in
+[`app/api/invite-agent/route.ts`](app/api/invite-agent/route.ts) uses
+Agora-managed STT/LLM/TTS, so those vendor keys aren't needed for the base quickstart.
 
 > **Default vs BYOK** — the quickstart ships with Agora-managed inference for a zero-key install. Switch to BYOK below when you need to bring your own provider quotas, models, or vendors.
 
