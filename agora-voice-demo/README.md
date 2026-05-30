@@ -1,22 +1,55 @@
-# The AI Teacher — a proactive, interruptible voice storybook tutor
+# The AI Teacher
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org/)
+[![Built on Agora Conversational AI](https://img.shields.io/badge/built%20on-Agora%20Conversational%20AI-1E88E5)](https://www.agora.io/en/products/conversational-ai-engine/)
 
-**A proactive AI storyteller that turns any topic into an illustrated lesson, reads it
-aloud, and pauses to answer your questions — then smoothly returns to the tale.**
-
-Type a topic (or paste a paper); the app generates a 5-scene illustrated story,
-narrates it scene by scene, and lets you **barge in by voice at any time** to ask
-a question. A fast voice agent answers in character, then a slower "decision brain"
-plans how to resume — continue, re-tell, or skip — and the narrator picks back up.
-The story's *pacing and style* adapt to you; its *plot* does not get derailed.
-
-The main app is the storybook tutor at [`/tutor`](app/tutor/page.tsx). This repo is
-built on the Agora Conversational AI Next.js quickstart, and the original
-conversation demo still ships alongside it (see [Legacy conversation demo](#legacy-conversation-demo)).
+**A proactive voice-AI architecture you can interrupt — and that always finds its way back.**
+The agent drives a planned *main line*, lets you **barge in by voice** at any moment,
+answers in character, then a separate "decision brain" plans how to **resume** —
+continue, re-tell, or skip — so the thread is never lost. The flagship demo is an
+illustrated storybook tutor; the pattern fits anything with a main line worth protecting.
 
 ![The AI Teacher — illustrated storybook tutor reading a scene aloud, with the narration on the right and a tap-to-talk mic to interrupt](docs/screenshots/tutor-storybook.png)
+
+Type a topic (or paste a paper); the app generates a 5-scene illustrated story,
+narrates it scene by scene, and lets you barge in by voice to ask anything. The
+story's *pacing and style* adapt to you; its *plot* never gets derailed. Built on
+the [Agora Conversational AI](https://www.agora.io/en/products/conversational-ai-engine/)
+Next.js quickstart; the original conversation demo still ships at `/`
+(see [Legacy conversation demo](#legacy-conversation-demo)).
+
+## Why it's interesting — the pattern, not just the demo
+
+Most voice agents are *reactive*: they sit and wait for you to talk. This one is
+**proactive** — it drives a main line of its own and treats your interruptions as
+welcome detours it cleanly recovers from. That **narrate → barge-in → answer →
+resume-on-track** loop, backed by a deterministic spine that always knows "where
+are we", is a reusable shape well beyond storytelling:
+
+- **Audiobooks & long-form readers** you can question mid-chapter
+- **Guided onboarding & interactive tutorials** — walk a user through steps; they
+  interrupt to ask; you resume exactly where you were
+- **Museum / audio-tour guides** and accessibility narration with live Q&A
+- **Coaching, meditation, and language-learning** scripts you can pause to probe
+- **Document & code walkthroughs** read aloud, interruptible for "wait, why?"
+
+The storybook just makes the hard parts visible: holding the main line, answering
+*without spoiling what's ahead*, and resuming without losing the thread.
+
+**What this repo contributes to the community** — three things you can take and reuse:
+
+1. **A clean reference implementation of the pattern** — a deterministic spine that
+   owns "where are we", a *fast* in-character responder, and a *slower* resume
+   planner. Not an agentic tool-loop ([a choice backed by data](docs/experiments/2026-05-29-agentic-vs-singleshot/conclusion.md):
+   agentic was equal quality at ~3.6× latency and ~5× tokens). Fork it and swap the
+   storybook for your own main line.
+2. **Data-backed design decisions** — model picks, prompt strategy, and the
+   single-shot-vs-agentic call are all settled with experiments, not vibes
+   ([docs/experiments/](docs/experiments)).
+3. **An evaluation methodology that stays honest** — a prod-faithful Q&A bench plus
+   a live fake-mic audio e2e that caught a real structural bug a naive bench would
+   have hidden (see [Evaluation & tests](#evaluation--tests)).
 
 ## How it works (the storybook tutor)
 
