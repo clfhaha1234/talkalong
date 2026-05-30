@@ -45,7 +45,6 @@ import {
   AgoraVoiceAI,
   AgoraVoiceAIEvents,
   TranscriptHelperMode,
-  TurnStatus,
   type AgentTranscription,
   type ModuleError,
   type StateChangeEvent,
@@ -58,6 +57,7 @@ import { ScalingStage } from './tutor/ScalingStage';
 import { InputScreen, PRESETS } from './tutor/InputScreen';
 import { LoadingScreen, type LoadingState } from './tutor/LoadingScreen';
 import { StoryScreen } from './tutor/StoryScreen';
+import { mapTranscriptItems } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 
@@ -139,6 +139,16 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // bridge segment for the next scene by the time RTM gives us the
   // committed transcript.
   const branchAnchorRef = useRef<number>(0);
+  // Wall-clock ms when the current BRANCH started (speaking → listening).
+  // Used as the floor for filtering transcript items into qaTranscript so
+  // narrator-side agent transcripts delivered BEFORE the listener interrupted
+  // can't bleed into the qa_history we send to the resume planner. Reset to
+  // null when the branch closes (qa-ended fires or teardown).
+  // This is the B1 fix from 2026-05-30 — previously every `assistant.transcription`
+  // from the narrator's say() ended up labelled "QA agent" and shipped to the
+  // planner alongside the listener's real question, swelling 1 real Q&A turn
+  // into 4-6 polluted turns.
+  const branchStartedAtRef = useRef<number | null>(null);
 
   const [agentState, setAgentState] = useState<string>('idle');
   const [qaTranscript, setQaTranscript] = useState<
@@ -396,18 +406,15 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
               Partial<UserTranscription | AgentTranscription>
             >[],
           ) => {
-            const committed = items
-              .filter((item) => item.status !== TurnStatus.IN_PROGRESS)
-              .map((item) => {
-                const isUser = item.uid === '0' || item.uid === localUid;
-                return {
-                  role: (isUser ? 'user' : 'agent') as 'user' | 'agent',
-                  text: item.text,
-                  ts: item._time,
-                };
-              })
-              .filter((t) => t.text && t.text.trim().length > 0);
-            setQaTranscript(committed.slice(-20));
+            // C1 (subtitle attribution) + C2 (qa pollution) both live in
+            // mapTranscriptItems — a pure, unit-tested function. See
+            // components/tutor/transcript-mapping.ts + .test.ts. Keep this call
+            // site thin so the bugs can't regress without a test failing.
+            const committed = mapTranscriptItems(items, {
+              localUid,
+              branchStartedAt: branchStartedAtRef.current,
+            });
+            setQaTranscript(committed);
           },
         );
 
@@ -459,6 +466,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
       branchAnchorRef.current = activeSceneIndex;
+      // Stamp branch start so TRANSCRIPT_UPDATED can floor-filter narration
+      // transcripts delivered before the interrupt out of qa_history. Also
+      // clear any stale narrator-era transcripts that may have accumulated
+      // pre-fix (defensive: this also handles a re-entered BRANCH from a
+      // follow-up question after the first one closed).
+      branchStartedAtRef.current = Date.now();
+      setQaTranscript([]);
       setInBranch(true);
     }
 
@@ -483,6 +497,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           console.warn('[tutor] /qa-ended fetch error', err),
         );
         inBranchRef.current = false;
+        // Close the branch window: subsequent narration text won't be added
+        // to qa_history until the listener interrupts again.
+        branchStartedAtRef.current = null;
         silenceTimerRef.current = null;
       }, SILENCE_TIMEOUT_MS);
     }
@@ -505,6 +522,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setAgentState('idle');
     setQaTranscript([]);
     inBranchRef.current = false;
+    branchStartedAtRef.current = null;
     qaTurnCountRef.current = 0;
     setInBranch(false);
     if (silenceTimerRef.current) {

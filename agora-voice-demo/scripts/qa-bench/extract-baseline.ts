@@ -1,6 +1,11 @@
-// Extract the live DEFAULT_PERSONA + planner SYSTEM strings from prod source.
+// Extract the live ENGLISH_PERSONA + planner SYSTEM strings from prod source.
 // Run ONCE to seed prompts/baseline.json so the bench tests what's actually
 // shipped, not a copy that may have drifted.
+//
+// 2026-05-30: the persona moved from lib/orchestrator/index.ts:DEFAULT_PERSONA
+// to lib/language-config.ts:ENGLISH_PERSONA as part of the per-language config
+// refactor. The extractor still uses the same backtick-regex; only the source
+// path + const name changed.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -20,8 +25,8 @@ function extractBacktickConst(srcPath: string, constName: string): string {
 }
 
 const persona = extractBacktickConst(
-  join(repoRoot, 'lib/orchestrator/index.ts'),
-  'DEFAULT_PERSONA',
+  join(repoRoot, 'lib/language-config.ts'),
+  'ENGLISH_PERSONA',
 );
 const planner_system = extractBacktickConst(
   join(repoRoot, 'lib/orchestrator/resume-planner.ts'),
@@ -30,7 +35,7 @@ const planner_system = extractBacktickConst(
 
 const out = {
   source_files: [
-    'lib/orchestrator/index.ts (DEFAULT_PERSONA)',
+    'lib/language-config.ts (ENGLISH_PERSONA)',
     'lib/orchestrator/resume-planner.ts (SYSTEM)',
   ],
   extracted_at: new Date().toISOString(),

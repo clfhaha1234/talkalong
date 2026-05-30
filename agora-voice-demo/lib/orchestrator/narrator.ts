@@ -23,6 +23,7 @@
 
 import type { AgentSession } from 'agora-agent-server-sdk';
 import type { ProgressState } from './progress-state';
+import type { Segment } from './types';
 
 const TAIL_DRAIN_MS = 1500;
 
@@ -35,6 +36,16 @@ export interface RunNarrationOptions {
   shouldCancel?: () => boolean;
   /** Injected sleep for tests. Defaults to setTimeout-based sleep. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Called (fire-and-forget) after each segment finishes narrating, with the
+   * list of segments narrated so far (in order). The orchestrator uses this to
+   * sync the agent's LLM system-context to "what's been read so far" via
+   * session.update() — so a listener's barge-in question about an
+   * already-narrated fact (e.g. "what's the cat's name?") is answerable, while
+   * not-yet-narrated scenes stay out of context (no spoilers). Never throws
+   * into the narration loop — the orchestrator wraps it.
+   */
+  onSegmentNarrated?: (narratedSoFar: Segment[]) => void;
 }
 
 export async function runNarration(
@@ -43,6 +54,8 @@ export async function runNarration(
   opts: RunNarrationOptions = {},
 ): Promise<void> {
   const sleep = opts.sleep ?? defaultSleep;
+  // Accumulates the segments narrated so far (in order) for context-sync.
+  const narrated: Segment[] = [];
   progress.enterMain();
   while (!opts.shouldCancel?.()) {
     if (progress.outerState() === 'BRANCH') {
@@ -76,6 +89,20 @@ export async function runNarration(
     }
     progress.completeSegment(seg.id);
     progress.advanceMain();
+
+    // Sync the agent's LLM context to "narrated so far" (fire-and-forget; the
+    // callback is wrapped so it can never throw into this loop). This is what
+    // lets a barge-in question about an already-read fact be answered without
+    // exposing un-narrated scenes. We accumulate locally (dedup by id, since a
+    // planner restart can re-narrate the same segment id).
+    if (!narrated.some((s) => s.id === seg.id)) narrated.push(seg);
+    if (opts.onSegmentNarrated) {
+      try {
+        opts.onSegmentNarrated([...narrated]);
+      } catch {
+        // never break narration on a context-sync failure
+      }
+    }
   }
   // Hold the session open one final beat so the last segment's audio drains
   // out of Agora's queue before the orchestrator calls session.stop().
