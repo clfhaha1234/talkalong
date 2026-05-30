@@ -5,16 +5,14 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// TUTOR_LOG_DIR / TUTOR_SESSION_LOG are read at module load, so set them BEFORE
-// importing the logger. Use a fresh temp dir per run.
-const LOG_DIR = mkdtempSync(join(tmpdir(), 'tutor-log-test-'));
-process.env.TUTOR_LOG_DIR = LOG_DIR;
-process.env.TUTOR_SESSION_LOG = '1';
-delete process.env.VERCEL; // ensure file sink is on
-
-const { attachSessionLogger, logSessionQa, closeSessionLogger } = await import(
-  './session-logger'
-);
+// TUTOR_LOG_DIR / TUTOR_SESSION_LOG are read at the logger's module-load time,
+// so they must be set BEFORE that module is imported. Vitest hoists `import`
+// above this file's top-level statements, which would lose the race — so we set
+// the env in a setup file (./session-logger.test.env.ts) that vitest imports
+// first via the inline `// @vitest-environment` ordering guarantee: a static
+// import of the setup module below runs before the logger import is used.
+import { LOG_DIR } from './session-logger.test.env';
+import { attachSessionLogger, logSessionQa, closeSessionLogger } from './session-logger';
 
 function fakeHandle(sessionId: string) {
   let sub: ((e: unknown) => void) | null = null;
