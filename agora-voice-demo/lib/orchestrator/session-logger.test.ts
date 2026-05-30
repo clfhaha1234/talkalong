@@ -231,7 +231,8 @@ describe('session-logger', () => {
       join(dirname(fileURLToPath(import.meta.url)), 'index.ts'),
       'utf8',
     );
-    expect(indexSrc).toContain("import { attachSessionLogger } from './session-logger'");
+    // Robust to extra named imports on the same line (e.g. closeSessionLogger).
+    expect(indexSrc).toMatch(/import\s*\{[^}]*\battachSessionLogger\b[^}]*\}\s*from\s*'\.\/session-logger'/);
     // At least one call site exists (buildTutorHandle covers both
     // startTutorSession and startTutorSessionFromScenes).
     expect((indexSrc.match(/attachSessionLogger\(/g) ?? []).length).toBeGreaterThanOrEqual(1);
