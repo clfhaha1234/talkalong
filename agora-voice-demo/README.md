@@ -21,35 +21,20 @@ Next.js quickstart; the original conversation demo still ships at `/`
 
 ## Why it's interesting — the pattern, not just the demo
 
-Most voice agents are *reactive*: they sit and wait for you to talk. This one is
-**proactive** — it drives a main line of its own and treats your interruptions as
-welcome detours it cleanly recovers from. That **narrate → barge-in → answer →
-resume-on-track** loop, backed by a deterministic spine that always knows "where
-are we", is a reusable shape well beyond storytelling:
+Most voice agents are *reactive* — they wait for you to talk. This one is **proactive**:
+it drives a main line and treats interruptions as detours it cleanly recovers from. That
+**narrate → barge-in → answer → resume-on-track** loop is a reusable shape well beyond storytelling:
 
 - **Audiobooks & long-form readers** you can question mid-chapter
-- **Guided onboarding & interactive tutorials** — walk a user through steps; they
-  interrupt to ask; you resume exactly where you were
+- **Guided onboarding & interactive tutorials** — interrupt to ask, resume where you were
 - **Museum / audio-tour guides** and accessibility narration with live Q&A
 - **Coaching, meditation, and language-learning** scripts you can pause to probe
 - **Document & code walkthroughs** read aloud, interruptible for "wait, why?"
 
-The storybook just makes the hard parts visible: holding the main line, answering
-*without spoiling what's ahead*, and resuming without losing the thread.
-
-**What this repo contributes to the community** — three things you can take and reuse:
-
-1. **A clean reference implementation of the pattern** — a deterministic spine that
-   owns "where are we", a *fast* in-character responder, and a *slower* resume
-   planner. Not an agentic tool-loop ([a choice backed by data](docs/experiments/2026-05-29-agentic-vs-singleshot/conclusion.md):
-   agentic was equal quality at ~3.6× latency and ~5× tokens). Fork it and swap the
-   storybook for your own main line.
-2. **Data-backed design decisions** — model picks, prompt strategy, and the
-   single-shot-vs-agentic call are all settled with experiments, not vibes
-   ([docs/experiments/](docs/experiments)).
-3. **An evaluation methodology that stays honest** — a prod-faithful Q&A bench plus
-   a live fake-mic audio e2e that caught a real structural bug a naive bench would
-   have hidden (see [Evaluation & tests](#evaluation--tests)).
+Fork it and swap the storybook for your own main line — the deterministic spine, the
+fast in-character responder, and the resume planner come for free, with
+[data-backed design decisions](docs/experiments) and an
+[honest eval methodology](#evaluation--tests) to build on.
 
 ## How it works (the storybook tutor)
 
