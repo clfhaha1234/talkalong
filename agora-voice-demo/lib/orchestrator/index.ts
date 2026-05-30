@@ -30,6 +30,15 @@ import { createGeminiCompletion } from './gemini-client';
 import { register, unregister } from './session-registry';
 import type { Segment, ProgressEvent } from './types';
 import type { Scene } from '@/lib/lesson/types';
+import {
+  DEFAULT_LANGUAGE,
+  buildStorytellerSystemMessage,
+  personaForLanguage,
+  STORYTELLER_VOICE_ID,
+  STT_LANGUAGE,
+  STT_MODEL,
+  type DetectedLanguage,
+} from '@/lib/language-config';
 
 export interface OrchestratorConfig {
   agora_app_id: string;
@@ -42,6 +51,13 @@ export interface OrchestratorConfig {
   persona_prompt?: string;
   /** Opening greeting before the first segment. Defaults to empty. */
   greeting?: string;
+  /**
+   * The listener's detected language. Drives TTS voice / STT language /
+   * persona selection. Falls back to English when absent so legacy callers
+   * (and the qa-bench harnesses that don't run the detector) keep working.
+   * Set by composeLessonAsync's detection and threaded via lesson/start.
+   */
+  language?: DetectedLanguage;
 }
 
 export interface RunTutorArgs {
@@ -66,7 +82,10 @@ export interface RunTutorHandle {
   handleQaEnded: (args: { qa_history: Array<{ role: 'user' | 'agent'; text: string; ts: number }> }) => Promise<void>;
 }
 
-const DEFAULT_PERSONA = `You are the warm voice of a storybook narrator reading aloud to a curious child. Stay in character at all times — you ARE the story's voice, not an assistant. When the listener interrupts with a question, answer in 1-2 short sentences in the same warm storyteller's voice, then stop. Never preface anything you say. Never say "okay", "sure", "let me", "I'll", "let's continue", or any other meta-comment about your own reading. No lists, no bullet points. If you don't know an answer, say so plainly in one sentence and return to the story. If the listener asks you to solve an off-topic problem — arithmetic, a riddle, a trivia fact — do not work it out or state the answer; in one warm sentence treat it as a puzzle for another time and turn back to the tale. After you finish your one or two short answer sentences, stop completely. Do not keep narrating the story; the storyteller will pick up the next part of the tale on their own. Your job during a question is only to answer, then fall silent. If the listener asks why a character feels or acts a certain way, and the story has not yet told that reason, do not reveal it. Tease in one warm sentence — say something like "that's a secret the story is keeping a little longer — listen on" — and stop. Never spoil what the next pages will tell. But if the story has ALREADY told that reason on an earlier page, answer it warmly and directly from what the tale has revealed — do not deflect with the secret-tease.`;
+// Per-language base personas live in lib/language-config.ts (ENGLISH_PERSONA
+// + PERSONA_BY_LANG). The agent's persona is resolved per-session in
+// buildAgent() via personaForLanguage(lang). The qa-bench's extract-baseline
+// script reads ENGLISH_PERSONA directly from lib/language-config.ts.
 
 // Empty greeting on purpose — the narrator pushes scene 1 immediately, and
 // any Agora-side greeting just adds an out-of-character preface ("Got it,
@@ -104,23 +123,28 @@ const PHASE3_PARAMS: SessionParams = {
 };
 
 function buildAgent(config: OrchestratorConfig, name: string): Agent {
+  // Persona follows the detected language (L3). Voice + STT are deliberately
+  // language-INDEPENDENT right now: one MiniMax voice for everything (it
+  // speaks all our languages), and English-only STT as a "先凑合" stop-gap.
+  // See lib/language-config.ts for the rationale on each.
+  // Persona precedence: explicit config.persona_prompt (used by tests + the
+  // B2 storybook-injection in startTutorSessionFromScenes) overrides the
+  // language-mapped default.
+  const lang = config.language ?? DEFAULT_LANGUAGE;
+  const persona = config.persona_prompt ?? personaForLanguage(lang);
+
   return new Agent({
     name,
-    instructions: config.persona_prompt ?? DEFAULT_PERSONA,
+    instructions: persona,
     greeting: config.greeting ?? DEFAULT_GREETING,
   })
-    // NOTE: en-US pins STT to English. Spoken-Mandarin barge-ins (e.g. a child
-    // saying "用中文讲") transcribe to garbage and never reach the planner, so
-    // the story won't switch. nova-3 `multi` does NOT cover Mandarin; a真正的
-    // 多语言 fix needs a different vendor (e.g. OpenAISTT/whisper auto-detect) +
-    // Agora provisioning. Root cause + recommended fix:
-    // docs/experiments/2026-05-29-language-switch-rootcause/README.md
-    .withStt(new DeepgramSTT({ model: 'nova-3', language: 'en-US' }))
+    // English-only STT for all languages — see STT_LANGUAGE rationale.
+    .withStt(new DeepgramSTT({ model: STT_MODEL, language: STT_LANGUAGE }))
     .withLlm(new OpenAI({ model: 'gpt-4o-mini', maxHistory: 6 }))
     .withTts(
       new MiniMaxTTS({
         model: 'speech_2_8_turbo',
-        voiceId: 'Japanese_DecisivePrincess',
+        voiceId: STORYTELLER_VOICE_ID,
       }),
     )
     // Phase 3 config via typed builders (Task 0 verified)
@@ -218,13 +242,42 @@ async function buildTutorHandle(args: {
 
   let narrationPromise: Promise<void> | null = null;
 
+  // Context-sync: after each segment is narrated, push "the story so far" into
+  // the agent's LLM system context via session.update(). This is the robust
+  // fix for the "what's the cat's name?" bug: the agent reliably has every
+  // already-narrated fact in its system prompt (eviction-proof, unlike
+  // maxHistory-bounded conversation turns), while NOT-yet-narrated scenes are
+  // never included — so it can answer known facts without spoiling. We
+  // deliberately do NOT inject the whole storybook (that leaked the ending —
+  // see scripts/voice-qa-bench/run.ts). Fire-and-forget; failures are logged
+  // and never break narration.
+  const lang = config.language ?? DEFAULT_LANGUAGE;
+  const basePersona = config.persona_prompt ?? personaForLanguage(lang);
+  const syncContext = (narratedSoFar: Segment[]): void => {
+    // ONE merged system message via the shared builder — NOT two. The bench
+    // proved separate [persona, story] messages silently drop the persona (only
+    // the last system message is honored), so the agent would compute off-topic
+    // math, admit being an AI, and ramble. buildStorytellerSystemMessage is the
+    // single source of truth shared with the bench, so the bench stays faithful
+    // by construction. basePersona already honors config.persona_prompt.
+    const merged = buildStorytellerSystemMessage(basePersona, narratedSoFar);
+    void session
+      .update({ llm: { system_messages: [{ role: 'system', content: merged }] } })
+      .catch((err) =>
+        console.warn('[orchestrator] context-sync session.update failed:', (err as Error).message),
+      );
+  };
+
   const startNarration = () => {
     if (narrationPromise) return narrationPromise;
     // Emit session_started now that the caller is presumably subscribed
     progress.emitSessionStarted(sessionStartedEvent);
     narrationPromise = (async () => {
       try {
-        await runNarration(session, progress, args.narration);
+        await runNarration(session, progress, {
+          ...args.narration,
+          onSegmentNarrated: syncContext,
+        });
       } finally {
         try {
           await session.stop();
@@ -437,6 +490,28 @@ export async function startTutorSessionFromScenes(args: {
   }));
   const session_id = `lesson-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const channel = session_id;
+
+  // NOTE on the "cat's name" Q&A context (the 2026-05-30 Barnaby bug):
+  // We deliberately do NOT inject the storybook into the persona here.
+  //
+  //   - The getHistory probe (scripts/probes/say-context-probe.ts) proved that
+  //     the narrator's session.say() text IS stored in the agent's
+  //     conversation history (role:assistant), IN ORDER, WITHOUT the
+  //     not-yet-narrated scenes. So the agent already has "what's been read so
+  //     far" as natural context — injection adds nothing for availability.
+  //
+  //   - The voice-qa-bench (scripts/voice-qa-bench/run.ts) proved that the
+  //     OPPOSITE (static-all-scenes injection) is actively HARMFUL: with the
+  //     whole book — including the ending — in the system prompt, the agent
+  //     LEAKS the ending (spoiler) 2/2 trials, while the natural narrated-so-far
+  //     context answers factual questions correctly AND never spoils 0/2.
+  //
+  // So the correct context mechanism is the one Agora already gives us for
+  // free: say() → conversation history. If a future need arises to FORCE
+  // narrated-so-far into the system prompt (e.g. if maxHistory eviction bites
+  // on long stories), do it DYNAMICALLY via session.update() per segment —
+  // never statically inject future scenes. personaWithStorybook() is kept in
+  // lib/language-config.ts for that dynamic path; it is intentionally unwired.
   return buildTutorHandle({
     session_id,
     channel,

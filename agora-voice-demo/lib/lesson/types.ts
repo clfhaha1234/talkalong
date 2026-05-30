@@ -1,6 +1,8 @@
 // Phase A lesson types — small, intentionally additive to the existing
 // orchestrator types so the UI can consume both side-by-side.
 
+import type { DetectedLanguage } from '@/lib/language-config';
+
 export interface Scene {
   /** Stable id within a session; sequential s1, s2, ... */
   id: string;
@@ -43,4 +45,13 @@ export interface ComposedLesson {
   scenes: Scene[];
   /** Total narration text (concatenation of scene narration_texts) — used by orchestrator if needed. */
   full_narration: string;
+  /**
+   * The language the script was composed in (detected from the listener's
+   * topic prompt by lib/lesson/script-generator.ts). Drives downstream
+   * TTS voice, STT language, and agent persona selection so the spoken
+   * narration, speech recognition, and Q&A persona all match. Optional for
+   * backwards compatibility — code paths that didn't set it default to
+   * English in lib/language-config.ts.
+   */
+  language?: DetectedLanguage;
 }

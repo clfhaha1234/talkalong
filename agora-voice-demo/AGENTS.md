@@ -64,7 +64,7 @@ The sections below (Start Here, Patterns, Anti-Patterns, etc.) remain the canoni
 - `components/QuickstartTranscriptPanel.tsx`: live transcript rail.
 - `lib/agora.ts`: shared agent UID defaults.
 - `lib/conversation.ts`: transcript normalization and visualizer state mapping.
-- `env.local.example`: local environment template.
+- `.env.example`: local environment template.
 - `scripts/verify-api-contracts.ts`: route contract verification.
 
 ## Patterns

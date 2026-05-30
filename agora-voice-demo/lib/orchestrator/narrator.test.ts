@@ -63,6 +63,22 @@ describe('narrator (pointer-driven, APPEND-only)', () => {
     expect(completedIds).toEqual(['s1', 's2']);
   });
 
+  it('onSegmentNarrated fires after each segment with accumulating narrated-so-far (context-sync)', async () => {
+    // This is the hook index.ts uses to push "story so far" into the agent's
+    // LLM system context via session.update() — the robust fix for the
+    // "what's the cat's name?" bug. It must (a) fire once per completed
+    // segment, (b) carry ALL segments narrated so far (not just the latest),
+    // so a barge-in at scene N can answer facts from scenes 1..N.
+    const segs = [seg('s1', 'Barnaby the cat'), seg('s2', 'found a book'), seg('s3', 'chased stars')];
+    const ps = new ProgressState('sess', segs);
+    const snapshots: string[][] = [];
+    await runNarration(fakeSession(), ps, {
+      sleep: noSleep,
+      onSegmentNarrated: (narrated) => snapshots.push(narrated.map((s) => s.id)),
+    });
+    expect(snapshots).toEqual([['s1'], ['s1', 's2'], ['s1', 's2', 's3']]);
+  });
+
   it('fires narration_complete after all segments', async () => {
     const segs = [seg('s1', 'a')];
     const ps = new ProgressState('sess', segs);

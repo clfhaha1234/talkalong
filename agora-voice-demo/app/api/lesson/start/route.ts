@@ -173,7 +173,15 @@ export async function POST(req: NextRequest) {
         // clear cue to transition from LoadingScreen → StoryScreen.
         handle = await startTutorSessionFromScenes({
           scenes: lesson.scenes,
-          config: { agora_app_id, agora_app_certificate },
+          config: {
+            agora_app_id,
+            agora_app_certificate,
+            // Pass the detected language down so TTS voice / STT language /
+            // agent persona all match the script the listener will hear.
+            // Falls back to English if the script-generator didn't detect
+            // (older cache hits or the deterministic-fallback path).
+            language: lesson.language,
+          },
         });
 
         // Subscribe BEFORE startNarration so the first session_started event

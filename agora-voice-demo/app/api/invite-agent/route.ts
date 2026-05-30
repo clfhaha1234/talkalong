@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
       .withTts(
         new MiniMaxTTS({
           model: 'speech_2_6_turbo',
-          voiceId: 'English_captivating_female1',
+          voiceId: 'English_UpsetGirl',
         }),
         // BYOK — ElevenLabs (set NEXT_ELEVENLABS_API_KEY; optional NEXT_ELEVENLABS_VOICE_ID)
         // new (await import('agora-agent-server-sdk')).ElevenLabsTTS({
