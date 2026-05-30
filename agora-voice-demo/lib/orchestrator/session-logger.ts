@@ -21,6 +21,7 @@
 // Conversation Q&A content is logged separately via logSessionQa() from the
 // qa-ended route (that's where the turn text arrives).
 
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import type { RunTutorHandle } from './index';
 import type { ProgressEvent } from './types';
 
@@ -40,11 +41,6 @@ interface SessionLogState {
 const states = new Map<string, SessionLogState>();
 const attached = new WeakSet<object>();
 
-function nodeFs() {
-  // Lazy require so this module is safe to import from edge/runtime checks.
-  return require('node:fs') as typeof import('node:fs');
-}
-
 function stamp(ms: number): string {
   return `[+${String(ms).padStart(6, ' ')}ms]`;
 }
@@ -61,7 +57,7 @@ function writeLine(sid: string, line: string): void {
   const st = states.get(sid);
   if (FILE_SINK && st?.filePath) {
     try {
-      nodeFs().appendFileSync(st.filePath, line + '\n');
+      appendFileSync(st.filePath, line + '\n');
     } catch {
       // disk full / read-only / racing teardown — never break the session.
     }
@@ -114,12 +110,11 @@ export function attachSessionLogger(handle: RunTutorHandle): void {
 
   if (FILE_SINK) {
     try {
-      const fs = nodeFs();
-      fs.mkdirSync(LOG_DIR, { recursive: true });
+      mkdirSync(LOG_DIR, { recursive: true });
       // Filesystem-safe timestamp (no colons); sortable.
       const iso = new Date(startedAt).toISOString().replace(/[:.]/g, '-');
       filePath = `${LOG_DIR}/${iso}-${sid}.txt`;
-      fs.writeFileSync(
+      writeFileSync(
         filePath,
         `=== SESSION ${sid} · ${new Date(startedAt).toISOString()} ===\n`,
       );
