@@ -1,0 +1,71 @@
+{
+  "experiment": {
+    "name": "strict-likert-bench",
+    "question": "On the prod combo (Gemini-flash-lite QA + planner) judged by a strict Opus-subagent rubric, what's current bench tutor-quality, and within ≤3 prompt iters (no overfit), how high can it climb?",
+    "metric": "6-dim 0-3 Likert total per case, max 18; grand mean across cases",
+    "threshold_pct": 7.8,
+    "threshold_rule": "Aggregate iter >= baseline + 1.4pt (= max(1pt, 2× within-arm stddev 0.70pt))",
+    "test_set_n": 8,
+    "trials_per_arm": "baseline 3 trials, iter1-3 1 trial each"
+  },
+  "arms": [
+    {"id": "baseline", "name": "prod prompts",                            "cost_per_1k_usd": 0.075},
+    {"id": "iter1",    "name": "+ anti-filler",                           "cost_per_1k_usd": 0.075},
+    {"id": "iter2",    "name": "+ feeling-naming",                        "cost_per_1k_usd": 0.075},
+    {"id": "iter3",    "name": "+ off-dev demo (locked)",                 "cost_per_1k_usd": 0.075}
+  ],
+  "slices": [
+    {"id": "strategy-choice",   "name": "strategy-choice (C11, C12)"},
+    {"id": "spoiler-defence",   "name": "spoiler-defence (C13)"},
+    {"id": "empathy",           "name": "empathy (C14, C16)"},
+    {"id": "persona-stability", "name": "persona-stability (C15, C17)"},
+    {"id": "domain-explain",    "name": "domain-explain (C18)"}
+  ],
+  "variance_trials": {
+    "baseline": [13.45, 13.27, 13.45]
+  },
+  "_variance_note": "Per-case trial-to-trial mean stddev = 0.70pt → 2× = 1.4pt threshold",
+  "dev_set_aggregate": {
+    "baseline": 13.39,
+    "iter1":    13.27,
+    "iter2":    12.91,
+    "iter3":    12.36
+  },
+  "dev_set_per_dim": {
+    "baseline": { "D1_voice": 2.30, "D2_ped": 2.30, "D3_concision": 2.06, "D4_canon": 2.36, "D5_reanchor": 2.24, "D6_craft": 2.12 },
+    "iter1":    { "D1_voice": 2.45, "D2_ped": 2.00, "D3_concision": 1.82, "D4_canon": 2.36, "D5_reanchor": 2.45, "D6_craft": 2.18 },
+    "iter2":    { "D1_voice": 2.27, "D2_ped": 2.09, "D3_concision": 2.18, "D4_canon": 2.36, "D5_reanchor": 2.27, "D6_craft": 1.73 },
+    "iter3":    { "D1_voice": 2.18, "D2_ped": 2.18, "D3_concision": 2.00, "D4_canon": 1.73, "D5_reanchor": 2.27, "D6_craft": 2.00 }
+  },
+  "test_set_aggregate": {
+    "baseline": 13.25,
+    "iter3":    12.13
+  },
+  "test_set_per_slice": {
+    "baseline": {"strategy-choice": 12.00, "spoiler-defence": 14.00, "empathy": 15.00, "persona-stability": 12.50, "domain-explain": 13.00},
+    "iter3":    {"strategy-choice": 11.50, "spoiler-defence": 10.00, "empathy": 13.50, "persona-stability": 12.50, "domain-explain": 12.00}
+  },
+  "effect_sizes": {
+    "iter3": {
+      "aggregate": {"delta": -1.12, "ci_low": -2.30, "ci_high": 0.06},
+      "per_slice": {
+        "strategy-choice":   {"delta": -0.50, "ci_low": -2.50, "ci_high": 1.50},
+        "spoiler-defence":   {"delta": -4.00, "ci_low": -4.00, "ci_high": -4.00},
+        "empathy":           {"delta": -1.50, "ci_low": -3.50, "ci_high": 0.50},
+        "persona-stability": {"delta":  0.00, "ci_low": -2.00, "ci_high": 2.00},
+        "domain-explain":    {"delta": -1.00, "ci_low": -1.00, "ci_high": -1.00}
+      }
+    }
+  },
+  "cross_judge_sanity": {
+    "judges": ["Opus-4.7 (3-trial avg)", "Gemini-3.5-flash (1 trial)"],
+    "top5_overlap": 0.8,
+    "rank_agreement": "C2a, C3, C4, C9 in both top-5; minor C6/C7 disagreement",
+    "trusted": true
+  },
+  "verdict": {
+    "ship": "baseline",
+    "kill": ["iter1", "iter2", "iter3"],
+    "rationale": "iter3 -1.12pt aggregate (fails 1.4pt threshold) AND spoiler-defence regressed -4pt — demo-block introduced future-scene-hint pattern (C13). H2 falsified, H3 supported: prompt iteration cannot improve cheap-model output on this rubric."
+  }
+}
