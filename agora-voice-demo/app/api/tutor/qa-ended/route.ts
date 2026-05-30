@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { get } from '@/lib/orchestrator/session-registry';
+import { logSessionQa } from '@/lib/orchestrator/session-logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -20,6 +21,10 @@ export async function POST(req: NextRequest) {
   if (!body.session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 });
   const handle = get(body.session_id);
   if (!handle) return NextResponse.json({ error: 'session not found' }, { status: 404 });
+
+  // Log the conversation turns for debugging (console always; local file when
+  // available). Correlates with the SSE event stream by session_id.
+  logSessionQa(body.session_id, body.qa_history ?? []);
 
   // Kick off handleQaEnded in the background; respond 202 immediately so the
   // browser isn't held open for the bridge+rescript wallclock. Progress flows

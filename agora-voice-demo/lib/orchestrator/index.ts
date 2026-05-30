@@ -25,6 +25,7 @@ import { splitToSegments } from './splitter';
 import { ProgressState } from './progress-state';
 import { runNarration, type RunNarrationOptions } from './narrator';
 import { planResume } from './resume-planner';
+import { attachSessionLogger } from './session-logger';
 import { createGeminiCompletion } from './gemini-client';
 import { register, unregister } from './session-registry';
 import type { Segment, ProgressEvent } from './types';
@@ -380,6 +381,9 @@ async function buildTutorHandle(args: {
   };
 
   register(handle);
+  // Per-session debug log (console always; local file when available). Attached
+  // here so BOTH startTutorSession and startTutorSessionFromScenes are covered.
+  attachSessionLogger(handle);
   return handle;
 }
 
