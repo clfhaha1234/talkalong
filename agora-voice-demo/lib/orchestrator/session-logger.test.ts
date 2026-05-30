@@ -126,9 +126,12 @@ describe('session-logger', () => {
   it('a throwing event never propagates (logging must not break a session)', () => {
     const { handle, emit } = fakeHandle('TSTTHROW');
     attachSessionLogger(handle);
-    // A malformed event whose field access inside describeEvent could throw;
-    // the listener must swallow it. emit() must not throw.
-    expect(() => emit({ type: 'segment_started', get segment_id(): string { throw new Error('boom'); } })).not.toThrow();
+    // A malformed event that makes describeEvent's default-branch JSON.stringify
+    // throw (circular reference). The listener's try/catch must swallow it so
+    // the throw never bubbles back through EventEmitter.emit() into narration.
+    const circular: Record<string, unknown> = { type: 'weird_unknown_event' };
+    circular.self = circular;
+    expect(() => emit(circular)).not.toThrow();
     closeSessionLogger('TSTTHROW');
   });
 
