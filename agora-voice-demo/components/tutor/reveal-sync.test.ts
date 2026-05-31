@@ -47,3 +47,30 @@ describe('revealedTokenCount — audio-synced word reveal', () => {
     expect(revealedTokenCount('', 'anything')).toBe(0);
   });
 });
+
+import { matchSceneIndex } from './reveal-sync';
+
+describe('matchSceneIndex — which scene is the audio on', () => {
+  const SCENES = [
+    'Young Albert sat on a grassy hill watching the clouds.',
+    'Years later he imagined a train racing as fast as light.',
+    'He discovered that time can stretch like a rubber band.',
+  ];
+
+  it('matches the scene the spoken text aligns to', () => {
+    expect(matchSceneIndex(SCENES, 'Young Albert sat on')).toBe(0);
+    expect(matchSceneIndex(SCENES, 'Years later he imagined')).toBe(1);
+    expect(matchSceneIndex(SCENES, 'He discovered that time')).toBe(2);
+  });
+
+  it('returns -1 when nothing aligns (silence / bridge / QA answer)', () => {
+    expect(matchSceneIndex(SCENES, '')).toBe(-1);
+    expect(matchSceneIndex(SCENES, 'Let me tell you a different unrelated thing')).toBe(-1);
+  });
+
+  it('picks the longest-aligned scene when a short prefix is ambiguous', () => {
+    const scenes = ['The fox ran home.', 'The fox ran home through the silver forest at night.'];
+    // Both start "The fox ran home", but the 2nd aligns further.
+    expect(matchSceneIndex(scenes, 'The fox ran home through the silver')).toBe(1);
+  });
+});
