@@ -78,6 +78,14 @@ export interface RunTutorHandle {
   startNarration: () => Promise<void>;
   /** Stop the session early. Safe to call even after narration finishes. */
   stop: () => Promise<void>;
+  /**
+   * Called by /api/tutor/branch-started the INSTANT the browser detects barge-in
+   * (agent speaking→listening), BEFORE the silence-confirm. Pauses the narrator
+   * + cuts the agent's in-flight/queued TTS immediately, so the story stops the
+   * moment the listener opens their mouth — and they speak into silence, which
+   * also lets STT hear them cleanly. Idempotent.
+   */
+  beginBranch: () => void;
   /** Called by /api/tutor/qa-ended when the browser detects the user's Q&A digression has ended. */
   handleQaEnded: (args: { qa_history: Array<{ role: 'user' | 'agent'; text: string; ts: number }> }) => Promise<void>;
 }
@@ -301,12 +309,28 @@ async function buildTutorHandle(args: {
     closeSessionLogger(session_id);
   };
 
+  const beginBranch: RunTutorHandle['beginBranch'] = () => {
+    // Fires the instant the browser sees agent speaking→listening (the listener
+    // started talking). Pause the narrator NOW — don't wait for the silence-
+    // confirm + qa-ended — so the story stops mid-sentence instead of talking
+    // over the listener. Entering BRANCH flips the narrator into waitForMain()
+    // on its next loop tick; session.interrupt() flushes the audio Agora has
+    // buffered (the current utterance + any APPENDed-but-unspoken segments) so
+    // the voice goes quiet immediately. Both are idempotent / best-effort.
+    try {
+      if (progress.snapshot().outer_state === 'MAIN') progress.enterBranch();
+    } catch {
+      /* never let a barge-in signal throw */
+    }
+    void session.interrupt().catch(() => {});
+  };
+
   const handleQaEnded: RunTutorHandle['handleQaEnded'] = async ({ qa_history }) => {
-    // Server only learns the user has been having a Q&A digression when this
-    // POST arrives — the browser is the one watching RTM agent_state for the
-    // barge-in. If we're still in MAIN when the ping lands, trust the browser
-    // and enter BRANCH now (pinning paused_segment_id to whatever segment the
-    // narrator is currently inside). DONE / ERROR / IDLE remain rejected.
+    // By the time this lands the browser has usually already called
+    // beginBranch() on barge-in, so we're in BRANCH with the narrator paused.
+
+    // If we're still in MAIN when the ping lands (beginBranch missed / raced),
+    // trust the browser and enter BRANCH now. DONE / ERROR / IDLE stay rejected.
     // Capture how much of the current segment's audio has played BEFORE we
     // mutate any state — this is the listener's real "% heard" of the scene
     // they interrupted, which the resume planner uses to bias restart vs skip.
@@ -434,6 +458,7 @@ async function buildTutorHandle(args: {
     progress,
     startNarration,
     stop,
+    beginBranch,
     handleQaEnded,
   };
 
