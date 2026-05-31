@@ -15,6 +15,7 @@ import {
   mapTranscriptItems,
   latestAgentText,
   latestUserText,
+  dedupeQaTurns,
 } from './transcript-mapping';
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
@@ -174,6 +175,42 @@ describe('latestAgentText (audio-synced reveal source)', () => {
       item({ uid: '0', text: '   ', time: 200, object: MessageType.AGENT_TRANSCRIPTION }),
     ];
     expect(latestAgentText(items, LOCAL_UID)).toBe('real narration');
+  });
+});
+
+describe('dedupeQaTurns (typed-question echo, live-found on Vercel 2026-05-31)', () => {
+  it('collapses a typed question + its Agora echo (same text, ~2s apart) into one', () => {
+    const out = dedupeQaTurns([
+      { role: 'user', text: 'How fast does light travel?', ts: 1000 },
+      { role: 'user', text: 'How fast does light travel?', ts: 3000 }, // echo
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].ts).toBe(1000); // keeps the first
+  });
+
+  it('keeps the same question asked again far apart (> window)', () => {
+    const out = dedupeQaTurns([
+      { role: 'user', text: 'Why?', ts: 1000 },
+      { role: 'user', text: 'Why?', ts: 1000 + 20_000 }, // 20s later — genuine re-ask
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  it('keeps distinct questions and the agent answer between them', () => {
+    const out = dedupeQaTurns([
+      { role: 'user', text: 'How fast is light?', ts: 1000 },
+      { role: 'agent', text: 'About 300,000 km/s.', ts: 2000 },
+      { role: 'user', text: 'Why is the sky blue?', ts: 3000 },
+    ]);
+    expect(out).toHaveLength(3);
+  });
+
+  it('does not merge across roles (same text, different role)', () => {
+    const out = dedupeQaTurns([
+      { role: 'user', text: 'spacetime', ts: 1000 },
+      { role: 'agent', text: 'spacetime', ts: 1500 },
+    ]);
+    expect(out).toHaveLength(2);
   });
 });
 

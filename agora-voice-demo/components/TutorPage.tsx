@@ -63,6 +63,7 @@ import {
   mapTranscriptItems,
   latestAgentText,
   latestUserText,
+  dedupeQaTurns,
 } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
@@ -493,8 +494,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             });
             // Merge typed questions (not in the RTM transcript) by timestamp so
             // a typed Q pairs with the agent's spoken answer.
+            // Agora echoes sendText() back as a user.transcription, so a typed
+            // question lands in BOTH `committed` and typedTurnsRef — dedupeQaTurns
+            // collapses that into one bubble (live-verified regression).
             const merged = typedTurnsRef.current.length
-              ? [...committed, ...typedTurnsRef.current].sort((a, b) => a.ts - b.ts)
+              ? dedupeQaTurns(
+                  [...committed, ...typedTurnsRef.current].sort((a, b) => a.ts - b.ts),
+                )
               : committed;
             setQaTranscript(merged);
             // Feed the live agent transcript to the word-reveal so captions
@@ -748,6 +754,16 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         }
 
         case 'segment_started': {
+          // Narration (re)starting = any QA branch is OVER. Close the capture
+          // window so the resumed narration's transcript isn't mis-committed as
+          // a QA answer (the "IN ANSWER TO YOU" duplicate-of-narration bug,
+          // live-found 2026-05-31). The silence-timer alone misses this when the
+          // agent goes answer→narration with no idle gap (typed questions).
+          if (inBranchRef.current || branchStartedAtRef.current !== null) {
+            inBranchRef.current = false;
+            branchStartedAtRef.current = null;
+            setInBranch(false);
+          }
           // Subtitle follows the SPOKEN text: when the resume-planner rewrites a
           // segment (e.g. switches it to Chinese), segment_started carries the
           // new text — sync it into the displayed scene so the subtitle matches
@@ -792,6 +808,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         case 'branch_ended':
           setInBranch(false);
           inBranchRef.current = false;
+          // Close the QA capture window too — otherwise resumed narration after
+          // a (voice) barge-in stays "inside the branch" and pollutes qa_history.
+          branchStartedAtRef.current = null;
           return;
 
         case 'active_scene_changed': {

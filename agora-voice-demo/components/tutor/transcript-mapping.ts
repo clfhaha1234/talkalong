@@ -140,3 +140,30 @@ export function mapTranscriptItems(
 
   return committed.slice(-keep);
 }
+
+/**
+ * Drop near-simultaneous duplicate turns. A typed question is BOTH pushed
+ * locally (typedTurnsRef, so it shows instantly) AND echoed back by Agora as a
+ * user.transcription in the RTM stream — so the naive [...committed, ...typed]
+ * merge rendered the SAME question twice (live-verified on the Vercel deploy,
+ * 2026-05-31). Keep the first occurrence of a given role+text and drop any
+ * identical one within `windowMs` (the echo arrives within a couple seconds);
+ * a genuinely-repeated question far apart in time is preserved.
+ */
+export function dedupeQaTurns(
+  turns: QaTranscriptTurn[],
+  windowMs = 15000,
+): QaTranscriptTurn[] {
+  const out: QaTranscriptTurn[] = [];
+  for (const t of turns) {
+    const norm = t.text.trim().toLowerCase();
+    const isDup = out.some(
+      (o) =>
+        o.role === t.role &&
+        o.text.trim().toLowerCase() === norm &&
+        Math.abs(o.ts - t.ts) <= windowMs,
+    );
+    if (!isDup) out.push(t);
+  }
+  return out;
+}
