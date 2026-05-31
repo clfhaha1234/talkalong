@@ -60,3 +60,25 @@ export function revealedTokenCount(narration: string, spokenSoFar: string): numb
   const tokenLen = tokenize(narration).length;
   return Math.min(tokenLen, matched * 2);
 }
+
+/**
+ * Which scene the agent is CURRENTLY narrating, inferred from the live agent
+ * transcript. Returns the index of the scene whose narration `spokenSoFar`
+ * aligns to best (longest matched word-prefix), or -1 when nothing aligns
+ * (silence, a bridge, or a Q&A answer). Used to drive the reading view's
+ * "current page" + image off the real audio instead of the server's timer, so
+ * the page can't flip ahead of the voice.
+ */
+export function matchSceneIndex(narrations: string[], spokenSoFar: string): number {
+  if (!spokenSoFar || spokenSoFar.trim().length === 0) return -1;
+  let bestIdx = -1;
+  let bestTokens = 0;
+  for (let i = 0; i < narrations.length; i++) {
+    const n = revealedTokenCount(narrations[i], spokenSoFar);
+    if (n > bestTokens) {
+      bestTokens = n;
+      bestIdx = i;
+    }
+  }
+  return bestIdx;
+}

@@ -17,28 +17,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { T, F_HEAD, F_BODY, F_MONO, tokenize, type Scene } from './theme';
-import { revealedTokenCount } from './reveal-sync';
+import { T, F_HEAD, F_BODY, F_MONO, type Scene } from './theme';
+import { matchSceneIndex } from './reveal-sync';
 import {
   Flourish,
   CornerOrn,
   MicIcon,
   Waveform,
 } from './ornaments';
-
-// Narration reveal pacing. The agent's TTS plays at roughly the same
-// chars/sec the orchestrator uses to estimate segment duration (~17 cps +
-// a short tail). We reveal text to land in step with that audio rather than
-// at a fixed words-per-second, so the last word appears about when the
-// narrator finishes speaking the scene — not seconds early. Mirrors the
-// orchestrator's Scene→Segment duration heuristic in lib/orchestrator/index.ts.
-const CHARS_PER_SEC = 17;
-const TAIL_MS = 150;
-const MIN_SCENE_MS = 700;
-
-function estimateSceneAudioMs(text: string): number {
-  return Math.max(MIN_SCENE_MS, Math.round((text.length / CHARS_PER_SEC) * 1000)) + TAIL_MS;
-}
 
 interface QaEntry {
   /** User's spoken question (best-effort from RTM transcript). */
@@ -124,25 +110,42 @@ function SceneStrip({ count, current, ready }: SceneStripProps) {
 }
 
 interface BookSpreadProps {
-  scene: Scene;
-  visibleCount: number;
-  totalTokens: number;
+  scenes: Scene[];
+  /** Index of the scene the audio is currently on. The LEFT illustration shows
+   *  this scene; the RIGHT chat lists scenes 0..currentIndex with this one
+   *  highlighted. */
+  currentIndex: number;
   paused: boolean;
   qaHistory: QaEntry[];
 }
 
 function BookSpread({
-  scene,
-  visibleCount,
-  totalTokens,
-  paused,
+  scenes,
+  currentIndex,
   qaHistory,
 }: BookSpreadProps) {
+  const current = scenes[currentIndex];
+
   // If the clip fails to load/decode, fall back to the still illustration
-  // rather than showing a black box. Reset implicitly: BookSpread remounts
-  // per scene (keyed wrapper in StoryScreen), so this starts false each page.
-  const [videoFailed, setVideoFailed] = useState(false);
+  // rather than showing a black box. We track WHICH clip url failed (not a bare
+  // boolean) so the fallback auto-resets when a new scene's clip swaps in —
+  // BookSpread no longer remounts per scene, so a boolean would stick.
+  const [failedVideoUrl, setFailedVideoUrl] = useState<string | null>(null);
+  const videoFailed = !!current.video_url && failedVideoUrl === current.video_url;
+  const setVideoFailed = useCallback(
+    (url: string | undefined) => setFailedVideoUrl(url ?? null),
+    [],
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // The right column is a scrolling story-chat. Auto-scroll to keep the current
+  // bubble in view whenever the audio advances to a new scene.
+  const currentBubbleRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = currentBubbleRef.current;
+    if (!el) return;
+    el.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  }, [currentIndex]);
 
   // The clip's first frame is a BLANK page (it draws the art on from nothing).
   // `autoPlay` covers the happy path, but a browser that defers muted autoplay
@@ -152,18 +155,15 @@ function BookSpread({
   // back to the still illustration (which is always the finished art). The
   // happy path is unchanged: play() resolves and the draw-on animation runs.
   useEffect(() => {
-    if (!scene.video_url) return;
+    const url = current.video_url;
+    if (!url) return;
     const v = videoRef.current;
     if (!v) return;
     const p = v.play();
     if (p && typeof p.catch === 'function') {
-      p.catch(() => setVideoFailed(true));
+      p.catch(() => setVideoFailed(url));
     }
-  }, [scene.video_url]);
-
-  const tokens = useMemo(() => tokenize(scene.narration_text), [scene]);
-  const visible = tokens.slice(0, visibleCount).join('');
-  const remaining = tokens.slice(visibleCount).join('');
+  }, [current.video_url, setVideoFailed]);
 
   return (
     <div
@@ -199,7 +199,7 @@ function BookSpread({
           borderRadius: 999,
         }}
       >
-        {scene.chapter}
+        {current.chapter}
       </div>
 
       {/* LEFT — illustration (server-provided image_url) */}
@@ -220,12 +220,12 @@ function BookSpread({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: scene.image_url ? 'transparent' : T.paper,
-            border: scene.image_url ? 'none' : `1px dashed ${T.paperEdge}`,
+            background: current.image_url ? 'transparent' : T.paper,
+            border: current.image_url ? 'none' : `1px dashed ${T.paperEdge}`,
             overflow: 'hidden',
           }}
         >
-          {scene.video_url && !videoFailed ? (
+          {current.video_url && !videoFailed ? (
             // Animated clip (parent Remotion render). Plays once then holds on
             // the last frame — we deliberately do NOT loop, since the clip
             // opens by drawing pencil strokes from blank and a loop would
@@ -235,11 +235,11 @@ function BookSpread({
             // so the swap from <img> is seamless. On load/decode failure we
             // fall back to the still illustration below.
             <video
-              key={scene.video_url}
+              key={current.video_url}
               ref={videoRef}
-              src={scene.video_url}
-              onError={() => setVideoFailed(true)}
-              poster={scene.image_url}
+              src={current.video_url}
+              onError={() => setVideoFailed(current.video_url)}
+              poster={current.image_url}
               autoPlay
               muted
               playsInline
@@ -251,13 +251,13 @@ function BookSpread({
                   'imgFade 0.6s ease both, breathe 7s ease-in-out 0.6s infinite',
               }}
             />
-          ) : scene.image_url ? (
+          ) : current.image_url ? (
             // Still illustration — shown until its clip streams in (or as the
             // permanent fallback if the render failed).
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={scene.image_url}
-              alt={`Illustration for ${scene.chapter}: ${scene.headline.join(' ')}`}
+              src={current.image_url}
+              alt={`Illustration for ${current.chapter}: ${current.headline.join(' ')}`}
               style={{
                 width: '100%',
                 height: '100%',
@@ -295,7 +295,7 @@ function BookSpread({
             letterSpacing: '0.06em',
           }}
         >
-          — plate {scene.sceneNum.toLowerCase()} —
+          — plate {current.sceneNum.toLowerCase()} —
         </div>
         <style>{`@keyframes imgFade { from { opacity: 0; } to { opacity: 1; } } @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.012); } }`}</style>
       </div>
@@ -307,75 +307,65 @@ function BookSpread({
         }}
       />
 
-      {/* RIGHT — text */}
+      {/* RIGHT — scrolling story-chat. One bubble per scene narrated so far
+          (0..currentIndex). The current scene is highlighted; past scenes are
+          dimmed. The container auto-scrolls to keep the current bubble in view
+          as the audio advances, replacing the old fixed-timer karaoke reveal
+          that flipped pages before the voice finished a sentence. */}
       <div
         style={{
-          padding: '48px 50px 32px',
+          padding: '40px 44px 32px',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          overflowY: 'auto',
         }}
       >
-        <div
-          style={{
-            fontSize: 12,
-            letterSpacing: '0.25em',
-            color: T.rose,
-            textTransform: 'uppercase',
-            fontFamily: F_MONO,
-          }}
-        >
-          {scene.sceneNum}
-        </div>
-        <h3
-          style={{
-            fontFamily: F_HEAD,
-            fontStyle: 'italic',
-            fontWeight: 500,
-            fontSize: 38,
-            margin: '12px 0 14px',
-            lineHeight: 1.1,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {scene.headline[0]}
-          <br />
-          {scene.headline[1]}
-        </h3>
-        <Flourish size={48} />
-
-        <div
-          style={{
-            marginTop: 18,
-            fontFamily: F_HEAD,
-            fontSize: 19,
-            lineHeight: 1.65,
-            color: T.ink,
-            minHeight: 160,
-            flex: 1,
-          }}
-        >
-          {visible}
-          {!paused && visibleCount < totalTokens && (
-            <span
+        {scenes.slice(0, currentIndex + 1).map((s, i) => {
+          const isCurrent = i === currentIndex;
+          return (
+            <div
+              key={s.id}
+              ref={isCurrent ? currentBubbleRef : null}
               style={{
-                display: 'inline-block',
-                width: 2,
-                height: 19,
-                background: T.rose,
-                verticalAlign: -3,
-                marginLeft: 1,
-                animation: 'blink 0.9s infinite',
+                marginBottom: 26,
+                paddingLeft: isCurrent ? 16 : 0,
+                borderLeft: isCurrent ? `2px solid ${T.rose}` : '2px solid transparent',
+                background: isCurrent ? 'rgba(199,123,106,0.05)' : 'transparent',
+                transition: 'background 0.3s, border-color 0.3s',
               }}
-            />
-          )}
-          <span style={{ color: 'transparent' }}>{remaining}</span>
-        </div>
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: '0.25em',
+                  color: T.rose,
+                  textTransform: 'uppercase',
+                  fontFamily: F_MONO,
+                  marginBottom: 8,
+                  opacity: isCurrent ? 1 : 0.6,
+                }}
+              >
+                {s.sceneNum}
+              </div>
+              <div
+                style={{
+                  fontFamily: F_HEAD,
+                  fontSize: 18,
+                  lineHeight: 1.6,
+                  color: isCurrent ? T.ink : T.inkSoft,
+                  transition: 'color 0.3s',
+                }}
+              >
+                {s.narration_text}
+              </div>
+            </div>
+          );
+        })}
 
         {qaHistory.length > 0 && (
           <div
             style={{
-              marginTop: 18,
+              marginTop: 4,
               paddingTop: 16,
               borderTop: `1px dashed ${T.paperEdge}`,
             }}
@@ -434,8 +424,6 @@ function BookSpread({
           </div>
         )}
       </div>
-
-      <style>{`@keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }`}</style>
     </div>
   );
 }
@@ -846,66 +834,41 @@ export function StoryScreen({
   const safeIndex = Math.max(0, Math.min(scenes.length - 1, activeSceneIndex));
   const scene = scenes[safeIndex];
 
-  // Word reveal. We tick visibleCount at WPS until we hit the scene's token
-  // count. When activeSceneIndex changes we need to sweep from word 0 —
-  // implemented via React 19's "reset state during render" pattern: comparing
-  // a tracked scene id against the previous render's id and calling the
-  // matching setter synchronously. This avoids an effect-driven cascade and
-  // keeps the reveal frame-accurate across scene flips.
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [trackedSceneId, setTrackedSceneId] = useState<string | null>(
-    scene?.id ?? null,
+  // Which scene the reading view is currently on. We infer it from the REAL
+  // agent transcript (matchSceneIndex over the scene narrations) so the page
+  // can't flip ahead of the voice — the bug the old fixed-timer karaoke had.
+  // When the transcript doesn't align yet (scene just flipped, a bridge, or a
+  // Q&A answer is in the buffer), we fall back to the server-driven clamped
+  // activeSceneIndex.
+  const matched = matchSceneIndex(
+    scenes.map((s) => s.narration_text),
+    liveNarrationText ?? '',
   );
-  if (scene && scene.id !== trackedSceneId) {
-    setTrackedSceneId(scene.id);
-    setVisibleCount(0);
+  const rawIndex = matched >= 0 ? matched : safeIndex;
+
+  // Monotonic high-water mark: never go backward within a session, so a brief
+  // transcript misalignment can't yank the page back a scene (jitter). Held in
+  // state and adjusted DURING render (React's supported "store info from prior
+  // renders" pattern) so the page advances in the same paint as the transcript
+  // update — no extra frame. Resets when the lesson restarts (first scene id
+  // changes).
+  const lessonKey = scenes[0]?.id ?? '';
+  const [maxIndex, setMaxIndex] = useState(0);
+  const [trackedLesson, setTrackedLesson] = useState(lessonKey);
+
+  let currentIndex: number;
+  if (trackedLesson !== lessonKey) {
+    // New lesson — reset the high-water mark this render.
+    setTrackedLesson(lessonKey);
+    setMaxIndex(rawIndex);
+    currentIndex = rawIndex;
+  } else if (rawIndex > maxIndex) {
+    setMaxIndex(rawIndex);
+    currentIndex = rawIndex;
+  } else {
+    currentIndex = maxIndex;
   }
-
-  const tokens = useMemo(
-    () => (scene ? tokenize(scene.narration_text) : []),
-    [scene],
-  );
-  const totalTokens = tokens.length;
-
-  // How many tokens the AUDIO has actually reached, from Agora's live agent
-  // transcript. >=0 when the transcript aligns with this scene; -1 when it
-  // doesn't yet (scene just flipped, or a bridge/QA is in the transcript) —
-  // then we fall back to a gentle bootstrap timer.
-  const audioTokenTarget =
-    !inBranch && liveNarrationText
-      ? revealedTokenCount(scene.narration_text, liveNarrationText)
-      : -1;
-  const audioSynced = audioTokenTarget >= 0;
-
-  useEffect(() => {
-    // Halt reveal during a BRANCH (Q&A) or once the scene is fully revealed.
-    if (inBranch) return;
-    if (visibleCount >= totalTokens || totalTokens === 0) return;
-
-    if (audioSynced) {
-      // AUDIO-SYNCED: ease the cursor toward what the voice has actually said,
-      // a couple tokens at a time for smoothness, and NEVER past it — so the
-      // captions can't race ahead of the voice (the bug). When we've caught up
-      // to the audio we simply wait for the next transcript update.
-      const target = Math.min(totalTokens, audioTokenTarget);
-      if (visibleCount >= target) return;
-      const id = setTimeout(() => {
-        setVisibleCount((v) => Math.min(target, v + 2));
-      }, 55);
-      return () => clearTimeout(id);
-    }
-
-    // BOOTSTRAP (no aligned transcript yet): reveal gently at the estimated
-    // rate so the page isn't blank in the ~200ms before Agora's transcript
-    // starts streaming, and to cover scene-transition gaps. Once the transcript
-    // aligns, the branch above takes over and clamps to the real audio.
-    const audioMs = estimateSceneAudioMs(scene.narration_text);
-    const intervalMs = Math.max(60, Math.round(audioMs / totalTokens));
-    const id = setInterval(() => {
-      setVisibleCount((v) => Math.min(totalTokens, v + 1));
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [inBranch, visibleCount, totalTokens, scene, audioSynced, audioTokenTarget]);
+  currentIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex));
 
   const readyCount = useMemo(
     () => scenes.filter((s) => s.image_url).length,
@@ -1017,15 +980,16 @@ export function StoryScreen({
         </div>
       </div>
 
-      {/* Book spread — keyed on scene id so the page truly remounts on
-          advance (fresh fade-in animation on the illustration <img>). */}
-      <div key={scene.id}>
+      {/* Book spread — keyed on the LESSON (first scene id), NOT the current
+          scene, so it does NOT remount on every page flip (which would reset
+          the story-chat scroll position). The illustration's fade/breathe
+          re-runs naturally via the per-scene <video>/<img> key inside. */}
+      <div key={lessonKey}>
         <BookSpread
-          scene={scene}
-          visibleCount={visibleCount}
-          totalTokens={totalTokens}
+          scenes={scenes}
+          currentIndex={currentIndex}
           paused={inBranch}
-          qaHistory={qaHistoryByScene[safeIndex] ?? []}
+          qaHistory={qaHistoryByScene[currentIndex] ?? []}
         />
       </div>
 
