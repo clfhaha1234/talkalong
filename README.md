@@ -6,6 +6,7 @@
 
 <p><em>Most "AI explainer" experiences are reactive: they wait to be asked. A good human teacher is proactive — they drive a plan, pause at the right moments, and when interrupted they answer and rejoin the thread without losing their place. talkalong is the orchestration engine that does this.</em></p>
 
+[![CI](https://github.com/clfhaha1234/talkalong/actions/workflows/ci.yml/badge.svg)](https://github.com/clfhaha1234/talkalong/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
 [![Tests](https://img.shields.io/badge/tests-186%20unit%20%2B%20benches-success?style=flat-square)](./agora-voice-demo/scripts/qa-bench/README.md)
@@ -27,9 +28,8 @@ That's the loop a human teacher runs all day, and the one most AI products skip 
 wait politely, then forget the thread the moment you go off-piste. **talkalong is the
 orchestrator that makes the loop work end-to-end.** We prove it on a children's storybook
 tutor (the highest-stakes correctness setting — you can't fake continuity in front of a
-6-year-old); the same engine generalizes to any long-form content — a paper walkthrough,
-an onboarding doc, a museum guide, a Khan-style lesson — and tells it in whatever language
-you type the topic in.
+6-year-old); the same engine generalizes to any long-form content: a paper walkthrough,
+an onboarding doc, a museum guide, a Khan-style lesson.
 
 ## 🎬 See it in action
 
@@ -37,16 +37,25 @@ you type the topic in.
 >
 > 🧒 *(interrupts)* **"Wait, why is the bark silver?"**
 >
-> 🤖 *(stops mid-sentence)* *"Because of the moonlight catching the leaves — silver bark is what very old trees grow where the moon is always full. Now — where were we... Lily had just stepped into the silver forest, and a small fox crept out from behind a tree..."*
+> 🤖 *(stops mid-sentence)* *"Because of the moonlight catching the leaves — silver bark is what very old trees grow where the moon is always full. Now — where were we... Lily had just stepped into the silver forest, and a small fox came out from behind a tree..."*
 >
-> 🧒 *(interrupts again)* **"Is the fox going to be her friend?"**
+> 🧒 *(interrupts again)* **"用中文讲故事。"**
 >
-> 🤖 *(answers without spoiling, stays on canon)* *"Ah, that's a secret the forest is still keeping — but watch how it tilts its head. Lily knelt down in the silver light, and the little fox crept one step closer..."*
+> 🤖 *(switches language, keeps the same Lily, same forest, same fox)* *"莉莉刚刚走进银色的森林，一只小狐狸从树后探出头来……"*
 
 Three things a vanilla chatbot would flub: it **stopped the instant the kid spoke**,
-**answered in narrator voice** and bridged back *mid-sentence* (not from the top), and it
-**answered without spoiling what's ahead** — then resumed with the same Lily, same forest,
-same fox. The plot never resets.
+**answered in narrator voice** and bridged back *mid-sentence* (not from the top), and on
+the language switch **kept the canon** — same characters, same scene. Plot never resets.
+
+## 🎯 Who it's for
+
+A drop-in **interruptible-narration engine** for any product that reads long-form
+content aloud and has to handle *"wait, back up"* gracefully — ed-tech tutors,
+audiobook & news readers, guided onboarding, museum & accessibility guides. It's
+content-agnostic (swap the storybook layer for a paper/doc/tour segmenter),
+language-agnostic (generates in whatever language the user types), and
+voice-provider-agnostic (any vendor with text-injection + barge-in) — so the same
+engine scales across domains, languages, and regions rather than one local use case.
 
 ## 🏗️ How it works (in one breath)
 
