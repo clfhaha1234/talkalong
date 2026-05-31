@@ -41,7 +41,10 @@ export const DEFAULT_LANGUAGE: DetectedLanguage = { code: 'en', name: 'English' 
 export const STORYTELLER_VOICE_ID = 'Chinese (Mandarin)_Warm_Girl';
 
 // ── STT (Deepgram) ────────────────────────────────────────────────────────
-// STT stays English-only (nova-3 / en-US) for ALL languages right now — a
+// language is 'en' (NOT 'en-US') to match the base /api/invite-agent route
+// whose STT is smooth — keeping the tutor's recognition config identical to the
+// proven `/` demo. nova-3 'en' is Deepgram's general English model.
+// STT stays English-only (nova-3 / en) for ALL languages right now — a
 // deliberate "先凑合" stop-gap. Consequence: a non-English barge-in transcribes
 // to garbage (e.g. a Mandarin question comes back as Latin-letter noise), so
 // the voice AI's answer to a spoken interrupt may be off — but barge-in itself
@@ -51,7 +54,7 @@ export const STORYTELLER_VOICE_ID = 'Chinese (Mandarin)_Warm_Girl';
 // auto-detect) + Agora provisioning. Root cause + recommended fix:
 // docs/experiments/2026-05-29-language-switch-rootcause/README.md
 export const STT_MODEL = 'nova-3';
-export const STT_LANGUAGE = 'en-US';
+export const STT_LANGUAGE = 'en';
 
 // ── Persona (agent narrator system prompt) ────────────────────────────────
 // Each persona is the SAME storyteller-mode brief in the target language.

@@ -25,7 +25,8 @@ describe('voice + STT are language-independent stop-gaps', () => {
   });
   it('STT is English-only (先凑合)', () => {
     expect(STT_MODEL).toBe('nova-3');
-    expect(STT_LANGUAGE).toBe('en-US');
+    // 'en' (not 'en-US') to match the base /api/invite-agent STT config.
+    expect(STT_LANGUAGE).toBe('en');
   });
 });
 

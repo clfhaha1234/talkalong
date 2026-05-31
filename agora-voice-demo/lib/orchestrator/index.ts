@@ -115,10 +115,31 @@ const PHASE3_FILLER: FillerWordsConfig = {
   },
 };
 
+// Turn detection — ALIGNED to the base /api/invite-agent route (the `/` demo
+// whose STT is buttery-smooth). The tutor had diverged to a bare
+// `start_of_speech:{mode:'vad'}` + `end_of_speech:{mode:'semantic'}` with no
+// tuning, which caused the symptoms vs `/`:
+//   - semantic EoS runs an LLM to decide turn-end → laggy ("卡顿")
+//   - no prefix_padding_ms → the first ~300ms of speech is dropped ("缺开头")
+//   - no speech_threshold / interrupt_duration → defaults misfire
+// Matching the proven `/` config (deterministic VAD, 300ms prefix capture,
+// 480ms end silence) makes the tutor's STT behave like the 1:1 demo.
 const PHASE3_TURN: TurnDetectionConfig = {
   config: {
-    start_of_speech: { mode: 'vad' },
-    end_of_speech: { mode: 'semantic' },
+    speech_threshold: 0.5,
+    start_of_speech: {
+      mode: 'vad',
+      vad_config: {
+        interrupt_duration_ms: 160,
+        prefix_padding_ms: 300,
+      },
+    },
+    end_of_speech: {
+      mode: 'vad',
+      vad_config: {
+        silence_duration_ms: 480,
+      },
+    },
   },
 };
 
@@ -218,9 +239,13 @@ async function buildTutorHandle(args: {
   const session: AgentSession = agent.createSession(client, {
     channel,
     agentUid,
-    // Use ['*'] to subscribe to any remote — mirrors the working invite-agent
-    // route's behaviour where the agent isn't picky about a single client uid.
-    remoteUids: ['*'],
+    // Restrict STT to ONLY the listener's uid (matches the base /api/invite-agent
+    // route, which uses [requester_id]). The previous ['*'] let the agent's STT
+    // process every stream in the channel — including the agent's own continuous
+    // narration TTS looping back — which polluted recognition with garbage
+    // "questions" (the "识别各种错误" + false barge-ins). The earlier comment that
+    // ['*'] "mirrors invite-agent" was wrong: invite-agent scopes to the user.
+    remoteUids: [clientUid],
     idleTimeout: 120,
     expiresIn: ExpiresIn.minutes(20),
     debug: false,
