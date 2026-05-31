@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { T, F_HEAD, F_BODY, F_MONO, tokenize, type Scene } from './theme';
+import { revealedTokenCount } from './reveal-sync';
 import {
   Flourish,
   CornerOrn,
@@ -58,6 +59,11 @@ interface StoryScreenProps {
   /** True once narration_complete fired — we hold on the last spread as the
    *  story's closing page (no mic, no "now reading" status). */
   finished: boolean;
+  /** Agora's live agent transcript — what the voice is actually saying right
+   *  now, grown word-by-word as the TTS plays. When it aligns with the current
+   *  scene, the word reveal tracks it (audio-synced) instead of a fixed timer.
+   *  Null before any agent transcript has arrived. */
+  liveNarrationText: string | null;
   /** Per-scene QA history accumulated by the parent from the RTM transcript
    *  stream. Marginalia at the bottom of the right page. */
   qaHistoryByScene: Record<number, QaEntry[]>;
@@ -828,6 +834,7 @@ export function StoryScreen({
   activeSceneIndex,
   inBranch,
   finished,
+  liveNarrationText,
   qaHistoryByScene,
   micMuted,
   micDenied,
@@ -860,20 +867,45 @@ export function StoryScreen({
   );
   const totalTokens = tokens.length;
 
+  // How many tokens the AUDIO has actually reached, from Agora's live agent
+  // transcript. >=0 when the transcript aligns with this scene; -1 when it
+  // doesn't yet (scene just flipped, or a bridge/QA is in the transcript) —
+  // then we fall back to a gentle bootstrap timer.
+  const audioTokenTarget =
+    !inBranch && liveNarrationText
+      ? revealedTokenCount(scene.narration_text, liveNarrationText)
+      : -1;
+  const audioSynced = audioTokenTarget >= 0;
+
   useEffect(() => {
     // Halt reveal during a BRANCH (Q&A) or once the scene is fully revealed.
     if (inBranch) return;
     if (visibleCount >= totalTokens || totalTokens === 0) return;
-    // Spread the reveal of all tokens across the scene's estimated audio
-    // duration so the cursor tracks the narrator's voice instead of racing
-    // ahead. Floor the per-tick interval so a very short scene still animates.
+
+    if (audioSynced) {
+      // AUDIO-SYNCED: ease the cursor toward what the voice has actually said,
+      // a couple tokens at a time for smoothness, and NEVER past it — so the
+      // captions can't race ahead of the voice (the bug). When we've caught up
+      // to the audio we simply wait for the next transcript update.
+      const target = Math.min(totalTokens, audioTokenTarget);
+      if (visibleCount >= target) return;
+      const id = setTimeout(() => {
+        setVisibleCount((v) => Math.min(target, v + 2));
+      }, 55);
+      return () => clearTimeout(id);
+    }
+
+    // BOOTSTRAP (no aligned transcript yet): reveal gently at the estimated
+    // rate so the page isn't blank in the ~200ms before Agora's transcript
+    // starts streaming, and to cover scene-transition gaps. Once the transcript
+    // aligns, the branch above takes over and clamps to the real audio.
     const audioMs = estimateSceneAudioMs(scene.narration_text);
-    const intervalMs = Math.max(40, Math.round(audioMs / totalTokens));
+    const intervalMs = Math.max(60, Math.round(audioMs / totalTokens));
     const id = setInterval(() => {
       setVisibleCount((v) => Math.min(totalTokens, v + 1));
     }, intervalMs);
     return () => clearInterval(id);
-  }, [inBranch, visibleCount, totalTokens, scene]);
+  }, [inBranch, visibleCount, totalTokens, scene, audioSynced, audioTokenTarget]);
 
   const readyCount = useMemo(
     () => scenes.filter((s) => s.image_url).length,

@@ -10,7 +10,7 @@ import {
   type TranscriptHelperItem,
   type UserTranscription,
 } from 'agora-agent-client-toolkit';
-import { attributeRole, mapTranscriptItems } from './transcript-mapping';
+import { attributeRole, mapTranscriptItems, latestAgentText } from './transcript-mapping';
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
 
@@ -137,5 +137,37 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     expect(out).toHaveLength(20);
     expect(out[0].text).toBe('q5'); // first 5 dropped
     expect(out[19].text).toBe('q24');
+  });
+});
+
+describe('latestAgentText (audio-synced reveal source)', () => {
+  it('returns the most recent agent item text by _time', () => {
+    const items = [
+      item({ uid: '0', text: 'Young Albert sat', time: 100, object: MessageType.AGENT_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+      item({ uid: '0', text: 'Young Albert sat on a hill', time: 200, object: MessageType.AGENT_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+    ];
+    expect(latestAgentText(items, LOCAL_UID)).toBe('Young Albert sat on a hill');
+  });
+
+  it('ignores user items (only the agent narration drives the reveal)', () => {
+    const items = [
+      item({ uid: '0', text: 'The fox crept out', time: 300, object: MessageType.AGENT_TRANSCRIPTION }),
+      item({ uid: LOCAL_UID, text: 'why is it silver', time: 400, object: MessageType.USER_TRANSCRIPTION }),
+    ];
+    expect(latestAgentText(items, LOCAL_UID)).toBe('The fox crept out');
+  });
+
+  it('returns null when there is no agent text yet', () => {
+    expect(latestAgentText([], LOCAL_UID)).toBeNull();
+    const onlyUser = [item({ uid: LOCAL_UID, text: 'hi', time: 1, object: MessageType.USER_TRANSCRIPTION })];
+    expect(latestAgentText(onlyUser, LOCAL_UID)).toBeNull();
+  });
+
+  it('skips blank agent items', () => {
+    const items = [
+      item({ uid: '0', text: 'real narration', time: 100, object: MessageType.AGENT_TRANSCRIPTION }),
+      item({ uid: '0', text: '   ', time: 200, object: MessageType.AGENT_TRANSCRIPTION }),
+    ];
+    expect(latestAgentText(items, LOCAL_UID)).toBe('real narration');
   });
 });
