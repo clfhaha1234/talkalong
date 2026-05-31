@@ -132,6 +132,68 @@ describe('StoryScreen — feed renders narrated scenes', () => {
   });
 });
 
+describe('StoryScreen — derived phase / status across all states', () => {
+  // The phase useMemo: reading (!inBranch & speaking, or inBranch & speaking),
+  // thinking (inBranch & thinking), listening (inBranch & listening & !muted),
+  // else paused. Each surfaces a distinct footer hint — the user-visible signal.
+  it('reading: mic-live hint when narrating', () => {
+    render(<StoryScreen {...baseProps({ inBranch: false, agentState: 'speaking' })} />);
+    expect(screen.getByText(/mic is live/i)).toBeInTheDocument();
+  });
+
+  it('listening: shows the listening hint when in branch + agent listening + unmuted', () => {
+    render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'listening', micMuted: false })} />);
+    expect(screen.getByText(/i’ll answer when you pause/i)).toBeInTheDocument();
+  });
+
+  it('thinking: shows the thinking hint when in branch + agent thinking', () => {
+    render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'thinking' })} />);
+    expect(screen.getByText(/the teacher is thinking/i)).toBeInTheDocument();
+  });
+
+  it('paused: shows the paused hint when in branch but agent idle', () => {
+    render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'idle' })} />);
+    expect(screen.getByText(/story paused/i)).toBeInTheDocument();
+  });
+
+  it('micDenied: shows the blocked-mic hint regardless of phase', () => {
+    render(<StoryScreen {...baseProps({ micDenied: true })} />);
+    expect(screen.getByText(/microphone blocked/i)).toBeInTheDocument();
+  });
+});
+
+describe('StoryScreen — finished (closing page, no continue affordance)', () => {
+  it('does not show the "continue the story" control once finished', () => {
+    // The continue affordance only appears in the paused phase AND when NOT
+    // finished. When finished, the story holds on the last page with no CTA.
+    render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'idle', finished: true })} />);
+    expect(screen.queryByText(/continue the story/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('StoryScreen — QA answer bubble', () => {
+  it('renders a prior answer as an "IN ANSWER TO YOU" teacher bubble', () => {
+    render(
+      <StoryScreen
+        {...baseProps({
+          activeSceneIndex: 0,
+          qaHistoryByScene: { 0: [{ q: 'How fast is light?', a: 'About 300,000 km per second.' }] },
+        })}
+      />,
+    );
+    expect(screen.getByText(/in answer to you/i)).toBeInTheDocument();
+    expect(screen.getByText(/about 300,000 km per second/i)).toBeInTheDocument();
+  });
+});
+
+describe('StoryScreen — scene progress dots', () => {
+  it('renders one progress dot per scene', () => {
+    render(<StoryScreen {...baseProps()} />);
+    const dots = screen.getByTestId('scene-dots');
+    expect(dots.children).toHaveLength(SCENES.length);
+  });
+});
+
 describe('StoryScreen — no duplicate live user bubble (字幕出现2次 regression)', () => {
   it('shows the live user bubble while a question is in progress', () => {
     render(<StoryScreen {...baseProps({ inBranch: true, liveUserText: 'what is light made of' })} />);
