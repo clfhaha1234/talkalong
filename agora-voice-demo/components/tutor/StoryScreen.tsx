@@ -576,9 +576,19 @@ function ConversationPanel({
   // turn), so the chapter you're hearing reads from the top down and earlier
   // chapters sit above as history you scroll up to revisit — rather than the
   // feed jamming everything to the bottom.
+  //
+  // We scroll the feed by the element's `offsetTop` (its UNSCALED layout offset
+  // within the feed) rather than scrollIntoView(): the whole stage is rendered
+  // under a CSS `transform: scale()` (ScalingStage), and scrollIntoView/
+  // getBoundingClientRect report SCALED pixels while scrollTop is in unscaled
+  // content pixels — so scrollIntoView landed in the wrong place (the chapter
+  // didn't actually go to the top). offsetTop is transform-immune. The feed is
+  // position:relative (below) so offsetTop is measured relative to it.
   useEffect(() => {
+    const feed = scrollRef.current;
     const el = currentChapterRef.current;
-    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (!feed || !el) return;
+    feed.scrollTo({ top: Math.max(0, el.offsetTop - 4), behavior: 'smooth' });
   }, [currentIndex]);
 
   // WITHIN a chapter (a Q&A exchange or the live transcript growing) → keep the
@@ -651,6 +661,10 @@ function ConversationPanel({
           // growing to its content height. Without it the feed expanded past
           // the stage, pushing the composer off-screen with no way to scroll.
           minHeight: 0,
+          // position:relative makes this the offsetParent for the chapter
+          // dividers, so currentChapterRef.offsetTop is measured relative to the
+          // feed content (used by the new-chapter snap-to-top scroll above).
+          position: 'relative',
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
