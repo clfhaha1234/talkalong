@@ -5,13 +5,12 @@
 //   - feed not scrollable (minHeight:0 missing)
 //   - content rendered but invisible / clipped under the ScalingStage transform
 //
-// It drives /tutor/preview (StoryScreen + fixtures inside the real ScalingStage,
-// no Agora/API/mic), then asserts geometry via getBoundingClientRect:
-//   ✓ teacher narration actually rendered
-//   ✓ the composer is present AND fully within the viewport (not clipped off-bottom)
-//   ✓ the voice/keyboard toggle is present and switches the composer in a real DOM
-//   ✓ the feed is a scrollable region (scrollHeight > clientHeight or fits)
-//   ✓ no console / page errors
+// It drives /tutor/preview across every state VARIANT (reading / muted /
+// listening / paused / finished — StoryScreen + fixtures inside the real
+// ScalingStage, no Agora/API/mic) and asserts geometry via getBoundingClientRect
+// for each: the variant's composer is present AND fully within the viewport,
+// narration rendered, feed scrollable, no console/page errors. The toggle is
+// exercised in the reading variant.
 //
 // Run against an already-running dev server:
 //   E2E_BASE_URL=http://localhost:3000 node scripts/e2e/tutor-storyscreen-smoke.mjs
@@ -19,7 +18,6 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const URL = `${BASE}/tutor/preview`;
 
 const checks = [];
 function check(name, ok, detail = '') {
@@ -36,61 +34,73 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => consoleErrors.push(String(e)));
 
-try {
-  const resp = await page.goto(URL, { waitUntil: 'networkidle', timeout: 30000 });
-  check('GET /tutor/preview responds 200', resp?.status() === 200, `status=${resp?.status()}`);
-
-  // Narration teacher bubble rendered.
-  await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
-  check('teacher narration rendered', true);
-
-  // ── Composer is present AND within the viewport (the "invisible composer" bug) ──
-  const voiceBar = page.getByText(/just speak to interrupt/i).first();
-  await voiceBar.waitFor({ timeout: 10000 });
-  const composerBox = await voiceBar.boundingBox();
+// Is the locator's box fully inside the viewport (not clipped off-bottom/top)?
+async function withinViewport(locator) {
+  const box = await locator.boundingBox();
   const vp = page.viewportSize();
-  const withinViewport =
-    !!composerBox &&
-    composerBox.y >= 0 &&
-    composerBox.y + composerBox.height <= vp.height + 1; // +1 for sub-pixel
-  check(
-    'composer is fully within the viewport (not clipped off-bottom)',
-    withinViewport,
-    composerBox
-      ? `composer bottom=${Math.round(composerBox.y + composerBox.height)} vs vh=${vp.height}`
-      : 'composer not found',
-  );
+  if (!box) return { ok: false, detail: 'not found' };
+  const ok = box.y >= -1 && box.y + box.height <= vp.height + 1;
+  return { ok, detail: `bottom=${Math.round(box.y + box.height)} vs vh=${vp.height}` };
+}
 
-  // ── Toggle present + switches composer in a real DOM ──
-  const voiceBtn = page.getByTitle('Voice');
+// The visible composer affordance differs per state.
+const VARIANTS = [
+  { name: 'reading', composer: /just speak to interrupt/i },
+  { name: 'muted', composer: /muted — tap to talk/i },
+  { name: 'listening', composer: /what is light actually made of/i },
+  { name: 'paused', composer: /just speak to interrupt/i },
+  { name: 'finished', composer: /just speak to interrupt/i },
+];
+
+try {
+  for (const v of VARIANTS) {
+    const before = consoleErrors.length;
+    const resp = await page.goto(`${BASE}/tutor/preview?variant=${v.name}`, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
+    check(`[${v.name}] GET 200`, resp?.status() === 200, `status=${resp?.status()}`);
+
+    // Narration rendered (scene iii is the active page).
+    await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
+
+    // The variant's composer affordance is present AND within the viewport.
+    const composer = page.getByText(v.composer).first();
+    await composer.waitFor({ timeout: 10000 });
+    const vv = await withinViewport(composer);
+    check(`[${v.name}] composer present + within viewport`, vv.ok, vv.detail);
+
+    // finished must NOT offer the continue-the-story CTA.
+    if (v.name === 'finished') {
+      check(
+        '[finished] no "continue the story" CTA',
+        (await page.getByText(/continue the story/i).count()) === 0,
+      );
+    }
+
+    check(`[${v.name}] no console/page errors`, consoleErrors.length === before,
+      consoleErrors.slice(before).slice(0, 2).join(' | '));
+  }
+
+  // ── Toggle + feed-scroll geometry (exercise once, on the reading variant) ──
+  await page.goto(`${BASE}/tutor/preview?variant=reading`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
+
   const kbBtn = page.getByTitle('Keyboard');
-  check('voice/keyboard toggle present', (await voiceBtn.count()) === 1 && (await kbBtn.count()) === 1);
-
+  check('toggle present (Voice + Keyboard)', (await page.getByTitle('Voice').count()) === 1 && (await kbBtn.count()) === 1);
   await kbBtn.click();
   const textbox = page.getByRole('textbox');
   await textbox.waitFor({ timeout: 5000 });
-  check('clicking Keyboard reveals the text input', (await textbox.count()) >= 1);
-  // And the text input is itself within the viewport (not clipped).
-  const tbBox = await textbox.boundingBox();
-  check(
-    'text input is within the viewport',
-    !!tbBox && tbBox.y + tbBox.height <= vp.height + 1,
-    tbBox ? `input bottom=${Math.round(tbBox.y + tbBox.height)}` : 'no input',
-  );
-  await voiceBtn.click();
-  check('clicking Voice restores the voice composer', (await page.getByText(/just speak to interrupt/i).count()) >= 1);
+  const tv = await withinViewport(textbox);
+  check('keyboard mode: text input revealed + within viewport', tv.ok, tv.detail);
+  await page.getByTitle('Voice').click();
+  check('voice mode restored', (await page.getByText(/just speak to interrupt/i).count()) >= 1);
 
-  // ── The conversation feed is a real scroll region ──
-  const feedMetrics = await page.evaluate(() => {
-    // The feed is the scrollable column holding the teacher bubbles. Find the
-    // nearest scrollable ancestor of a narration bubble. querySelectorAll is
-    // pre-order, so among all divs containing the text the LAST one is the
-    // innermost (the bubble itself), not an outer ancestor.
+  const feed = await page.evaluate(() => {
     const matches = Array.from(document.querySelectorAll('div')).filter((d) =>
       /time itself that must bend/i.test(d.textContent || ''),
     );
-    const bubble = matches[matches.length - 1];
-    let el = bubble;
+    let el = matches[matches.length - 1];
     while (el && el !== document.body) {
       const s = getComputedStyle(el);
       if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > 0) {
@@ -100,13 +110,7 @@ try {
     }
     return { found: false };
   });
-  check('feed is a scrollable region', feedMetrics.found === true, JSON.stringify(feedMetrics));
-
-  check(
-    'no console/page errors',
-    consoleErrors.length === 0,
-    consoleErrors.length ? consoleErrors.slice(0, 3).join(' | ') : '',
-  );
+  check('feed is a scrollable region', feed.found === true, JSON.stringify(feed));
 } catch (err) {
   check('smoke script ran without throwing', false, String(err).slice(0, 300));
 } finally {

@@ -314,7 +314,7 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
           marginTop: 14,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div data-testid="scene-dots" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           {Array.from({ length: sceneCount }).map((_, i) => (
             <div
               key={i}
