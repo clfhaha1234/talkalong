@@ -74,6 +74,8 @@ interface StoryScreenProps {
    *  VAD does the actual barge-in detection — the toggle is the user's wish to
    *  be heard. */
   onToggleMic: () => void;
+  /** Submit a typed question — interrupts + sends to the agent (text-mode QA). */
+  onTextQuestion: (text: string) => void;
   /** Hop back to the start screen. Tears down the session (parent abort). */
   onExit: () => void;
 }
@@ -548,6 +550,10 @@ interface ConversationPanelProps {
   micDenied: boolean;
   finished: boolean;
   onToggleMic: () => void;
+  /** Submit a typed question — interrupts the story (pause), sends it to the
+   *  agent via the toolkit's sendText, and the answer flows back like a voice
+   *  Q&A. The text-mode alternative to speaking. */
+  onTextQuestion: (text: string) => void;
 }
 
 function ConversationPanel({
@@ -561,8 +567,9 @@ function ConversationPanel({
   micDenied,
   finished,
   onToggleMic,
+  onTextQuestion,
 }: ConversationPanelProps) {
-  // Voice-first by default. Text mode is a placeholder — see the TODO below.
+  // Voice-first by default; text mode is a real alternative path (onTextQuestion).
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -923,7 +930,7 @@ function ConversationPanel({
             </div>
           ))}
 
-        {/* ===== TEXT MODE (placeholder — not wired to the agent yet) ===== */}
+        {/* ===== TEXT MODE — typed question interrupts + goes to the agent ===== */}
         {inputMode === 'text' && (
           <div
             style={{
@@ -941,12 +948,13 @@ function ConversationPanel({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                // TODO: text-question path not wired to the agent yet. Voice is
-                // the real path (barge-in via Agora VAD + silence timer). For
-                // now Enter does nothing so we never fake an answer.
-                if (e.key === 'Enter') e.preventDefault();
+                if (e.key === 'Enter' && draft.trim()) {
+                  e.preventDefault();
+                  onTextQuestion(draft.trim());
+                  setDraft('');
+                }
               }}
-              placeholder="Typing isn’t wired yet — tap “use voice” to ask"
+              placeholder="Type a question to interrupt — Enter to ask…"
               style={{
                 flex: 1,
                 border: 'none',
@@ -958,20 +966,24 @@ function ConversationPanel({
                 outline: 'none',
               }}
             />
-            {/* visually-present, intentionally inert send button */}
             <button
               type="button"
-              disabled
-              title="Typing isn’t wired yet"
+              disabled={!draft.trim()}
+              title="Ask"
+              onClick={() => {
+                if (!draft.trim()) return;
+                onTextQuestion(draft.trim());
+                setDraft('');
+              }}
               style={{
                 width: 42,
                 height: 42,
                 borderRadius: '50%',
                 flexShrink: 0,
-                background: T.paperEdge,
+                background: draft.trim() ? T.ink : T.paperEdge,
                 color: T.paper,
                 border: 'none',
-                cursor: 'default',
+                cursor: draft.trim() ? 'pointer' : 'default',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1048,6 +1060,7 @@ export function StoryScreen({
   micLevel,
   agentState,
   onToggleMic,
+  onTextQuestion,
   onExit,
 }: StoryScreenProps) {
   const safeIndex = clamp(activeSceneIndex, 0, Math.max(0, scenes.length - 1));
@@ -1221,6 +1234,7 @@ export function StoryScreen({
           micDenied={micDenied}
           finished={finished}
           onToggleMic={onToggleMic}
+          onTextQuestion={onTextQuestion}
         />
       </div>
     </div>

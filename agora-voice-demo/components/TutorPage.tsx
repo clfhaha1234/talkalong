@@ -44,6 +44,8 @@ import AgoraRTC, {
 import {
   AgoraVoiceAI,
   AgoraVoiceAIEvents,
+  ChatMessagePriority,
+  ChatMessageType,
   TranscriptHelperMode,
   type AgentTranscription,
   type ModuleError,
@@ -167,6 +169,16 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // composer while listening, so the user sees their words land. Null when no
   // user transcript has arrived.
   const [liveUserText, setLiveUserText] = useState<string | null>(null);
+
+  // The agent's RTC uid, captured from the first AGENT_STATE_CHANGED event so
+  // sendText() (typed questions) targets the right participant. Defaults to the
+  // orchestrator's agentUid ('123456').
+  const agentUidRef = useRef<string>('123456');
+  // Typed questions (text-mode QA). They aren't in the RTM transcript (the user
+  // didn't speak), so we hold them here and merge them into qaTranscript by
+  // timestamp, so a typed Q pairs with the agent's spoken answer in the feed.
+  // Cleared when a new branch starts so they don't leak across interrupts.
+  const typedTurnsRef = useRef<Array<{ role: 'user'; text: string; ts: number }>>([]);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -340,6 +352,50 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setMicMuted((m) => !m);
   }, [micRequested]);
 
+  // Typed question (text-mode QA): interrupt the story, show the question, and
+  // send it to the agent via the toolkit's sendText so it answers exactly like
+  // a spoken Q&A — then the existing silence-timer → qa-ended path resumes.
+  const onTextQuestion = useCallback(
+    (text: string) => {
+      const q = text.trim();
+      if (!q || !sessionInfo) return;
+      const now = Date.now();
+      // Enter a branch (pause narration + cut TTS) if we're not already in one
+      // — the same effect a voice barge-in has.
+      if (!inBranchRef.current) {
+        inBranchRef.current = true;
+        qaTurnCountRef.current = 0;
+        branchAnchorRef.current = activeSceneIndex;
+        branchStartedAtRef.current = now;
+        typedTurnsRef.current = []; // fresh branch
+        setInBranch(true);
+        // NOTE: we deliberately do NOT POST /branch-started here. That calls
+        // session.interrupt() server-side, which was suppressing the agent's
+        // reply to the chat message. sendText(priority: INTERRUPTED) below makes
+        // the AGENT itself interrupt its narration to answer — which also yields
+        // the speaking→listening transition the narrator-pause keys off.
+      }
+      // Record the typed question so it shows in the feed + pairs with the answer.
+      typedTurnsRef.current.push({ role: 'user', text: q, ts: now });
+      setQaTranscript((prev) =>
+        [...prev, { role: 'user' as const, text: q, ts: now }].sort((a, b) => a.ts - b.ts),
+      );
+      // Send it to the agent — it replies with TTS + a transcript turn.
+      const ai = AgoraVoiceAI.getInstance();
+      if (ai) {
+        void ai
+          .sendText(agentUidRef.current, {
+            messageType: ChatMessageType.TEXT,
+            priority: ChatMessagePriority.INTERRUPTED,
+            responseInterruptable: true,
+            text: q,
+          })
+          .catch((err) => console.warn('[tutor] sendText failed', err));
+      }
+    },
+    [sessionInfo, activeSceneIndex],
+  );
+
   // ── RTM client lifecycle ──────────────────────────────────
   useEffect(() => {
     if (!sessionInfo) {
@@ -413,6 +469,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         ai.on(
           AgoraVoiceAIEvents.AGENT_STATE_CHANGED,
           (_agentUserId: string, event: StateChangeEvent) => {
+            if (_agentUserId) agentUidRef.current = String(_agentUserId);
             setAgentState(String(event.state));
           },
         );
@@ -433,7 +490,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
               localUid,
               branchStartedAt: branchStartedAtRef.current,
             });
-            setQaTranscript(committed);
+            // Merge typed questions (not in the RTM transcript) by timestamp so
+            // a typed Q pairs with the agent's spoken answer.
+            const merged = typedTurnsRef.current.length
+              ? [...committed, ...typedTurnsRef.current].sort((a, b) => a.ts - b.ts)
+              : committed;
+            setQaTranscript(merged);
             // Feed the live agent transcript to the word-reveal so captions
             // track the actual voice (audio-synced) rather than a fixed timer.
             setLiveNarrationText(latestAgentText(items, localUid));
@@ -497,6 +559,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // pre-fix (defensive: this also handles a re-entered BRANCH from a
       // follow-up question after the first one closed).
       branchStartedAtRef.current = Date.now();
+      typedTurnsRef.current = [];
       setQaTranscript([]);
       setInBranch(true);
       // IMMEDIATELY tell the server to pause the narrator + cut the agent's
@@ -557,6 +620,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setAgentState('idle');
     setQaTranscript([]);
     setLiveUserText(null);
+    typedTurnsRef.current = [];
     inBranchRef.current = false;
     branchStartedAtRef.current = null;
     qaTurnCountRef.current = 0;
@@ -861,6 +925,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             micLevel={micLevel}
             agentState={agentState}
             onToggleMic={onToggleMic}
+            onTextQuestion={onTextQuestion}
             onExit={onExit}
           />
         )}
