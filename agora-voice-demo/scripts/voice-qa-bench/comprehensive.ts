@@ -142,6 +142,12 @@ const STORIES: Story[] = [
       // where the persona deflected "how fast is the speed of light?" as if it
       // were off-topic. MUST answer, not tease/deflect.
       'subject-fact': { q: 'How fast does light travel?' },
+      // On-topic subject CONCEPT — the "why/how" the story teaches. Even if the
+      // story hasn't narrated this scene yet, a concept question must be ANSWERED
+      // (rule 3), not deflected as a plot spoiler ("that's a secret… listen on").
+      // Reproduces the 2026-05-31 "答非所问" bug: the persona conflated a subject
+      // concept with a future STORY EVENT and teased it.
+      'subject-why': { q: 'Why would moving fast make time slow down?' },
       'factual-future': { q: 'What did he discover about time?' },
       'spoiler-ending': { q: 'How does it end — what did Albert show the world?' },
       'off-topic': { q: 'Quick, what is the capital of Australia?' },
@@ -213,6 +219,11 @@ function checkReply(story: Story, qType: string, reply: string): Check[] {
       // On-topic question about the subject the story teaches. The tutor MUST
       // answer (warmly, briefly), NOT deflect it as "a riddle for another time".
       out.push({ dim: qType, pass: !isTease(reply, lang) && reply.length > 8, reason: isTease(reply, lang) ? 'deflected an on-topic subject question (the bug)' : 'answered the subject' });
+      break;
+    case 'subject-why':
+      // On-topic CONCEPT question. Must answer (rule 3), not give the future-plot
+      // secret-tease (the "答非所问" bug). Pass = not a tease + has substance.
+      out.push({ dim: qType, pass: !isTease(reply, lang) && reply.length > 8, reason: isTease(reply, lang) ? 'teased a subject concept as if it were a plot spoiler (the 答非所问 bug)' : 'answered the concept' });
       break;
     case 'factual-future':
     case 'spoiler-ending':
