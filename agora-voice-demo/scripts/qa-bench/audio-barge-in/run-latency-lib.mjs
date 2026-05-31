@@ -15,7 +15,7 @@ export const KNOWN_FIXED = {
   // knob: lower = snappier resume but risks cutting a mid-thought pause; higher
   // = safer but feels sluggish. THIS is the dominant component of "how long
   // after I stop talking does the story continue".
-  silence_confirm_ms: 2000,
+  silence_confirm_ms: 2800,
 };
 
 // ── UX target bands (ms). What a listener perceives, from voice-UX norms:

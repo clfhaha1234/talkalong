@@ -64,7 +64,7 @@ import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 // Phase 3 end-of-Q&A detector tunable. The silence window is the gap we wait
 // after the agent stops speaking before we treat the Q&A as concluded and
 // POST /api/tutor/qa-ended. Mirrors the legacy value.
-const SILENCE_TIMEOUT_MS = 2000;
+const SILENCE_TIMEOUT_MS = 2800;
 
 type Stage = 'input' | 'loading' | 'story' | 'error';
 
@@ -474,6 +474,16 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       branchStartedAtRef.current = Date.now();
       setQaTranscript([]);
       setInBranch(true);
+      // IMMEDIATELY tell the server to pause the narrator + cut the agent's
+      // in-flight TTS — don't wait for the silence-confirm + qa-ended. This is
+      // what makes the story stop the instant the listener speaks (instead of
+      // talking over them), and it also means the listener speaks into silence
+      // so STT can actually hear them. Fire-and-forget.
+      void fetch('/api/tutor/branch-started', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionIdRef.current }),
+      }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
     }
 
     // 2. AGENT ANSWER ENDED → start silence countdown
