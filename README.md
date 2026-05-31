@@ -27,8 +27,9 @@ That's the loop a human teacher runs all day, and the one most AI products skip 
 wait politely, then forget the thread the moment you go off-piste. **talkalong is the
 orchestrator that makes the loop work end-to-end.** We prove it on a children's storybook
 tutor (the highest-stakes correctness setting — you can't fake continuity in front of a
-6-year-old); the same engine generalizes to any long-form content: a paper walkthrough,
-an onboarding doc, a museum guide, a Khan-style lesson.
+6-year-old); the same engine generalizes to any long-form content — a paper walkthrough,
+an onboarding doc, a museum guide, a Khan-style lesson — and tells it in whatever language
+you type the topic in.
 
 ## 🎬 See it in action
 
@@ -36,15 +37,16 @@ an onboarding doc, a museum guide, a Khan-style lesson.
 >
 > 🧒 *(interrupts)* **"Wait, why is the bark silver?"**
 >
-> 🤖 *(stops mid-sentence)* *"Because of the moonlight catching the leaves — silver bark is what very old trees grow where the moon is always full. Now — where were we... Lily had just stepped into the silver forest, and a small fox came out from behind a tree..."*
+> 🤖 *(stops mid-sentence)* *"Because of the moonlight catching the leaves — silver bark is what very old trees grow where the moon is always full. Now — where were we... Lily had just stepped into the silver forest, and a small fox crept out from behind a tree..."*
 >
-> 🧒 *(interrupts again)* **"用中文讲故事。"**
+> 🧒 *(interrupts again)* **"Is the fox going to be her friend?"**
 >
-> 🤖 *(switches language, keeps the same Lily, same forest, same fox)* *"莉莉刚刚走进银色的森林，一只小狐狸从树后探出头来……"*
+> 🤖 *(answers without spoiling, stays on canon)* *"Ah, that's a secret the forest is still keeping — but watch how it tilts its head. Lily knelt down in the silver light, and the little fox crept one step closer..."*
 
 Three things a vanilla chatbot would flub: it **stopped the instant the kid spoke**,
-**answered in narrator voice** and bridged back *mid-sentence* (not from the top), and on
-the language switch **kept the canon** — same characters, same scene. Plot never resets.
+**answered in narrator voice** and bridged back *mid-sentence* (not from the top), and it
+**answered without spoiling what's ahead** — then resumed with the same Lily, same forest,
+same fox. The plot never resets.
 
 ## 🏗️ How it works (in one breath)
 
