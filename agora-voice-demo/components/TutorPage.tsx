@@ -66,6 +66,7 @@ import {
 } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
+import { applyNarrationText } from './tutor/scene-sync';
 
 // Phase 3 end-of-Q&A detector tunable. The silence window is the gap we wait
 // after the agent stops speaking before we treat the Q&A as concluded and
@@ -747,6 +748,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         }
 
         case 'segment_started': {
+          // Subtitle follows the SPOKEN text: when the resume-planner rewrites a
+          // segment (e.g. switches it to Chinese), segment_started carries the
+          // new text — sync it into the displayed scene so the subtitle matches
+          // the audio instead of showing the stale original (the 2026-05-31
+          // "voice Chinese / subtitle English" bug). No-op for a normal run.
+          setScenes((prev) => applyNarrationText(prev, e.segment_id, e.text));
           setActiveSceneIndex((curr) => {
             // Prefer matching by id (segment_id == scene.id under the
             // current orchestrator), fall back to the numeric index.

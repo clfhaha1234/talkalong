@@ -20,6 +20,7 @@
     "eval": "node scripts/eval/run-all.mjs",
     "test:e2e:live": "node scripts/qa-bench/audio-barge-in/tutor-barge-in-e2e.mjs",
     "test:e2e:suite": "node scripts/qa-bench/audio-barge-in/tutor-eval-suite.mjs",
+    "test:e2e:lang": "node scripts/qa-bench/audio-barge-in/tutor-lang-switch-e2e.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },
   "dependencies": {
