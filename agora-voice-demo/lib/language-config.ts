@@ -32,13 +32,13 @@ export interface DetectedLanguage {
 export const DEFAULT_LANGUAGE: DetectedLanguage = { code: 'en', name: 'English' };
 
 // ── TTS (MiniMax voice) ───────────────────────────────────────────────────
-// ONE voice for every language. Despite the name, MiniMax's English_UpsetGirl
-// speaks every language we generate stories in with no issue (user-confirmed
-// 2026-05-30) — so there is deliberately NO per-language voice map to keep in
-// sync or verify against MiniMax's catalogue. If a future language ever needs
-// a distinct voice, reintroduce a map here — but never add unverified voice
-// IDs speculatively (a wrong ID fails silently at runtime, no compile guard).
-export const STORYTELLER_VOICE_ID = 'English_UpsetGirl';
+// ONE voice for every language. MiniMax's "Chinese (Mandarin)_Warm_Girl"
+// speaks both Chinese and English well (user-confirmed 2026-05-30), so there
+// is deliberately NO per-language voice map to keep in sync or verify against
+// MiniMax's catalogue. If a future language ever needs a distinct voice,
+// reintroduce a map here — but never add unverified voice IDs speculatively
+// (a wrong ID fails silently at runtime, with no compile guard).
+export const STORYTELLER_VOICE_ID = 'Chinese (Mandarin)_Warm_Girl';
 
 // ── STT (Deepgram) ────────────────────────────────────────────────────────
 // STT stays English-only (nova-3 / en-US) for ALL languages right now — a

@@ -21,7 +21,7 @@ const EN: DetectedLanguage = { code: 'en', name: 'English' };
 
 describe('voice + STT are language-independent stop-gaps', () => {
   it('one voice for everything', () => {
-    expect(STORYTELLER_VOICE_ID).toBe('English_UpsetGirl');
+    expect(STORYTELLER_VOICE_ID).toBe('Chinese (Mandarin)_Warm_Girl');
   });
   it('STT is English-only (先凑合)', () => {
     expect(STT_MODEL).toBe('nova-3');
