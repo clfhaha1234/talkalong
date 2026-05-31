@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+logs
+coverage
+.git
+.turbo
+*.log
+# Never bake secrets into the image — env vars come from the host dashboard.
+.env
+.env.local
+.env.*.local

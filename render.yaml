@@ -1,0 +1,32 @@
+# Render.com blueprint for the talkalong /tutor app.
+# The Next app lives in agora-voice-demo/; this builds it via that directory's
+# Dockerfile (persistent web service — see agora-voice-demo/DEPLOY.md for why a
+# persistent host, not Vercel serverless).
+#
+# Set the secret env vars (NEXT_PUBLIC_AGORA_APP_ID, NEXT_AGORA_APP_CERTIFICATE,
+# GOOGLE_API_KEY) in the Render dashboard — they're marked sync:false so the
+# blueprint never carries secrets.
+services:
+  - type: web
+    name: talkalong-tutor
+    runtime: docker
+    repo: https://github.com/clfhaha1234/talkalong
+    branch: main
+    dockerfilePath: ./agora-voice-demo/Dockerfile
+    dockerContext: ./agora-voice-demo
+    plan: starter # 0.5 CPU / 512MB — bump if narration sessions are heavy
+    healthCheckPath: /tutor
+    autoDeploy: true
+    envVars:
+      - key: NEXT_PUBLIC_AGORA_APP_ID
+        sync: false
+      - key: NEXT_AGORA_APP_CERTIFICATE
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_AGENT_UID
+        value: "123456"
+      # File-sink session logs to the container's ephemeral disk are noisy on a
+      # PaaS; keep the console sink only. Flip to "1" if you want the files.
+      - key: TUTOR_SESSION_LOG
+        value: "0"

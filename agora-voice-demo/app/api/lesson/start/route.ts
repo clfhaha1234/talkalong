@@ -33,8 +33,11 @@ import type { ProgressEvent } from '@/lib/orchestrator';
 import type { Scene } from '@/lib/lesson/types';
 
 export const runtime = 'nodejs';
-// Sessions can hang open for the full narration (~tens of minutes); cap generously.
-export const maxDuration = 1200;
+// The SSE holds open for the whole narration. 800s is the hard ceiling on
+// Vercel Pro (Fluid Compute) — a typical 3–5 scene story narrates well within
+// it. A pathologically long session would be cut off at 800s; on a persistent
+// host (see DEPLOY.md) there's no such cap.
+export const maxDuration = 800;
 
 function requireEnv(name: string): string {
   const v = process.env[name];

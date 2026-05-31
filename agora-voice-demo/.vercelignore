@@ -4,4 +4,12 @@ README.md
 .gitignore
 .DS_Store
 node_modules
-*.log 
+*.log
+# Runtime-generated lesson media (589MB of local dev mp4s/jpgs). NOT build
+# input — gitignored, but must also be kept out of the Vercel upload or it gets
+# traced into the serverless function (lesson/start hit 571MB > 300MB limit).
+public/lesson-cache
+# Local-only dirs.
+logs
+coverage
+out
