@@ -281,17 +281,23 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     },
   );
 
-  // Local mute helper — the mic button in StoryScreen toggles this. Keeps
+  // Local mute helper — the mute control in StoryScreen toggles this. Keeps
   // the track lifecycle owned by useLocalMicrophoneTrack (no manual close).
   //
-  // PUSH-TO-TALK: mic defaults to MUTED. Otherwise any background noise
-  // (siblings, pets, doorbells, the user's own breathing) above Agora's VAD
-  // threshold triggers a false barge-in and stops the story. The user must
-  // tap the central mic button to enable, then tap again to mute. This
-  // matches the visual affordance the designer already drew (big mic button
-  // = "tap to talk"). Tracked state is the source of truth; the effect below
-  // syncs it to the AgoraRTC track via setEnabled().
-  const [micMuted, setMicMuted] = useState(true);
+  // ALWAYS-ON (matches raw Agora 1:1): the mic goes live the moment the story
+  // session connects, so the listener can simply START TALKING to interrupt —
+  // no tap-to-talk gate. Push-to-talk was clipping speech (the mic engaged
+  // AFTER the user had already started, so STT lost the opening words, and
+  // muting cut the tail) which made our STT feel far worse than 1:1. Agora's
+  // server-side VAD + interrupt thresholds + AEC gate false barge-ins, same as
+  // 1:1. The user can still mute via the composer. Tracked state is the source
+  // of truth; the effect below syncs it to the AgoraRTC track via setEnabled().
+  const [micMuted, setMicMuted] = useState(false);
+  // Acquire the mic as soon as the RTC session is joined (voice-first product —
+  // the user clicked "Begin" expecting to talk, so prompting now is expected).
+  useEffect(() => {
+    if (isReady && joinSuccess) setMicRequested(true);
+  }, [isReady, joinSuccess]);
   useEffect(() => {
     if (!localMicrophoneTrack) return;
     // ignore the promise; setEnabled is idempotent and the SDK queues it

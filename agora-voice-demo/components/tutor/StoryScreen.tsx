@@ -545,6 +545,7 @@ interface ConversationPanelProps {
   qaHistoryByScene: Record<number, QaEntry[]>;
   liveUserText: string | null;
   micLevel: number;
+  micMuted: boolean;
   micDenied: boolean;
   finished: boolean;
   onToggleMic: () => void;
@@ -557,6 +558,7 @@ function ConversationPanel({
   qaHistoryByScene,
   liveUserText,
   micLevel,
+  micMuted,
   micDenied,
   finished,
   onToggleMic,
@@ -565,15 +567,28 @@ function ConversationPanel({
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const currentChapterRef = useRef<HTMLDivElement>(null);
 
   const listening = phase === 'listening';
   const thinking = phase === 'thinking';
 
-  // auto-scroll to bottom on changes — new scenes, Q&A, phase shifts, live text.
+  // NEW CHAPTER → bring its heading to the TOP of the feed (a "fresh page"
+  // turn), so the chapter you're hearing reads from the top down and earlier
+  // chapters sit above as history you scroll up to revisit — rather than the
+  // feed jamming everything to the bottom.
+  useEffect(() => {
+    const el = currentChapterRef.current;
+    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [currentIndex]);
+
+  // WITHIN a chapter (a Q&A exchange or the live transcript growing) → keep the
+  // latest line in view so the user sees their question + the answer. This does
+  // NOT fire on chapter change (handled above), so it never fights the
+  // fresh-page scroll, and it leaves the user free to scroll up through history.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [currentIndex, phase, qaHistoryByScene, liveUserText]);
+  }, [qaHistoryByScene, liveUserText]);
 
   const modeToggle = (
     <button
@@ -632,6 +647,10 @@ function ConversationPanel({
         ref={scrollRef}
         style={{
           flex: 1,
+          // minHeight:0 is REQUIRED for a flex child to scroll instead of
+          // growing to its content height. Without it the feed expanded past
+          // the stage, pushing the composer off-screen with no way to scroll.
+          minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
@@ -642,7 +661,15 @@ function ConversationPanel({
       >
         {scenes.slice(0, currentIndex + 1).flatMap((scene, i) => {
           const nodes = [
-            <ChapterDivider key={`${scene.id}-chapter`} label={scene.chapter} />,
+            // The current chapter's divider carries the ref the auto-scroll
+            // pins to the top of the feed when the chapter changes.
+            i === currentIndex ? (
+              <div key={`${scene.id}-chapter`} ref={currentChapterRef}>
+                <ChapterDivider label={scene.chapter} />
+              </div>
+            ) : (
+              <ChapterDivider key={`${scene.id}-chapter`} label={scene.chapter} />
+            ),
             <TeacherBubble
               key={`${scene.id}-narration`}
               headline={`${scene.headline[0]} ${scene.headline[1]}`.trim()}
@@ -774,7 +801,8 @@ function ConversationPanel({
                 ✕
               </button>
             </div>
-          ) : (
+          ) : micMuted ? (
+            // Muted by the user — tap to go live again.
             <button
               type="button"
               onClick={onToggleMic}
@@ -810,8 +838,68 @@ function ConversationPanel({
               >
                 <MicIcon color={T.paper} size={19} />
               </span>
-              Tap to ask — I&rsquo;ll stop and listen
+              Muted — tap to talk
             </button>
+          ) : (
+            // ALWAYS-ON: the mic is live. The listener just speaks to interrupt
+            // — no tap needed. This bar is a passive "I'm listening" affordance
+            // with a mute control on the right.
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                background: T.paperHi,
+                border: `1px solid ${T.paperEdge}`,
+                borderRadius: 22,
+                padding: '12px 12px 12px 18px',
+              }}
+            >
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  background: T.sage,
+                  flexShrink: 0,
+                  animation: 'breathe 1.8s ease-in-out infinite',
+                }}
+              />
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontFamily: F_HEAD,
+                  fontStyle: 'italic',
+                  fontSize: 17,
+                  color: T.inkSoft,
+                }}
+              >
+                Listening — just speak to interrupt
+              </div>
+              <button
+                type="button"
+                onClick={onToggleMic}
+                title="Mute"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  background: 'transparent',
+                  border: `1px solid ${T.paperEdge}`,
+                  borderRadius: 999,
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontFamily: F_HEAD,
+                  fontStyle: 'italic',
+                  fontSize: 13,
+                  color: T.inkSoft,
+                  flexShrink: 0,
+                }}
+              >
+                <MicIcon color={T.inkSoft} size={14} /> mute
+              </button>
+            </div>
           ))}
 
         {/* ===== TEXT MODE (placeholder — not wired to the agent yet) ===== */}
@@ -900,14 +988,16 @@ function ConversationPanel({
             }}
           >
             {micDenied
-              ? 'Microphone blocked · allow it in your browser, then tap again'
-              : phase === 'reading'
-                ? 'Voice is on · tap to interrupt anytime'
-                : phase === 'paused'
-                  ? 'Story paused · ask away, or it’ll continue on its own'
-                  : phase === 'listening'
-                    ? 'Speak now · I’ll answer when you pause'
-                    : 'The teacher is thinking…'}
+              ? 'Microphone blocked · allow it in your browser to talk'
+              : micMuted
+                ? 'Muted · tap to talk, then just speak anytime'
+                : phase === 'reading'
+                  ? 'Mic is live · just speak anytime to interrupt'
+                  : phase === 'paused'
+                    ? 'Story paused · just speak, or it’ll continue on its own'
+                    : phase === 'listening'
+                      ? 'Listening · I’ll answer when you pause'
+                      : 'The teacher is thinking…'}
           </div>
           {modeToggle}
         </div>
@@ -916,6 +1006,7 @@ function ConversationPanel({
       <style>{`
         @keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
         @keyframes recBlink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+        @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.35} }
       `}</style>
     </div>
   );
@@ -1083,6 +1174,12 @@ export function StoryScreen({
           bottom: 0,
           display: 'grid',
           gridTemplateColumns: '47% 53%',
+          // Bound the single row to the container height (minmax(0,1fr), NOT the
+          // default `auto`) so the columns can't grow to their content — without
+          // this the conversation feed expanded the row past the stage and the
+          // composer fell off the bottom. minHeight:0 lets the grid itself shrink.
+          gridTemplateRows: 'minmax(0, 1fr)',
+          minHeight: 0,
           padding: '24px 34px 28px',
         }}
       >
@@ -1099,6 +1196,7 @@ export function StoryScreen({
           qaHistoryByScene={qaHistoryByScene}
           liveUserText={liveUserText}
           micLevel={micLevel}
+          micMuted={micMuted}
           micDenied={micDenied}
           finished={finished}
           onToggleMic={onToggleMic}
