@@ -1,30 +1,34 @@
-// Story stage — book-spread reader with word-by-word narration reveal and
-// mic-driven QA interrupt. Ported from prototype-story.jsx with three
-// differences from the prototype:
+// Story screen — two-pane conversation feed. A faithful implementation of the
+// finalized design (reference/storybook-prototype/prototype-story.jsx): a left
+// framed "stage" showing the current scene's illustration with a Ken-Burns
+// float, and a right scrolling conversation feed where the narration arrives as
+// the teacher's chat bubbles, interleaved with the user's spoken questions and
+// the teacher's answers.
 //
-//   1. Illustrations are <img src={scene.image_url} /> instead of inline SVG
-//      components (the URLs arrive from the SSE `image_ready` events).
-//   2. Word reveal advances at ~4.2 WPS purely visually. We do NOT block on
-//      `segment_started/completed`; instead, when `segment_completed` for
-//      scene N arrives, the parent flips activeSceneIndex to N+1 and we
-//      restart reveal on the new scene's text.
-//   3. The mic button toggles the local AgoraRTC microphone track via the
-//      mic helpers passed in via props. The real BRANCH transition is driven
-//      by Agora's VAD on the server side, not by our click handler — but the
-//      visual pause + QA composer overlay tracks `inBranch` which the parent
-//      flips on receipt of `branch_started`.
+// Crucially, this is wired to REAL data — NOT the prototype's canned SCENES/
+// QA_BANK + simulated transcript. Differences from the mockup's simulation:
+//
+//   1. Scenes, narration, and Q&A come from props (the SSE pipeline + the live
+//      RTM transcript). We render the FULL narration_text for each scene — the
+//      streaming cursor is decorative (audio-synced page tracking, not a
+//      word-reveal timer).
+//   2. The "current scene" is inferred from the live agent transcript via
+//      matchSceneIndex, kept monotonic with a high-water mark (preserved from
+//      the prior StoryScreen) so the page can't flip ahead of (or behind) the
+//      voice.
+//   3. The illustration is the real asset: <video> (Remotion clip) with an
+//      image fallback, else <img>, else a "sketching" placeholder.
+//   4. The composer is voice-first and wired to the REAL mic. Real barge-in is
+//      driven by Agora's server-side VAD + the silence timer — there is no
+//      manual submit path. The "send"/"continue" affordances are kept visually
+//      but do not invent a submit (see the TODO comments).
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T, F_HEAD, F_BODY, F_MONO, type Scene } from './theme';
 import { matchSceneIndex } from './reveal-sync';
-import {
-  Flourish,
-  CornerOrn,
-  MicIcon,
-  Waveform,
-} from './ornaments';
+import { MicIcon, PlayIcon } from './ornaments';
 
 interface QaEntry {
   /** User's spoken question (best-effort from RTM transcript). */
@@ -39,232 +43,229 @@ interface StoryScreenProps {
    *  this on `segment_completed`. */
   activeSceneIndex: number;
   /** Visual pause from a real BRANCH (server-driven via branch_started /
-   *  branch_ended). When true, word reveal halts and the QA composer is
-   *  visible. */
+   *  branch_ended). When true, the composer reflects the listening/thinking
+   *  state and the stage chip shows "paused for you". */
   inBranch: boolean;
-  /** True once narration_complete fired — we hold on the last spread as the
-   *  story's closing page (no mic, no "now reading" status). */
+  /** True once narration_complete fired — we hold on the last scene as the
+   *  story's closing page (no "continue" affordance). */
   finished: boolean;
   /** Agora's live agent transcript — what the voice is actually saying right
-   *  now, grown word-by-word as the TTS plays. When it aligns with the current
-   *  scene, the word reveal tracks it (audio-synced) instead of a fixed timer.
-   *  Null before any agent transcript has arrived. */
+   *  now, grown word-by-word as the TTS plays. When it aligns with a scene's
+   *  narration, the feed's "current page" tracks it (audio-synced). Null before
+   *  any agent transcript has arrived. */
   liveNarrationText: string | null;
+  /** Agora's live USER transcript — the in-progress question echoed in the
+   *  voice composer while listening. Null before any user transcript. */
+  liveUserText: string | null;
   /** Per-scene QA history accumulated by the parent from the RTM transcript
-   *  stream. Marginalia at the bottom of the right page. */
+   *  stream. Interleaved into the feed after each scene's teacher bubble. */
   qaHistoryByScene: Record<number, QaEntry[]>;
-  /** True if the browser refused mic access — footer shows a retry hint. */
+  /** True if the browser refused mic access — composer shows a retry hint. */
   micDenied: boolean;
-  /** True if the user has the mic muted right now. The mic button toggles
-   *  this. */
+  /** True if the user has the mic muted right now. */
   micMuted: boolean;
-  /** Live mic amplitude 0..1 (parent polls the AgoraRTC track). Drives the
-   *  Voice Orb's level ring so the user can SEE they're being heard — and so a
-   *  stray echo into a hot mic is visible. 0 when muted/absent. */
+  /** Live mic amplitude 0..1 (parent polls the AgoraRTC track). Scales the
+   *  waveform so the user can SEE they're being heard. 0 when muted/absent. */
   micLevel: number;
   /** The agent's live conversational state ('idle' | 'speaking' | 'listening'
-   *  | 'silent' …) from Agora ConvoAI. Drives the Orb's mode copy so the user
-   *  always knows whether the teacher is talking or waiting on them. */
+   *  | 'thinking' | 'silent' …) from Agora ConvoAI. Drives the derived phase. */
   agentState: string;
-  /** Toggle the AgoraRTC local mic enabled/disabled. The orchestrator's
-   *  Agora VAD does the actual barge-in detection — the toggle is purely the
-   *  user's wish to be heard. */
+  /** Toggle the AgoraRTC local mic enabled/disabled. The orchestrator's Agora
+   *  VAD does the actual barge-in detection — the toggle is the user's wish to
+   *  be heard. */
   onToggleMic: () => void;
   /** Hop back to the start screen. Tears down the session (parent abort). */
   onExit: () => void;
 }
 
-interface SceneStripProps {
-  count: number;
-  current: number;
-  ready: number;
+type Phase = 'reading' | 'paused' | 'listening' | 'thinking';
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
 }
 
-function SceneStrip({ count, current, ready }: SceneStripProps) {
+// ──────────────────────────────────────────────────────────────
+// Composer waveform — bars react to mic amplitude when active. Mirrors the
+// prototype's 7-bar rose waveform.
+function Waveform({ active, level = 0 }: { active: boolean; level?: number }) {
+  // Resting scale 0.25; bloom toward 1 with amplitude. The per-bar keyframe
+  // animation supplies the lively motion; level lifts the baseline so a louder
+  // voice visibly pushes the bars taller.
+  const floor = active ? 0.25 + clamp(level, 0, 1) * 0.55 : 0.25;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      {Array.from({ length: count }).map((_, i) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: 18 }}>
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <div
           key={i}
-          aria-label={`scene-${i + 1}-${
-            i < current ? 'done' : i === current ? 'current' : 'pending'
-          }`}
           style={{
-            width: 22,
-            height: 6,
-            background:
-              i < current
-                ? T.sage
-                : i === current
-                  ? T.rose
-                  : i < ready
-                    ? T.paperEdge
-                    : T.paperEdge,
-            opacity: i < ready ? 1 : 0.55,
-            transition: 'background 0.2s, opacity 0.2s',
+            width: 3,
+            height: '100%',
+            background: T.rose,
+            borderRadius: 2,
+            opacity: 0.85,
+            animation: active
+              ? `wave ${0.6 + (i % 3) * 0.15}s ease-in-out ${i * 0.08}s infinite`
+              : 'none',
+            transformOrigin: 'center',
+            transform: `scaleY(${floor})`,
           }}
         />
       ))}
+      <style>{`@keyframes wave { 0%,100% { transform: scaleY(0.25);} 50% { transform: scaleY(1);} }`}</style>
     </div>
   );
 }
 
-interface BookSpreadProps {
-  scenes: Scene[];
-  /** Index of the scene the audio is currently on. The LEFT illustration shows
-   *  this scene; the RIGHT chat lists scenes 0..currentIndex with this one
-   *  highlighted. */
-  currentIndex: number;
-  paused: boolean;
-  qaHistory: QaEntry[];
+// ──────────────────────────────────────────────────────────────
+// LEFT — illustration stage (framed like a video)
+interface StageFrameProps {
+  scene: Scene;
+  sceneIndex: number;
+  sceneCount: number;
+  phase: Phase;
 }
 
-function BookSpread({
-  scenes,
-  currentIndex,
-  qaHistory,
-}: BookSpreadProps) {
-  const current = scenes[currentIndex];
+function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
+  const paused = phase === 'paused';
+  const busy = phase === 'thinking';
 
   // If the clip fails to load/decode, fall back to the still illustration
-  // rather than showing a black box. We track WHICH clip url failed (not a bare
-  // boolean) so the fallback auto-resets when a new scene's clip swaps in —
-  // BookSpread no longer remounts per scene, so a boolean would stick.
+  // rather than showing a black box. Track WHICH clip url failed (not a bare
+  // boolean) so the fallback auto-resets when a new scene's clip swaps in.
   const [failedVideoUrl, setFailedVideoUrl] = useState<string | null>(null);
-  const videoFailed = !!current.video_url && failedVideoUrl === current.video_url;
-  const setVideoFailed = useCallback(
-    (url: string | undefined) => setFailedVideoUrl(url ?? null),
-    [],
-  );
+  const videoFailed = !!scene.video_url && failedVideoUrl === scene.video_url;
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // The right column is a scrolling story-chat. Auto-scroll to keep the current
-  // bubble in view whenever the audio advances to a new scene.
-  const currentBubbleRef = useRef<HTMLDivElement>(null);
+  // A browser that defers muted autoplay leaves the video parked on its blank
+  // first frame with no `error` event — drive play() ourselves and fall back to
+  // the still illustration if it's rejected.
   useEffect(() => {
-    const el = currentBubbleRef.current;
-    if (!el) return;
-    el.scrollIntoView({ block: 'end', behavior: 'smooth' });
-  }, [currentIndex]);
-
-  // The clip's first frame is a BLANK page (it draws the art on from nothing).
-  // `autoPlay` covers the happy path, but a browser that defers muted autoplay
-  // (background/inactive tab, low-power mode, stricter policy) leaves the video
-  // parked on that blank frame with no `error` event — so the plate would show
-  // a blank box forever. Drive play() ourselves and, if it's rejected, fall
-  // back to the still illustration (which is always the finished art). The
-  // happy path is unchanged: play() resolves and the draw-on animation runs.
-  useEffect(() => {
-    const url = current.video_url;
+    const url = scene.video_url;
     if (!url) return;
     const v = videoRef.current;
     if (!v) return;
     const p = v.play();
     if (p && typeof p.catch === 'function') {
-      p.catch(() => setVideoFailed(url));
+      p.catch(() => setFailedVideoUrl(url));
     }
-  }, [current.video_url, setVideoFailed]);
+  }, [scene.video_url]);
+
+  const dotColor = busy ? T.rose : paused ? T.inkWhisper : T.sage;
+  const chipLabel = busy ? 'paused for you' : paused ? 'paused' : 'narrating';
+  const plate = ['i', 'ii', 'iii', 'iv', 'v', 'vi'][sceneIndex] || 'i';
 
   return (
     <div
       style={{
-        position: 'absolute',
-        top: 60,
-        left: 50,
-        right: 50,
-        bottom: 130,
-        display: 'grid',
-        gridTemplateColumns: '1.05fr 1px 1fr',
-        background: T.paperHi,
-        border: `1px solid ${T.paperEdge}`,
-        boxShadow:
-          '0 14px 40px rgba(60,40,20,0.10), 0 2px 0 rgba(60,40,20,0.04)',
+        position: 'relative',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '0 30px 0 0',
       }}
     >
-      {/* chapter ribbon */}
+      {/* the "screen" */}
       <div
         style={{
-          position: 'absolute',
-          top: -14,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: T.paper,
-          padding: '4px 22px',
-          fontFamily: F_HEAD,
-          fontStyle: 'italic',
-          fontSize: 14,
-          color: T.inkSoft,
-          letterSpacing: '0.15em',
+          flex: 1,
+          position: 'relative',
+          background: T.paperHi,
           border: `1px solid ${T.paperEdge}`,
-          borderRadius: 999,
-        }}
-      >
-        {current.chapter}
-      </div>
-
-      {/* LEFT — illustration (server-provided image_url) */}
-      <div
-        style={{
-          padding: 36,
+          borderRadius: 6,
+          overflow: 'hidden',
+          boxShadow: '0 14px 40px rgba(60,40,20,0.10)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative',
         }}
       >
+        {/* soft wash bg */}
         <div
           style={{
-            width: '100%',
+            position: 'absolute',
+            inset: 0,
+            background: T.paperTexture,
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* scene label, top-left */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 18,
+            zIndex: 2,
+            fontFamily: F_MONO,
+            fontSize: 10,
+            letterSpacing: '0.22em',
+            color: T.inkSoft,
+          }}
+        >
+          {scene.chapter.toUpperCase()}
+        </div>
+
+        {/* playing/paused chip top-right */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 16,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontFamily: F_HEAD,
+            fontStyle: 'italic',
+            fontSize: 12,
+            color: T.inkSoft,
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: dotColor,
+              animation: !paused && !busy ? 'breathe 1.6s ease-in-out infinite' : 'none',
+            }}
+          />
+          {chipLabel}
+        </div>
+
+        {/* illustration with gentle float (Ken-Burns-lite). The real asset —
+            video clip, still image, or a sketching placeholder. */}
+        <div
+          key={scene.id}
+          style={{
+            width: '82%',
             aspectRatio: '1 / 1',
-            maxHeight: 460,
+            maxHeight: '78%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: current.image_url ? 'transparent' : T.paper,
-            border: current.image_url ? 'none' : `1px dashed ${T.paperEdge}`,
-            overflow: 'hidden',
+            animation: 'floatStage 9s ease-in-out infinite',
           }}
         >
-          {current.video_url && !videoFailed ? (
-            // Animated clip (parent Remotion render). Plays once then holds on
-            // the last frame — we deliberately do NOT loop, since the clip
-            // opens by drawing pencil strokes from blank and a loop would
-            // "un-draw" the finished art. The subtle CSS breathe keeps the
-            // held frame feeling alive while the narrator keeps reading. The
-            // poster shows the still illustration until the first frame paints,
-            // so the swap from <img> is seamless. On load/decode failure we
-            // fall back to the still illustration below.
+          {scene.video_url && !videoFailed ? (
             <video
-              key={current.video_url}
+              key={scene.video_url}
               ref={videoRef}
-              src={current.video_url}
-              onError={() => setVideoFailed(current.video_url)}
-              poster={current.image_url}
+              src={scene.video_url}
+              onError={() => setFailedVideoUrl(scene.video_url ?? null)}
+              poster={scene.image_url}
               autoPlay
               muted
+              loop
               playsInline
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                animation:
-                  'imgFade 0.6s ease both, breathe 7s ease-in-out 0.6s infinite',
-              }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
-          ) : current.image_url ? (
-            // Still illustration — shown until its clip streams in (or as the
-            // permanent fallback if the render failed).
+          ) : scene.image_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={current.image_url}
-              alt={`Illustration for ${current.chapter}: ${current.headline.join(' ')}`}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                animation:
-                  'imgFade 0.6s ease both, breathe 7s ease-in-out 0.6s infinite',
-              }}
+              src={scene.image_url}
+              alt={`Illustration for ${scene.chapter}: ${scene.headline.join(' ')}`}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           ) : (
             <div
@@ -281,10 +282,12 @@ function BookSpread({
             </div>
           )}
         </div>
+
+        {/* caption */}
         <div
           style={{
             position: 'absolute',
-            bottom: 12,
+            bottom: 14,
             left: 0,
             right: 0,
             textAlign: 'center',
@@ -292,537 +295,641 @@ function BookSpread({
             fontStyle: 'italic',
             fontSize: 13,
             color: T.inkWhisper,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.05em',
           }}
         >
-          — plate {current.sceneNum.toLowerCase()} —
+          — plate {plate} —
         </div>
-        <style>{`@keyframes imgFade { from { opacity: 0; } to { opacity: 1; } } @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.012); } }`}</style>
       </div>
 
-      {/* spine */}
-      <div
-        style={{
-          background: `linear-gradient(180deg, transparent, ${T.paperEdge} 20%, ${T.paperEdge} 80%, transparent)`,
-        }}
-      />
-
-      {/* RIGHT — scrolling story-chat. One bubble per scene narrated so far
-          (0..currentIndex). The current scene is highlighted; past scenes are
-          dimmed. The container auto-scrolls to keep the current bubble in view
-          as the audio advances, replacing the old fixed-timer karaoke reveal
-          that flipped pages before the voice finished a sentence. */}
-      <div
-        style={{
-          padding: '40px 44px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflowY: 'auto',
-        }}
-      >
-        {scenes.slice(0, currentIndex + 1).map((s, i) => {
-          const isCurrent = i === currentIndex;
-          return (
-            <div
-              key={s.id}
-              ref={isCurrent ? currentBubbleRef : null}
-              style={{
-                marginBottom: 26,
-                paddingLeft: isCurrent ? 16 : 0,
-                borderLeft: isCurrent ? `2px solid ${T.rose}` : '2px solid transparent',
-                background: isCurrent ? 'rgba(199,123,106,0.05)' : 'transparent',
-                transition: 'background 0.3s, border-color 0.3s',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  letterSpacing: '0.25em',
-                  color: T.rose,
-                  textTransform: 'uppercase',
-                  fontFamily: F_MONO,
-                  marginBottom: 8,
-                  opacity: isCurrent ? 1 : 0.6,
-                }}
-              >
-                {s.sceneNum}
-              </div>
-              <div
-                style={{
-                  fontFamily: F_HEAD,
-                  fontSize: 18,
-                  lineHeight: 1.6,
-                  color: isCurrent ? T.ink : T.inkSoft,
-                  transition: 'color 0.3s',
-                }}
-              >
-                {s.narration_text}
-              </div>
-            </div>
-          );
-        })}
-
-        {qaHistory.length > 0 && (
-          <div
-            style={{
-              marginTop: 4,
-              paddingTop: 16,
-              borderTop: `1px dashed ${T.paperEdge}`,
-            }}
-          >
-            {qaHistory.map((qa, i) => (
-              <div key={i} style={{ marginBottom: 14 }}>
-                <div
-                  style={{
-                    fontFamily: F_MONO,
-                    fontSize: 10,
-                    letterSpacing: '0.25em',
-                    color: T.rose,
-                    marginBottom: 3,
-                  }}
-                >
-                  YOU ASKED
-                </div>
-                <div
-                  style={{
-                    fontFamily: F_HEAD,
-                    fontStyle: 'italic',
-                    fontSize: 16,
-                    color: T.inkSoft,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  &ldquo;{qa.q}&rdquo;
-                </div>
-                {qa.a && (
-                  <>
-                    <div
-                      style={{
-                        fontFamily: F_MONO,
-                        fontSize: 10,
-                        letterSpacing: '0.25em',
-                        color: T.sage,
-                        margin: '8px 0 3px',
-                      }}
-                    >
-                      TEACHER · no.{i + 1}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: F_HEAD,
-                        fontSize: 16,
-                        lineHeight: 1.55,
-                        color: T.ink,
-                      }}
-                    >
-                      {qa.a}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface BranchOverlayProps {
-  qaHistory: QaEntry[];
-}
-
-function BranchOverlay({ qaHistory }: BranchOverlayProps) {
-  // Last entry — the "live" exchange being captured.
-  const last = qaHistory.length > 0 ? qaHistory[qaHistory.length - 1] : null;
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 116,
-        left: 50,
-        right: 50,
-        background: T.paperHi,
-        border: `1px solid ${T.rose}`,
-        padding: '16px 22px',
-        boxShadow:
-          '0 -2px 0 rgba(199,123,106,0.1), 0 12px 30px rgba(60,40,20,0.10)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}
-    >
+      {/* under-stage — passive progress only (left side is auto-narrated). No
+          transport buttons: the dots are a progress indicator, nothing more. */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
+          gap: 14,
+          marginTop: 14,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Waveform active={true} />
-          <div
-            style={{
-              fontFamily: F_HEAD,
-              fontStyle: 'italic',
-              fontSize: 15,
-              color: T.rose,
-              letterSpacing: '0.05em',
-            }}
-          >
-            · Listening — go ahead, ask anything ·
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          {Array.from({ length: sceneCount }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: i === sceneIndex ? 22 : 8,
+                height: 8,
+                background:
+                  i < sceneIndex ? T.sage : i === sceneIndex ? T.rose : T.paperEdge,
+                borderRadius: 999,
+                transition: 'all 0.25s',
+              }}
+            />
+          ))}
         </div>
         <div
           style={{
             fontFamily: F_MONO,
             fontSize: 10,
-            color: T.inkSoft,
-            letterSpacing: '0.2em',
-          }}
-        >
-          BRANCH
-        </div>
-      </div>
-
-      {last && (
-        <div>
-          {last.q && (
-            <>
-              <div
-                style={{
-                  fontFamily: F_MONO,
-                  fontSize: 10,
-                  letterSpacing: '0.25em',
-                  color: T.rose,
-                  marginBottom: 4,
-                }}
-              >
-                YOU
-              </div>
-              <div
-                style={{
-                  fontFamily: F_HEAD,
-                  fontStyle: 'italic',
-                  fontSize: 16,
-                  color: T.inkSoft,
-                  marginBottom: 12,
-                }}
-              >
-                &ldquo;{last.q}&rdquo;
-              </div>
-            </>
-          )}
-          {last.a && (
-            <>
-              <div
-                style={{
-                  fontFamily: F_MONO,
-                  fontSize: 10,
-                  letterSpacing: '0.25em',
-                  color: T.sage,
-                  marginBottom: 4,
-                }}
-              >
-                THE TEACHER
-              </div>
-              <div
-                style={{
-                  fontFamily: F_HEAD,
-                  fontSize: 17,
-                  lineHeight: 1.6,
-                  color: T.ink,
-                }}
-              >
-                {last.a}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface VoiceOrbProps {
-  micMuted: boolean;
-  micDenied: boolean;
-  /** Live amplitude 0..1 — drives the reactive level ring. */
-  micLevel: number;
-  /** True while the agent is mid-sentence (Agora 'speaking'). Lets the orb
-   *  invite a barge-in ("speak any time") vs. waiting for the user. */
-  agentSpeaking: boolean;
-  /** True during a real BRANCH — the teacher has stopped to hear the user. */
-  inBranch: boolean;
-  onToggleMic: () => void;
-}
-
-// The Voice Orb — one control that tells the whole truth about the mic:
-// whether it's live, whether you're being heard (the reactive level ring),
-// and what the system is doing (the copy beneath). It collapses the old
-// button-with-two-meanings + a separate status line into a single, honest
-// affordance. Crucially: once live, the user does NOT tap again to speak —
-// the copy says so, and the level ring proves the mic hears them.
-function VoiceOrb({
-  micMuted,
-  micDenied,
-  micLevel,
-  agentSpeaking,
-  inBranch,
-  onToggleMic,
-}: VoiceOrbProps) {
-  const live = !micMuted && !micDenied;
-  // Ring bloom tracks amplitude. Floor keeps a faint resting ring when live so
-  // the control reads "armed" even in silence; ceiling caps the bloom so a
-  // shout doesn't blow out the layout.
-  const lvl = Math.min(1, Math.max(0, micLevel));
-  const ringScale = 1 + (live ? 0.12 + lvl * 0.85 : 0);
-  const ringOpacity = live ? 0.18 + lvl * 0.6 : 0;
-
-  // Colour language: rose = the teacher is listening to YOU (branch); ink =
-  // armed-and-idle; muted-ink = off; rose-alert = blocked.
-  const orbBg = micDenied
-    ? T.rose
-    : inBranch
-      ? T.rose
-      : live
-        ? T.ink
-        : T.inkSoft;
-
-  const label = micDenied
-    ? 'Microphone blocked'
-    : inBranch
-      ? 'Listening — go ahead'
-      : !live
-        ? 'Tap once to talk'
-        : agentSpeaking
-          ? 'Speak any time — I’ll stop and listen'
-          : 'I’m listening — just speak';
-
-  const sublabel = micDenied
-    ? 'allow it in your browser, then tap again'
-    : !live
-      ? 'then just speak — no need to tap again'
-      : 'tap the orb to mute';
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 9,
-        position: 'relative',
-      }}
-    >
-      <div style={{ position: 'relative', width: 76, height: 76 }}>
-        {/* Reactive level ring — blooms with the user's voice. Also the
-            visible echo guard: if the agent's audio ever leaks into a hot
-            mic, this ring lights up while the user is silent. */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 6,
-            borderRadius: '50%',
-            border: `2px solid ${inBranch ? T.rose : T.gold}`,
-            transform: `scale(${ringScale})`,
-            opacity: ringOpacity,
-            transition: 'transform 90ms linear, opacity 90ms linear',
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Soft "you may interrupt" halo while the teacher is speaking. */}
-        {live && agentSpeaking && !inBranch && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
-              boxShadow: `0 0 0 5px rgba(196,154,75,0.14)`,
-              animation: 'orbBreathe 2.6s ease-in-out infinite',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-        <button
-          type="button"
-          onClick={onToggleMic}
-          style={{
-            position: 'absolute',
-            inset: 6,
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: orbBg,
-            color: T.paper,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: inBranch
-              ? '0 0 0 6px rgba(199,123,106,0.18), 0 6px 16px rgba(60,40,20,0.2)'
-              : '0 4px 12px rgba(60,40,20,0.18)',
-            transition: 'background 0.25s, box-shadow 0.25s',
-          }}
-          aria-label={live ? 'mute microphone' : 'turn on microphone'}
-          aria-pressed={live}
-        >
-          <MicIcon color={T.paper} size={22} />
-          {!live && (
-            <svg
-              aria-hidden
-              width="48"
-              height="48"
-              viewBox="0 0 48 48"
-              style={{ position: 'absolute', inset: 8, pointerEvents: 'none' }}
-            >
-              <line
-                x1="6"
-                y1="42"
-                x2="42"
-                y2="6"
-                stroke={T.paper}
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      <div style={{ textAlign: 'center', minHeight: 30 }}>
-        <div
-          style={{
-            fontFamily: F_HEAD,
-            fontStyle: 'italic',
-            fontSize: 14,
-            color: micDenied ? T.rose : inBranch || live ? T.ink : T.inkSoft,
-            letterSpacing: '0.02em',
-            transition: 'color 0.2s',
-          }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            fontFamily: F_MONO,
-            fontSize: 9.5,
-            letterSpacing: '0.16em',
-            color: T.inkWhisper,
-            textTransform: 'uppercase',
-            marginTop: 3,
-          }}
-        >
-          {sublabel}
-        </div>
-      </div>
-      <style>{`@keyframes orbBreathe { 0%,100% { box-shadow: 0 0 0 5px rgba(196,154,75,0.10); } 50% { box-shadow: 0 0 0 9px rgba(196,154,75,0.05); } }`}</style>
-    </div>
-  );
-}
-
-interface StoryFooterProps {
-  sceneIndex: number;
-  sceneCount: number;
-  readyCount: number;
-  inBranch: boolean;
-  finished: boolean;
-  micMuted: boolean;
-  micDenied: boolean;
-  micLevel: number;
-  agentState: string;
-  onToggleMic: () => void;
-}
-
-function StoryFooter({
-  sceneIndex,
-  sceneCount,
-  readyCount,
-  inBranch,
-  finished,
-  micMuted,
-  micDenied,
-  micLevel,
-  agentState,
-  onToggleMic,
-}: StoryFooterProps) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 120,
-        borderTop: `1px solid ${T.paperEdge}`,
-        background: T.paper,
-        padding: '0 50px',
-        display: 'grid',
-        gridTemplateColumns: '1fr auto 1fr',
-        alignItems: 'center',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <SceneStrip count={sceneCount} current={sceneIndex} ready={readyCount} />
-        <div
-          style={{
-            fontFamily: F_MONO,
-            fontSize: 11,
             letterSpacing: '0.18em',
-            color: T.inkSoft,
+            color: T.inkWhisper,
           }}
         >
-          PAGE {String(sceneIndex + 1).padStart(2, '0')} · OF ·{' '}
+          {String(sceneIndex + 1).padStart(2, '0')} /{' '}
           {String(sceneCount).padStart(2, '0')}
         </div>
       </div>
 
-      {finished ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Flourish size={56} />
-        </div>
-      ) : (
-        <VoiceOrb
-          micMuted={micMuted}
-          micDenied={micDenied}
-          micLevel={micLevel}
-          agentSpeaking={agentState === 'speaking'}
-          inBranch={inBranch}
-          onToggleMic={onToggleMic}
-        />
-      )}
+      <style>{`
+        @keyframes floatStage { 0%,100%{transform:scale(1) translateY(0)} 50%{transform:scale(1.03) translateY(-4px)} }
+        @keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.35} }
+      `}</style>
+    </div>
+  );
+}
 
-      {/* Right column — quiet contextual line; the Orb now carries the
-          primary mic copy, so this stays a soft narration of session state. */}
+// ──────────────────────────────────────────────────────────────
+// Message bubbles
+function ChapterDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 2px' }}>
+      <div style={{ flex: 1, height: 1, background: T.paperEdge }} />
       <div
         style={{
           fontFamily: F_HEAD,
           fontStyle: 'italic',
-          fontSize: 14,
+          fontSize: 13,
           color: T.inkSoft,
-          textAlign: 'right',
+          letterSpacing: '0.12em',
         }}
       >
-        {finished
-          ? 'The end · ← back to start'
-          : inBranch
-            ? 'Paused for your question'
-            : '· now reading ·'}
+        {label}
+      </div>
+      <div style={{ flex: 1, height: 1, background: T.paperEdge }} />
+    </div>
+  );
+}
+
+interface TeacherBubbleProps {
+  headline?: string;
+  text: string;
+  streaming?: boolean;
+  isAnswer?: boolean;
+}
+
+function TeacherBubble({ headline, text, streaming, isAnswer }: TeacherBubbleProps) {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      {/* avatar */}
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: '50%',
+          flexShrink: 0,
+          background: T.paper,
+          border: `1px solid ${T.gold}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: F_HEAD,
+          fontStyle: 'italic',
+          fontSize: 17,
+          color: T.gold,
+          marginTop: 2,
+        }}
+      >
+        T
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {headline && (
+          <h3
+            style={{
+              fontFamily: F_HEAD,
+              fontStyle: 'italic',
+              fontWeight: 500,
+              fontSize: 23,
+              margin: '0 0 8px',
+              lineHeight: 1.15,
+              color: T.ink,
+            }}
+          >
+            {headline}
+          </h3>
+        )}
+        <div
+          style={{
+            background: isAnswer ? 'rgba(196,154,75,0.08)' : T.paperHi,
+            border: `1px solid ${T.paperEdge}`,
+            borderRadius: '4px 16px 16px 16px',
+            padding: '14px 18px',
+            fontFamily: F_HEAD,
+            fontSize: 18,
+            lineHeight: 1.62,
+            color: T.ink,
+          }}
+        >
+          {isAnswer && (
+            <div
+              style={{
+                fontFamily: F_MONO,
+                fontSize: 9,
+                letterSpacing: '0.25em',
+                color: T.sage,
+                marginBottom: 6,
+              }}
+            >
+              IN ANSWER TO YOU
+            </div>
+          )}
+          {text}
+          {streaming && (
+            <span
+              style={{
+                display: 'inline-block',
+                width: 2,
+                height: 18,
+                background: T.rose,
+                verticalAlign: -3,
+                marginLeft: 2,
+                animation: 'blink 0.9s infinite',
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+function UserBubble({ text }: { text: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div
+        style={{
+          maxWidth: '80%',
+          background: T.ink,
+          color: T.paper,
+          borderRadius: '16px 4px 16px 16px',
+          padding: '12px 18px',
+          fontFamily: F_HEAD,
+          fontStyle: 'italic',
+          fontSize: 17,
+          lineHeight: 1.5,
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingBubble() {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: '50%',
+          flexShrink: 0,
+          background: T.paper,
+          border: `1px solid ${T.gold}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: F_HEAD,
+          fontStyle: 'italic',
+          fontSize: 17,
+          color: T.gold,
+        }}
+      >
+        T
+      </div>
+      <div
+        style={{
+          background: T.paperHi,
+          border: `1px solid ${T.paperEdge}`,
+          borderRadius: '4px 16px 16px 16px',
+          padding: '14px 18px',
+          display: 'flex',
+          gap: 5,
+        }}
+      >
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: T.inkWhisper,
+              animation: `bob 1s ease-in-out ${i * 0.15}s infinite`,
+            }}
+          />
+        ))}
+      </div>
+      <style>{`@keyframes bob { 0%,100%{transform:translateY(0);opacity:0.4} 50%{transform:translateY(-5px);opacity:1} }`}</style>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// RIGHT — conversation feed + composer
+interface ConversationPanelProps {
+  scenes: Scene[];
+  currentIndex: number;
+  phase: Phase;
+  qaHistoryByScene: Record<number, QaEntry[]>;
+  liveUserText: string | null;
+  micLevel: number;
+  micDenied: boolean;
+  finished: boolean;
+  onToggleMic: () => void;
+}
+
+function ConversationPanel({
+  scenes,
+  currentIndex,
+  phase,
+  qaHistoryByScene,
+  liveUserText,
+  micLevel,
+  micDenied,
+  finished,
+  onToggleMic,
+}: ConversationPanelProps) {
+  // Voice-first by default. Text mode is a placeholder — see the TODO below.
+  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
+  const [draft, setDraft] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const listening = phase === 'listening';
+  const thinking = phase === 'thinking';
+
+  // auto-scroll to bottom on changes — new scenes, Q&A, phase shifts, live text.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [currentIndex, phase, qaHistoryByScene, liveUserText]);
+
+  const modeToggle = (
+    <button
+      type="button"
+      onClick={() => setInputMode((m) => (m === 'voice' ? 'text' : 'voice'))}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: F_HEAD,
+        fontStyle: 'italic',
+        fontSize: 13,
+        color: T.inkSoft,
+        padding: 0,
+      }}
+      title={inputMode === 'voice' ? 'Switch to typing' : 'Switch to voice'}
+    >
+      {inputMode === 'voice' ? (
+        <>
+          <svg width="15" height="13" viewBox="0 0 16 13" fill="none">
+            <rect x="1" y="1" width="14" height="11" rx="2" stroke={T.inkSoft} strokeWidth="1.2" />
+            <path
+              d="M 4 4.5 h 1 M 7 4.5 h 1 M 10 4.5 h 1 M 4 7 h 1 M 7 7 h 1 M 10 7 h 1 M 5.5 9.5 h 5"
+              stroke={T.inkSoft}
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+          type instead
+        </>
+      ) : (
+        <>
+          <MicIcon color={T.inkSoft} size={14} />
+          use voice
+        </>
+      )}
+    </button>
+  );
+
+  return (
+    <div
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: T.paper,
+        borderLeft: `1px solid ${T.paperEdge}`,
+        paddingLeft: 30,
+      }}
+    >
+      {/* feed */}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
+          padding: '4px 8px 18px 0',
+        }}
+      >
+        {scenes.slice(0, currentIndex + 1).flatMap((scene, i) => {
+          const nodes = [
+            <ChapterDivider key={`${scene.id}-chapter`} label={scene.chapter} />,
+            <TeacherBubble
+              key={`${scene.id}-narration`}
+              headline={`${scene.headline[0]} ${scene.headline[1]}`.trim()}
+              text={scene.narration_text}
+              streaming={phase === 'reading' && i === currentIndex}
+            />,
+          ];
+          // Interleave this scene's Q&A: user question, then the teacher's
+          // gold-tinted answer (if any). Skip empties.
+          const qas = qaHistoryByScene[i] ?? [];
+          qas.forEach((qa, j) => {
+            if (qa.q && qa.q.trim()) {
+              nodes.push(<UserBubble key={`${scene.id}-q-${j}`} text={qa.q} />);
+            }
+            if (qa.a && qa.a.trim()) {
+              nodes.push(
+                <TeacherBubble key={`${scene.id}-a-${j}`} text={qa.a} isAnswer />,
+              );
+            }
+          });
+          return nodes;
+        })}
+        {thinking && <ThinkingBubble />}
+      </div>
+
+      {/* continue-the-story affordance when paused mid-story. Cosmetic in the
+          real app — resume is automatic after the silence timer. We only stop
+          the live mic if it's on; otherwise it's a no-op. */}
+      {phase === 'paused' && !finished && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 10px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              // TODO: there is no explicit "resume" path — narration resumes on
+              // its own after the silence timer. If the mic happens to be live
+              // we mute it (stop listening); otherwise this is a no-op.
+              if (!listening) return;
+              onToggleMic();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: T.sage,
+              color: T.paper,
+              border: 'none',
+              padding: '8px 18px',
+              fontFamily: F_HEAD,
+              fontStyle: 'italic',
+              fontSize: 15,
+              cursor: 'pointer',
+              borderRadius: 999,
+              boxShadow: '0 4px 12px rgba(139,157,126,0.28)',
+            }}
+          >
+            <PlayIcon color={T.paper} size={12} /> continue the story
+          </button>
+        </div>
+      )}
+
+      {/* composer — always docked */}
+      <div style={{ paddingRight: 8, paddingBottom: 4 }}>
+        {/* ===== VOICE MODE ===== */}
+        {inputMode === 'voice' &&
+          (listening ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                background: T.paperHi,
+                border: `1px solid ${T.rose}`,
+                borderRadius: 22,
+                padding: '10px 10px 10px 18px',
+                boxShadow: '0 0 0 4px rgba(199,123,106,0.12)',
+              }}
+            >
+              {/* REC dot + waveform */}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    background: T.rose,
+                    animation: 'recBlink 1s ease-in-out infinite',
+                  }}
+                />
+                <Waveform active level={micLevel} />
+              </span>
+              {/* live transcript — the user's in-progress question */}
+              <div
+                style={{
+                  flex: 1,
+                  fontFamily: F_HEAD,
+                  fontStyle: 'italic',
+                  fontSize: 17,
+                  color: liveUserText ? T.ink : T.inkWhisper,
+                  lineHeight: 1.4,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {liveUserText || 'Listening…'}
+              </div>
+              {/* cancel — mute/stop the real mic */}
+              <button
+                type="button"
+                onClick={onToggleMic}
+                title="Cancel"
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: 'transparent',
+                  border: `1px solid ${T.paperEdge}`,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: F_HEAD,
+                  fontSize: 16,
+                  color: T.inkSoft,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onToggleMic}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                background: T.ink,
+                color: T.paper,
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: 22,
+                padding: '15px 18px',
+                fontFamily: F_HEAD,
+                fontStyle: 'italic',
+                fontSize: 18,
+                letterSpacing: '0.01em',
+                boxShadow: '0 6px 16px rgba(60,40,20,0.18)',
+              }}
+            >
+              <span
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  background: 'rgba(246,239,224,0.16)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MicIcon color={T.paper} size={19} />
+              </span>
+              Tap to ask — I&rsquo;ll stop and listen
+            </button>
+          ))}
+
+        {/* ===== TEXT MODE (placeholder — not wired to the agent yet) ===== */}
+        {inputMode === 'text' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              background: T.paperHi,
+              border: `1px solid ${listening ? T.rose : T.paperEdge}`,
+              borderRadius: 999,
+              padding: '7px 7px 7px 18px',
+              transition: 'border-color 0.2s',
+            }}
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // TODO: text-question path not wired to the agent yet. Voice is
+                // the real path (barge-in via Agora VAD + silence timer). For
+                // now Enter does nothing so we never fake an answer.
+                if (e.key === 'Enter') e.preventDefault();
+              }}
+              placeholder="Typing isn’t wired yet — tap “use voice” to ask"
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'transparent',
+                color: T.ink,
+                fontFamily: F_HEAD,
+                fontStyle: 'italic',
+                fontSize: 17,
+                outline: 'none',
+              }}
+            />
+            {/* visually-present, intentionally inert send button */}
+            <button
+              type="button"
+              disabled
+              title="Typing isn’t wired yet"
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: '50%',
+                flexShrink: 0,
+                background: T.paperEdge,
+                color: T.paper,
+                border: 'none',
+                cursor: 'default',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                  d="M 3 9 L 15 9 M 10 4 L 15 9 L 10 14"
+                  stroke={T.paper}
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* hint + mode toggle */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 9,
+            paddingLeft: 4,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: F_HEAD,
+              fontStyle: 'italic',
+              fontSize: 12.5,
+              color: T.inkWhisper,
+            }}
+          >
+            {micDenied
+              ? 'Microphone blocked · allow it in your browser, then tap again'
+              : phase === 'reading'
+                ? 'Voice is on · tap to interrupt anytime'
+                : phase === 'paused'
+                  ? 'Story paused · ask away, or it’ll continue on its own'
+                  : phase === 'listening'
+                    ? 'Speak now · I’ll answer when you pause'
+                    : 'The teacher is thinking…'}
+          </div>
+          {modeToggle}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+        @keyframes recBlink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+      `}</style>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// MAIN
 export function StoryScreen({
   scenes,
   activeSceneIndex,
   inBranch,
   finished,
   liveNarrationText,
+  liveUserText,
   qaHistoryByScene,
   micMuted,
   micDenied,
@@ -831,34 +938,29 @@ export function StoryScreen({
   onToggleMic,
   onExit,
 }: StoryScreenProps) {
-  const safeIndex = Math.max(0, Math.min(scenes.length - 1, activeSceneIndex));
-  const scene = scenes[safeIndex];
+  const safeIndex = clamp(activeSceneIndex, 0, Math.max(0, scenes.length - 1));
 
-  // Which scene the reading view is currently on. We infer it from the REAL
-  // agent transcript (matchSceneIndex over the scene narrations) so the page
-  // can't flip ahead of the voice — the bug the old fixed-timer karaoke had.
-  // When the transcript doesn't align yet (scene just flipped, a bridge, or a
-  // Q&A answer is in the buffer), we fall back to the server-driven clamped
-  // activeSceneIndex.
+  // Which scene the audio is currently on. Inferred from the REAL agent
+  // transcript (matchSceneIndex over the scene narrations) so the feed can't
+  // flip ahead of the voice; falls back to the server-driven clamped
+  // activeSceneIndex when the transcript doesn't align (scene just flipped, a
+  // bridge, or a Q&A answer in the buffer).
   const matched = matchSceneIndex(
     scenes.map((s) => s.narration_text),
     liveNarrationText ?? '',
   );
-  const rawIndex = matched >= 0 ? matched : safeIndex;
+  const rawIndex = clamp(matched >= 0 ? matched : safeIndex, 0, Math.max(0, scenes.length - 1));
 
   // Monotonic high-water mark: never go backward within a session, so a brief
-  // transcript misalignment can't yank the page back a scene (jitter). Held in
-  // state and adjusted DURING render (React's supported "store info from prior
-  // renders" pattern) so the page advances in the same paint as the transcript
-  // update — no extra frame. Resets when the lesson restarts (first scene id
-  // changes).
+  // transcript misalignment can't yank the feed back a scene (jitter). Held in
+  // state, adjusted DURING render (React's supported "store info from prior
+  // renders" pattern). Resets when the lesson restarts (first scene id changes).
   const lessonKey = scenes[0]?.id ?? '';
   const [maxIndex, setMaxIndex] = useState(0);
   const [trackedLesson, setTrackedLesson] = useState(lessonKey);
 
   let currentIndex: number;
   if (trackedLesson !== lessonKey) {
-    // New lesson — reset the high-water mark this render.
     setTrackedLesson(lessonKey);
     setMaxIndex(rawIndex);
     currentIndex = rawIndex;
@@ -868,14 +970,19 @@ export function StoryScreen({
   } else {
     currentIndex = maxIndex;
   }
-  currentIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex));
+  currentIndex = clamp(currentIndex, 0, Math.max(0, scenes.length - 1));
 
-  const readyCount = useMemo(
-    () => scenes.filter((s) => s.image_url).length,
-    [scenes],
-  );
+  // Derive the phase from real state. Drives the top-bar status, the stage
+  // chip, and the composer copy — not core behavior.
+  const phase: Phase = useMemo(() => {
+    if (!inBranch && agentState === 'speaking') return 'reading';
+    if (inBranch && agentState === 'thinking') return 'thinking';
+    if (inBranch && agentState === 'listening' && !micMuted) return 'listening';
+    if (inBranch && agentState === 'speaking') return 'reading';
+    return 'paused';
+  }, [inBranch, agentState, micMuted]);
 
-  const handleExit = useCallback(() => onExit(), [onExit]);
+  const scene = scenes[currentIndex];
 
   if (!scene) {
     return (
@@ -891,18 +998,21 @@ export function StoryScreen({
           justifyContent: 'center',
         }}
       >
-        <div
-          style={{
-            fontFamily: F_HEAD,
-            fontStyle: 'italic',
-            color: T.inkSoft,
-          }}
-        >
+        <div style={{ fontFamily: F_HEAD, fontStyle: 'italic', color: T.inkSoft }}>
           (no scenes — please try again)
         </div>
       </div>
     );
   }
+
+  const status =
+    phase === 'reading'
+      ? 'NARRATING'
+      : phase === 'listening'
+        ? 'LISTENING'
+        : phase === 'thinking'
+          ? 'THINKING'
+          : 'PAUSED';
 
   return (
     <div
@@ -915,38 +1025,24 @@ export function StoryScreen({
         overflow: 'hidden',
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: T.paperTexture,
-          pointerEvents: 'none',
-        }}
-      />
-      <CornerOrn pos="tl" inset={20} />
-      <CornerOrn pos="tr" inset={20} />
-      <CornerOrn pos="bl" inset={20} />
-      <CornerOrn pos="br" inset={20} />
-
       {/* Top bar */}
       <div
         style={{
           position: 'absolute',
-          top: 22,
-          left: 50,
-          right: 50,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 56,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          fontFamily: F_MONO,
-          fontSize: 11,
-          letterSpacing: '0.22em',
-          color: T.inkSoft,
+          padding: '0 34px',
+          borderBottom: `1px solid ${T.paperEdge}`,
         }}
       >
         <button
           type="button"
-          onClick={handleExit}
+          onClick={onExit}
           style={{
             background: 'transparent',
             border: 'none',
@@ -961,54 +1057,53 @@ export function StoryScreen({
           ← back to start
         </button>
         <div
-          style={{
-            fontFamily: F_HEAD,
-            fontStyle: 'italic',
-            color: T.ink,
-            fontSize: 15,
-            letterSpacing: 0,
-          }}
+          style={{ fontFamily: F_HEAD, fontStyle: 'italic', color: T.ink, fontSize: 16 }}
         >
           Tonight&apos;s Lesson
         </div>
-        <div>
-          {finished
-            ? '· the end ·'
-            : inBranch
-              ? '· paused for question ·'
-              : '· now reading ·'}
+        <div
+          style={{
+            fontFamily: F_MONO,
+            fontSize: 10,
+            letterSpacing: '0.22em',
+            color: T.inkSoft,
+          }}
+        >
+          {status}
         </div>
       </div>
 
-      {/* Book spread — keyed on the LESSON (first scene id), NOT the current
-          scene, so it does NOT remount on every page flip (which would reset
-          the story-chat scroll position). The illustration's fade/breathe
-          re-runs naturally via the per-scene <video>/<img> key inside. */}
-      <div key={lessonKey}>
-        <BookSpread
+      {/* Main split */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 56,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'grid',
+          gridTemplateColumns: '47% 53%',
+          padding: '24px 34px 28px',
+        }}
+      >
+        <StageFrame
+          scene={scene}
+          sceneIndex={currentIndex}
+          sceneCount={scenes.length}
+          phase={phase}
+        />
+        <ConversationPanel
           scenes={scenes}
           currentIndex={currentIndex}
-          paused={inBranch}
-          qaHistory={qaHistoryByScene[currentIndex] ?? []}
+          phase={phase}
+          qaHistoryByScene={qaHistoryByScene}
+          liveUserText={liveUserText}
+          micLevel={micLevel}
+          micDenied={micDenied}
+          finished={finished}
+          onToggleMic={onToggleMic}
         />
       </div>
-
-      {inBranch && (
-        <BranchOverlay qaHistory={qaHistoryByScene[safeIndex] ?? []} />
-      )}
-
-      <StoryFooter
-        sceneIndex={safeIndex}
-        sceneCount={scenes.length}
-        readyCount={readyCount}
-        inBranch={inBranch}
-        finished={finished}
-        micMuted={micMuted}
-        micDenied={micDenied}
-        micLevel={micLevel}
-        agentState={agentState}
-        onToggleMic={onToggleMic}
-      />
     </div>
   );
 }

@@ -57,7 +57,11 @@ import { ScalingStage } from './tutor/ScalingStage';
 import { InputScreen, PRESETS } from './tutor/InputScreen';
 import { LoadingScreen, type LoadingState } from './tutor/LoadingScreen';
 import { StoryScreen } from './tutor/StoryScreen';
-import { mapTranscriptItems, latestAgentText } from './tutor/transcript-mapping';
+import {
+  mapTranscriptItems,
+  latestAgentText,
+  latestUserText,
+} from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 
@@ -158,6 +162,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // word-by-word as the TTS plays). Drives StoryScreen's audio-synced word
   // reveal so the on-screen cursor tracks the voice instead of a fixed timer.
   const [liveNarrationText, setLiveNarrationText] = useState<string | null>(null);
+  // What the USER is saying RIGHT NOW (Agora grows this word-by-word as the STT
+  // transcribes). Drives the live transcript echo in StoryScreen's voice
+  // composer while listening, so the user sees their words land. Null when no
+  // user transcript has arrived.
+  const [liveUserText, setLiveUserText] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -422,6 +431,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             // Feed the live agent transcript to the word-reveal so captions
             // track the actual voice (audio-synced) rather than a fixed timer.
             setLiveNarrationText(latestAgentText(items, localUid));
+            // Feed the live user transcript to the voice composer so the
+            // in-progress question echoes back as the user speaks.
+            setLiveUserText(latestUserText(items, localUid));
           },
         );
 
@@ -538,6 +550,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     sessionIdRef.current = null;
     setAgentState('idle');
     setQaTranscript([]);
+    setLiveUserText(null);
     inBranchRef.current = false;
     branchStartedAtRef.current = null;
     qaTurnCountRef.current = 0;
@@ -835,6 +848,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             inBranch={inBranch}
             finished={finished}
             liveNarrationText={liveNarrationText}
+            liveUserText={liveUserText}
             qaHistoryByScene={qaHistoryByScene}
             micMuted={micMuted}
             micDenied={micDenied}

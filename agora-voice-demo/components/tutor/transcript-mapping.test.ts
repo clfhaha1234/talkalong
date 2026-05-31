@@ -10,7 +10,12 @@ import {
   type TranscriptHelperItem,
   type UserTranscription,
 } from 'agora-agent-client-toolkit';
-import { attributeRole, mapTranscriptItems, latestAgentText } from './transcript-mapping';
+import {
+  attributeRole,
+  mapTranscriptItems,
+  latestAgentText,
+  latestUserText,
+} from './transcript-mapping';
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
 
@@ -169,5 +174,37 @@ describe('latestAgentText (audio-synced reveal source)', () => {
       item({ uid: '0', text: '   ', time: 200, object: MessageType.AGENT_TRANSCRIPTION }),
     ];
     expect(latestAgentText(items, LOCAL_UID)).toBe('real narration');
+  });
+});
+
+describe('latestUserText (live composer echo source)', () => {
+  it('returns the most recent user item text by _time (incl. in-progress)', () => {
+    const items = [
+      item({ uid: LOCAL_UID, text: 'what if', time: 100, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+      item({ uid: LOCAL_UID, text: 'what if I run faster than light', time: 200, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+    ];
+    expect(latestUserText(items, LOCAL_UID)).toBe('what if I run faster than light');
+  });
+
+  it('ignores agent items (only the user question echoes in the composer)', () => {
+    const items = [
+      item({ uid: LOCAL_UID, text: 'why is the sky blue', time: 300, object: MessageType.USER_TRANSCRIPTION }),
+      item({ uid: '0', text: 'Because of scattering', time: 400, object: MessageType.AGENT_TRANSCRIPTION }),
+    ];
+    expect(latestUserText(items, LOCAL_UID)).toBe('why is the sky blue');
+  });
+
+  it('returns null when there is no user text yet', () => {
+    expect(latestUserText([], LOCAL_UID)).toBeNull();
+    const onlyAgent = [item({ uid: '0', text: 'narration', time: 1, object: MessageType.AGENT_TRANSCRIPTION })];
+    expect(latestUserText(onlyAgent, LOCAL_UID)).toBeNull();
+  });
+
+  it('skips blank user items', () => {
+    const items = [
+      item({ uid: LOCAL_UID, text: 'real question', time: 100, object: MessageType.USER_TRANSCRIPTION }),
+      item({ uid: LOCAL_UID, text: '   ', time: 200, object: MessageType.USER_TRANSCRIPTION }),
+    ];
+    expect(latestUserText(items, LOCAL_UID)).toBe('real question');
   });
 });
