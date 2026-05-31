@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ProgressEvent } from './types';
 
-const sayCalls: Array<{ text: string; opts: { priority?: string } }> = [];
+const sayCalls: Array<{ text: string; opts: { priority?: string; interruptable?: boolean } }> = [];
 
 vi.mock('agora-agent-server-sdk', async (importOriginal) => {
   const orig = await importOriginal<typeof import('agora-agent-server-sdk')>();
@@ -33,7 +33,7 @@ vi.mock('agora-agent-server-sdk', async (importOriginal) => {
         return {
           start: async () => 'fake-agent-id',
           stop: async () => {},
-          say: async (text: string, opts: { priority?: string }) => {
+          say: async (text: string, opts: { priority?: string; interruptable?: boolean }) => {
             sayCalls.push({ text, opts });
           },
           interrupt: async () => {},
@@ -115,6 +115,10 @@ describe('handleQaEnded — Chinese language-switch resume wiring', () => {
     const bridgeSay = sayCalls.find((s) => /[一-鿿]/.test(s.text));
     expect(bridgeSay, 'a Chinese bridge should have been spoken').toBeTruthy();
     expect(bridgeSay!.opts.priority).toBe('INTERRUPT');
+    // The bridge MUST be interruptable too — the listener has to be able to
+    // barge in on the resume bridge itself, not be forced to sit through it.
+    // (narrator.test guards the narration segments; this guards the bridge.)
+    expect(bridgeSay!.opts.interruptable).toBe(true);
 
     // 2. A bridge_started event carried the Chinese bridge text to the UI.
     const bridgeEvt = events.find((e) => e.type === 'bridge_started') as
