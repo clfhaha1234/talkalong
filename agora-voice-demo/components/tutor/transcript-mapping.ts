@@ -86,18 +86,20 @@ export function latestAgentText(items: Item[], localUid: string): string | null 
 }
 
 /**
- * The most recent USER transcript text across the items — i.e. what the user is
- * saying RIGHT NOW (Agora grows this word-by-word as the STT transcribes). Used
- * to show the live in-progress question in the voice composer while listening.
- * Returns null if no user item carries text yet. Unlike mapTranscriptItems this
- * is NOT gated to the branch window or to finalised turns — we want the partial,
- * in-progress text precisely so the composer can echo the user's words as they
- * speak.
+ * The IN-PROGRESS user transcript text — what the user is saying RIGHT NOW, the
+ * partial STT echo for the live "Listening…" bubble. Returns null if there is no
+ * in-progress user turn.
+ *
+ * CRITICAL: only IN_PROGRESS turns count. Once a user turn FINALISES
+ * (END/INTERRUPTED) it's committed into qaHistory and rendered as a normal user
+ * bubble — if we kept returning it here, the live bubble at the foot of the feed
+ * would duplicate that committed bubble (the "字幕出现2次" bug, 2026-05-31).
  */
 export function latestUserText(items: Item[], localUid: string): string | null {
   let best: { text: string; t: number } | null = null;
   for (const item of items) {
     if (attributeRole(item, localUid) !== 'user') continue;
+    if (item.status !== TurnStatus.IN_PROGRESS) continue;
     if (!item.text || item.text.trim().length === 0) continue;
     const t = typeof item._time === 'number' ? item._time : 0;
     if (!best || t >= best.t) best = { text: item.text, t };

@@ -188,22 +188,29 @@ describe('latestUserText (live composer echo source)', () => {
 
   it('ignores agent items (only the user question echoes in the composer)', () => {
     const items = [
-      item({ uid: LOCAL_UID, text: 'why is the sky blue', time: 300, object: MessageType.USER_TRANSCRIPTION }),
-      item({ uid: '0', text: 'Because of scattering', time: 400, object: MessageType.AGENT_TRANSCRIPTION }),
+      item({ uid: LOCAL_UID, text: 'why is the sky blue', time: 300, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+      item({ uid: '0', text: 'Because of scattering', time: 400, object: MessageType.AGENT_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
     ];
     expect(latestUserText(items, LOCAL_UID)).toBe('why is the sky blue');
   });
 
-  it('returns null when there is no user text yet', () => {
+  it('returns null once the user turn FINALISES (END) — no duplicate of the committed bubble', () => {
+    // The 字幕出现2次 regression: a finalised user turn is already rendered as a
+    // committed qaHistory bubble, so it must NOT also echo as the live bubble.
+    const finalised = [item({ uid: LOCAL_UID, text: 'can you tell me?', time: 100, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.END })];
+    expect(latestUserText(finalised, LOCAL_UID)).toBeNull();
+  });
+
+  it('returns null when there is no in-progress user text', () => {
     expect(latestUserText([], LOCAL_UID)).toBeNull();
-    const onlyAgent = [item({ uid: '0', text: 'narration', time: 1, object: MessageType.AGENT_TRANSCRIPTION })];
+    const onlyAgent = [item({ uid: '0', text: 'narration', time: 1, object: MessageType.AGENT_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS })];
     expect(latestUserText(onlyAgent, LOCAL_UID)).toBeNull();
   });
 
-  it('skips blank user items', () => {
+  it('skips blank in-progress user items', () => {
     const items = [
-      item({ uid: LOCAL_UID, text: 'real question', time: 100, object: MessageType.USER_TRANSCRIPTION }),
-      item({ uid: LOCAL_UID, text: '   ', time: 200, object: MessageType.USER_TRANSCRIPTION }),
+      item({ uid: LOCAL_UID, text: 'real question', time: 100, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
+      item({ uid: LOCAL_UID, text: '   ', time: 200, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
     ];
     expect(latestUserText(items, LOCAL_UID)).toBe('real question');
   });
