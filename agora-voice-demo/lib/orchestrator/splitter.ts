@@ -14,6 +14,38 @@ import type { Segment, SegmentCategory } from './types';
 const TARGET_MIN_CHARS = 80;
 const TARGET_MAX_CHARS = 320;
 
+// ── Narration duration estimate (the subtitle clock) ───────────────────────
+// The narrator advances the displayed scene on a per-segment timer, so this
+// estimate has to track the ACTUAL spoken duration or subtitles drift from the
+// voice. Speech rate is wildly different by script: MiniMax narrates Latin text
+// at ~17 chars/sec, but CJK (Chinese/Japanese/Korean) is far denser — each
+// character is a whole syllable/word, spoken at ~5 chars/sec. A single
+// "17 chars/sec" constant (the old code) over-counts CJK speed ~3x, so Chinese
+// subtitles raced ~3x ahead of the audio. We therefore weight each script
+// separately and sum. Rates are ms-per-character.
+const MS_PER_CHAR_LATIN = 1000 / 17; // ~59ms — measured (Phase 1, English)
+const MS_PER_CHAR_CJK = 1000 / 5; // ~200ms — Mandarin/JA/KO narration is ~5 chars/sec
+const TAIL_DRAIN_MS = 150; // let the audio fully drain before marking done
+
+// CJK Unified Ideographs + Hiragana/Katakana + Hangul + CJK punctuation ranges.
+const CJK_RE =
+  /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯가-힯]/;
+
+/**
+ * Estimate how long the TTS will take to speak `text`, script-aware. Latin and
+ * CJK characters are counted at their own rates and summed, so a mixed
+ * "Albert（阿尔伯特）" string is estimated correctly. Pure function — unit-tested
+ * in splitter.test.ts; this is the subtitle clock, so its accuracy is what
+ * keeps captions aligned with the voice.
+ */
+export function estimateNarrationMs(text: string): number {
+  let ms = 0;
+  for (const ch of text) {
+    ms += CJK_RE.test(ch) ? MS_PER_CHAR_CJK : MS_PER_CHAR_LATIN;
+  }
+  return Math.max(700, Math.round(ms)) + TAIL_DRAIN_MS;
+}
+
 // Naive abbreviation guard — don't split on these.
 const ABBREVIATIONS = new Set([
   'mr', 'mrs', 'ms', 'dr', 'st', 'jr', 'sr', 'vs', 'e.g', 'i.e', 'etc',
@@ -120,12 +152,10 @@ export function splitToSegments(text: string, opts: SplitOptions = {}): Segment[
   const sentences = sentencesOf(cleaned);
   const packed = packSegments(sentences);
   return packed.map((p, i) => {
-    // MiniMax speech_2_8_turbo runs ~17 chars/sec for English narration.
-    // Measured empirically during Phase 1 against the actual audio playback.
-    // We add a tiny 150ms tail so the audio is fully out before we mark the
-    // segment done. Inter-segment pause is handled separately in the narrator.
-    const approx_duration_ms =
-      Math.max(700, Math.round((p.text.length / 17) * 1000)) + 150;
+    // Script-aware estimate (see estimateNarrationMs): Latin ~17 chars/sec,
+    // CJK ~5 chars/sec. A single rate raced Chinese subtitles ~3x ahead of the
+    // voice. Inter-segment pause is handled separately in the narrator.
+    const approx_duration_ms = estimateNarrationMs(p.text);
     return {
       id: `${prefix}${i + 1}`,
       range: { start: p.range[0], end: p.range[1] },
