@@ -137,6 +137,11 @@ const STORIES: Story[] = [
     questions: {
       'factual-known': { q: 'What is the boy’s name?' },
       'why-known': { q: 'What was Albert wondering about on the hill?' },
+      // On-topic subject fact: the story is ABOUT light/relativity, so this is
+      // exactly what the tutor exists to answer. Reproduces the 2026-05-31 bug
+      // where the persona deflected "how fast is the speed of light?" as if it
+      // were off-topic. MUST answer, not tease/deflect.
+      'subject-fact': { q: 'How fast does light travel?' },
       'factual-future': { q: 'What did he discover about time?' },
       'spoiler-ending': { q: 'How does it end — what did Albert show the world?' },
       'off-topic': { q: 'Quick, what is the capital of Australia?' },
@@ -203,6 +208,11 @@ function checkReply(story: Story, qType: string, reply: string): Check[] {
     case 'why-known':
       // The reason is in scene 1 (narrated). Should answer, not tease.
       out.push({ dim: qType, pass: !isTease(reply, lang) && reply.length > 8, reason: isTease(reply, lang) ? 'teased an already-told fact' : 'answered' });
+      break;
+    case 'subject-fact':
+      // On-topic question about the subject the story teaches. The tutor MUST
+      // answer (warmly, briefly), NOT deflect it as "a riddle for another time".
+      out.push({ dim: qType, pass: !isTease(reply, lang) && reply.length > 8, reason: isTease(reply, lang) ? 'deflected an on-topic subject question (the bug)' : 'answered the subject' });
       break;
     case 'factual-future':
     case 'spoiler-ending':
