@@ -29,6 +29,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { T, F_HEAD, F_BODY, F_MONO, type Scene } from './theme';
 import { matchSceneIndex } from './reveal-sync';
 import { MicIcon, PlayIcon } from './ornaments';
+import { clamp } from '@/lib/utils';
 
 interface QaEntry {
   /** User's spoken question (best-effort from RTM transcript). */
@@ -81,10 +82,6 @@ interface StoryScreenProps {
 }
 
 type Phase = 'reading' | 'paused' | 'listening' | 'thinking';
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
-}
 
 // ──────────────────────────────────────────────────────────────
 // Composer waveform — bars react to mic amplitude when active. Mirrors the
@@ -606,45 +603,47 @@ function ConversationPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [qaHistoryByScene, liveUserText]);
 
+  // Simple segmented toggle: left = voice (mic), right = keyboard. The active
+  // side is filled; tap a side to switch. No "type instead / use voice" prose.
+  const segBtn = (active: boolean) =>
+    ({
+      width: 34,
+      height: 26,
+      borderRadius: 999,
+      border: 'none',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: active ? T.ink : 'transparent',
+    }) as const;
   const modeToggle = (
-    <button
-      type="button"
-      onClick={() => setInputMode((m) => (m === 'voice' ? 'text' : 'voice'))}
+    <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
-        background: 'transparent',
-        border: 'none',
-        cursor: 'pointer',
-        fontFamily: F_HEAD,
-        fontStyle: 'italic',
-        fontSize: 13,
-        color: T.inkSoft,
-        padding: 0,
+        gap: 2,
+        background: T.paperHi,
+        border: `1px solid ${T.paperEdge}`,
+        borderRadius: 999,
+        padding: 2,
       }}
-      title={inputMode === 'voice' ? 'Switch to typing' : 'Switch to voice'}
     >
-      {inputMode === 'voice' ? (
-        <>
-          <svg width="15" height="13" viewBox="0 0 16 13" fill="none">
-            <rect x="1" y="1" width="14" height="11" rx="2" stroke={T.inkSoft} strokeWidth="1.2" />
-            <path
-              d="M 4 4.5 h 1 M 7 4.5 h 1 M 10 4.5 h 1 M 4 7 h 1 M 7 7 h 1 M 10 7 h 1 M 5.5 9.5 h 5"
-              stroke={T.inkSoft}
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-          type instead
-        </>
-      ) : (
-        <>
-          <MicIcon color={T.inkSoft} size={14} />
-          use voice
-        </>
-      )}
-    </button>
+      <button type="button" title="Voice" onClick={() => setInputMode('voice')} style={segBtn(inputMode === 'voice')}>
+        <MicIcon color={inputMode === 'voice' ? T.paper : T.inkSoft} size={14} />
+      </button>
+      <button type="button" title="Keyboard" onClick={() => setInputMode('text')} style={segBtn(inputMode === 'text')}>
+        <svg width="16" height="13" viewBox="0 0 16 13" fill="none">
+          <rect x="1" y="1" width="14" height="11" rx="2" stroke={inputMode === 'text' ? T.paper : T.inkSoft} strokeWidth="1.2" />
+          <path
+            d="M 4 4.5 h 1 M 7 4.5 h 1 M 10 4.5 h 1 M 4 7 h 1 M 7 7 h 1 M 10 7 h 1 M 5.5 9.5 h 5"
+            stroke={inputMode === 'text' ? T.paper : T.inkSoft}
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+    </div>
   );
 
   return (

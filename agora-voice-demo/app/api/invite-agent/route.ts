@@ -10,6 +10,8 @@ import {
 } from 'agora-agent-server-sdk';
 import { ClientStartRequest, AgentResponse } from '@/types/conversation';
 import { DEFAULT_AGENT_UID } from '@/lib/agora';
+import { BASELINE_TURN_DETECTION } from '@/lib/agora-turn-detection';
+import { STT_MODEL, STT_LANGUAGE } from '@/lib/language-config';
 
 // System prompt that defines the agent's personality and behavior.
 // Swap this out to change what the agent talks about.
@@ -133,24 +135,9 @@ export async function POST(request: NextRequest) {
               },
             },
           }
-        : {
-            config: {
-              speech_threshold: 0.5,
-              start_of_speech: {
-                mode: 'vad',
-                vad_config: {
-                  interrupt_duration_ms: 160, // ms of speech before interruption triggers
-                  prefix_padding_ms: 300, // audio captured before speech is detected
-                },
-              },
-              end_of_speech: {
-                mode: 'vad',
-                vad_config: {
-                  silence_duration_ms: 480, // ms of silence before turn ends
-                },
-              },
-            },
-          },
+        // Default (prod) path: the proven baseline config, shared with /tutor's
+        // orchestrator so the two can't drift. See lib/agora-turn-detection.ts.
+        : BASELINE_TURN_DETECTION,
       // RTM is required for transcript events in the browser client.
       // enable_tools is required for MCP tool invocation.
       advancedFeatures: { enable_rtm: true, enable_tools: true },
@@ -166,8 +153,8 @@ export async function POST(request: NextRequest) {
     })
       .withStt(
         new DeepgramSTT({
-          model: 'nova-3',
-          language: 'en',
+          model: STT_MODEL,
+          language: STT_LANGUAGE,
         }),
         // BYOK: uncomment the following block and set NEXT_DEEPGRAM_API_KEY
         // new DeepgramSTT({
