@@ -22,13 +22,13 @@ function seg(id: string, text: string): Segment {
 }
 
 function fakeSession(): AgentSession & {
-  _calls: Array<{ text: string; priority: string | undefined }>;
+  _calls: Array<{ text: string; priority: string | undefined; interruptable: boolean | undefined }>;
 } {
-  const calls: Array<{ text: string; priority: string | undefined }> = [];
+  const calls: Array<{ text: string; priority: string | undefined; interruptable: boolean | undefined }> = [];
   return {
     _calls: calls,
-    say: vi.fn(async (text: string, fakeOpts?: { priority?: string }) => {
-      calls.push({ text, priority: fakeOpts?.priority });
+    say: vi.fn(async (text: string, fakeOpts?: { priority?: string; interruptable?: boolean }) => {
+      calls.push({ text, priority: fakeOpts?.priority, interruptable: fakeOpts?.interruptable });
     }),
     interrupt: vi.fn(async () => {}),
     stop: vi.fn(async () => {}),
@@ -45,6 +45,10 @@ describe('narrator (pointer-driven, APPEND-only)', () => {
     await runNarration(sess, ps, { sleep: noSleep });
     expect(sess._calls.map((c) => c.text)).toEqual(['a', 'b', 'c']);
     expect(sess._calls.every((c) => c.priority === 'APPEND')).toBe(true);
+    // Every narration segment MUST be interruptable, or Agora treats it as a
+    // non-interruptible broadcast and the user can't barge in on it by voice
+    // (the root cause of the "agent talks over me / STT can't hear me" bug).
+    expect(sess._calls.every((c) => c.interruptable === true)).toBe(true);
   });
 
   it('emits segment_started + segment_completed for each segment', async () => {
