@@ -57,7 +57,7 @@ import { ScalingStage } from './tutor/ScalingStage';
 import { InputScreen, PRESETS } from './tutor/InputScreen';
 import { LoadingScreen, type LoadingState } from './tutor/LoadingScreen';
 import { StoryScreen } from './tutor/StoryScreen';
-import { mapTranscriptItems } from './tutor/transcript-mapping';
+import { mapTranscriptItems, latestAgentText } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 
@@ -154,6 +154,10 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   const [qaTranscript, setQaTranscript] = useState<
     Array<{ role: 'user' | 'agent'; text: string; ts: number }>
   >([]);
+  // What the agent is speaking RIGHT NOW (Agora's live agent transcript, grown
+  // word-by-word as the TTS plays). Drives StoryScreen's audio-synced word
+  // reveal so the on-screen cursor tracks the voice instead of a fixed timer.
+  const [liveNarrationText, setLiveNarrationText] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -415,6 +419,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
               branchStartedAt: branchStartedAtRef.current,
             });
             setQaTranscript(committed);
+            // Feed the live agent transcript to the word-reveal so captions
+            // track the actual voice (audio-synced) rather than a fixed timer.
+            setLiveNarrationText(latestAgentText(items, localUid));
           },
         );
 
@@ -827,6 +834,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             activeSceneIndex={activeSceneIndex}
             inBranch={inBranch}
             finished={finished}
+            liveNarrationText={liveNarrationText}
             qaHistoryByScene={qaHistoryByScene}
             micMuted={micMuted}
             micDenied={micDenied}

@@ -67,6 +67,25 @@ export function attributeRole(item: Item, localUid: string): QaRole {
 }
 
 /**
+ * The most recent AGENT transcript text across the items — i.e. what the agent
+ * is saying RIGHT NOW (Agora grows this word-by-word as the TTS plays). Used to
+ * drive the audio-synced narration reveal (see reveal-sync.ts). Returns null if
+ * no agent item carries text yet. Unlike mapTranscriptItems this is NOT gated to
+ * the branch window — during MAIN the narration itself arrives as
+ * assistant.transcription, which is exactly the signal we want here.
+ */
+export function latestAgentText(items: Item[], localUid: string): string | null {
+  let best: { text: string; t: number } | null = null;
+  for (const item of items) {
+    if (attributeRole(item, localUid) !== 'agent') continue;
+    if (!item.text || item.text.trim().length === 0) continue;
+    const t = typeof item._time === 'number' ? item._time : 0;
+    if (!best || t >= best.t) best = { text: item.text, t };
+  }
+  return best ? best.text : null;
+}
+
+/**
  * Map raw TRANSCRIPT_UPDATED items into the committed Q&A turn list.
  * Applies the branch-window filter (C2) and role attribution (C1).
  */
