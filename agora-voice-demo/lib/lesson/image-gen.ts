@@ -20,8 +20,9 @@ export interface ImageGenResult {
   hash: string;
   /** Absolute URL path the browser loads. */
   url: string;
-  /** Server-side absolute file path of the cached image. */
-  file_path: string;
+  /** Server-side absolute file path of the cached image. Absent on the Vercel
+   *  Blob path (the image lives in Blob storage, not the local FS). */
+  file_path?: string;
   /** True if served from cache, false if freshly generated. */
   cached: boolean;
   /** Milliseconds — 0 for cache hits, real wall-clock for generation. */
@@ -73,48 +74,20 @@ function hashPrompt(prompt: string): string {
  * rejection or HTTP failure) so the caller can decide between retry, error
  * surface, or placeholder image.
  */
-export async function generateSceneImage(
-  sceneDescription: string,
-  opts: ImageGenOptions = {},
-): Promise<ImageGenResult> {
-  const apiKey = opts.api_key ?? process.env.GOOGLE_API_KEY;
-  const model = opts.model ?? DEFAULT_MODEL;
-  const cacheDir = opts.cache_dir ?? defaultCacheDir();
-
-  ensureCacheDir(cacheDir);
-
-  const prompt = buildScenePrompt(sceneDescription);
-  const hash = hashPrompt(prompt);
-  const filePath = join(cacheDir, `${hash}.jpg`);
-  const url = `/lesson-cache/${hash}.jpg`;
-
-  // Cache HIT — return immediately. We deliberately do not read the file
-  // bytes off disk; the caller has the URL/path and the browser will fetch
-  // the static asset directly via Next.js.
-  if (existsSync(filePath)) {
-    return {
-      hash,
-      url,
-      file_path: filePath,
-      cached: true,
-      latency_ms: 0,
-    };
-  }
-
-  // Cache MISS — call Gemini.
-  if (!apiKey) {
-    throw new Error('generateSceneImage: api_key is required (set GOOGLE_API_KEY or pass opts.api_key)');
-  }
-
+/** Call Gemini once and return the raw JPEG bytes (+ latency). Throws on HTTP
+ *  failure or a safety-rejected (no inlineData) response. */
+async function fetchSceneImageBytes(
+  prompt: string,
+  apiKey: string,
+  model: string,
+): Promise<{ buf: Buffer; latencyMs: number }> {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const startedAt = Date.now();
 
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-    }),
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
 
   if (!res.ok) {
@@ -136,9 +109,55 @@ export async function generateSceneImage(
     );
   }
 
-  const buf = Buffer.from(inlineData.data, 'base64');
+  return { buf: Buffer.from(inlineData.data, 'base64'), latencyMs: Date.now() - startedAt };
+}
+
+export async function generateSceneImage(
+  sceneDescription: string,
+  opts: ImageGenOptions = {},
+): Promise<ImageGenResult> {
+  const apiKey = opts.api_key ?? process.env.GOOGLE_API_KEY;
+  const model = opts.model ?? DEFAULT_MODEL;
+  const prompt = buildScenePrompt(sceneDescription);
+  const hash = hashPrompt(prompt);
+
+  // On Vercel, public/ is read-only AND runtime-written files aren't served by
+  // the CDN — so the filesystem cache can't work. When a Blob store is wired
+  // (BLOB_READ_WRITE_TOKEN present), upload the generated image to Vercel Blob
+  // and return its CDN URL. The deterministic pathname + allowOverwrite makes
+  // re-puts idempotent. Locally / on a persistent host the fs path below runs.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    if (!apiKey) {
+      throw new Error('generateSceneImage: api_key is required (set GOOGLE_API_KEY or pass opts.api_key)');
+    }
+    const { buf, latencyMs } = await fetchSceneImageBytes(prompt, apiKey, model);
+    const { put } = await import('@vercel/blob');
+    const blob = await put(`lesson-cache/${hash}.jpg`, buf, {
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'image/jpeg',
+    });
+    return { hash, url: blob.url, cached: false, latency_ms: latencyMs, bytes: buf.length };
+  }
+
+  // Filesystem path (local dev / persistent host): cache on disk, serve via
+  // Next's /lesson-cache static route.
+  const cacheDir = opts.cache_dir ?? defaultCacheDir();
+  ensureCacheDir(cacheDir);
+  const filePath = join(cacheDir, `${hash}.jpg`);
+  const url = `/lesson-cache/${hash}.jpg`;
+
+  if (existsSync(filePath)) {
+    return { hash, url, file_path: filePath, cached: true, latency_ms: 0 };
+  }
+
+  if (!apiKey) {
+    throw new Error('generateSceneImage: api_key is required (set GOOGLE_API_KEY or pass opts.api_key)');
+  }
+
+  const { buf, latencyMs } = await fetchSceneImageBytes(prompt, apiKey, model);
   writeFileSync(filePath, buf);
-  const latencyMs = Date.now() - startedAt;
 
   return {
     hash,
