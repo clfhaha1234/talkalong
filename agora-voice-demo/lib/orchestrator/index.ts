@@ -373,6 +373,22 @@ async function buildTutorHandle(args: {
       progress.recordQaTurn(turn.role, turn.text);
     }
 
+    // No-question guard: if the listener never actually asked anything (a false
+    // barge-in from room noise / the agent's own audio, or only narrator tail
+    // leaked in), do NOT run the planner or speak a bridge. Otherwise a chatty
+    // "Got it — now, where were we?" plays at a scene boundary with no question
+    // behind it, which reads as broken. Just exit the branch and let the
+    // narrator resume the paused scene cleanly — no bridge.
+    const hasUserQuestion = qa_history.some(
+      (t) => t.role === 'user' && t.text.trim().length > 0,
+    );
+    if (!hasUserQuestion) {
+      progress.exitBranch();
+      progress.emit('event', { type: 'bridge_completed' } satisfies ProgressEvent);
+      console.log('[orchestrator] qa-ended with no user question — resumed without a bridge');
+      return;
+    }
+
     // Resolve the paused scene + what would have come next from the
     // ProgressState snapshot. paused_segment_id is now accurate (narrator's
     // per-segment sleep means current_segment_id reflects the segment the

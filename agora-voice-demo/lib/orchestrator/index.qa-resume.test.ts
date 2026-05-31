@@ -219,3 +219,48 @@ describe('handleQaEnded — scene-video page selection stays aligned with narrat
     });
   }
 });
+
+describe('handleQaEnded — no-question guard (false barge-in / narration tail)', () => {
+  // Regression for the 2026-05-31 bug: a branch with no REAL user question still
+  // ran the planner and spoke a chatty bridge ("Got it — now, where were we?")
+  // at a scene boundary with nothing behind it. Now it must resume silently.
+  it('empty qa_history → no planner, no bridge, clean resume to MAIN', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    const events: ProgressEvent[] = [];
+    handle.progress.subscribe((e) => events.push(e));
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    await handle.handleQaEnded({ qa_history: [] });
+
+    expect(planResume).not.toHaveBeenCalled();
+    expect(sayCalls.length, 'no bridge should be spoken').toBe(0);
+    expect(events.some((e) => e.type === 'bridge_started')).toBe(false);
+    expect(events.some((e) => e.type === 'bridge_completed')).toBe(true);
+    expect(handle.progress.outerState()).toBe('MAIN');
+  });
+
+  it('agent-only qa_history (no real question) → same clean resume, no bridge', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    await handle.handleQaEnded({
+      qa_history: [{ role: 'agent', text: 'Lina crept toward the tree.', ts: 1 }],
+    });
+
+    expect(planResume).not.toHaveBeenCalled();
+    expect(sayCalls.length).toBe(0);
+    expect(handle.progress.outerState()).toBe('MAIN');
+  });
+});
