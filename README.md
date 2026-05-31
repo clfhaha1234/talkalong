@@ -14,7 +14,9 @@
 
 <br>
 
-<img src="agora-voice-demo/docs/screenshots/tutor-storybook.png" alt="talkalong storybook tutor — an illustrated scene read aloud, with narration on the right and a tap-to-talk mic to interrupt" width="860">
+<img src="agora-voice-demo/docs/screenshots/tutor-demo.gif" alt="talkalong storybook tutor in motion — an illustration draws itself in, the narration reveals scene by scene, and the mic goes live to take a spoken interrupt" width="860">
+
+<sub><em>The illustration draws itself in, the narration reveals, and the mic goes live to take a spoken interrupt. (Hosted demo video in the project submission.)</em></sub>
 
 </div>
 
