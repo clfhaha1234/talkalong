@@ -86,6 +86,26 @@ export function latestAgentText(items: Item[], localUid: string): string | null 
 }
 
 /**
+ * The most recent USER transcript text across the items — i.e. what the user is
+ * saying RIGHT NOW (Agora grows this word-by-word as the STT transcribes). Used
+ * to show the live in-progress question in the voice composer while listening.
+ * Returns null if no user item carries text yet. Unlike mapTranscriptItems this
+ * is NOT gated to the branch window or to finalised turns — we want the partial,
+ * in-progress text precisely so the composer can echo the user's words as they
+ * speak.
+ */
+export function latestUserText(items: Item[], localUid: string): string | null {
+  let best: { text: string; t: number } | null = null;
+  for (const item of items) {
+    if (attributeRole(item, localUid) !== 'user') continue;
+    if (!item.text || item.text.trim().length === 0) continue;
+    const t = typeof item._time === 'number' ? item._time : 0;
+    if (!best || t >= best.t) best = { text: item.text, t };
+  }
+  return best ? best.text : null;
+}
+
+/**
  * Map raw TRANSCRIPT_UPDATED items into the committed Q&A turn list.
  * Applies the branch-window filter (C2) and role attribution (C1).
  */
