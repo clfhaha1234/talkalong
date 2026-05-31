@@ -21,7 +21,8 @@ import {
 } from 'agora-agent-server-sdk';
 import { RtcRole, RtcTokenBuilder } from 'agora-token';
 
-import { splitToSegments } from './splitter';
+import { BASELINE_TURN_DETECTION } from '@/lib/agora-turn-detection';
+import { splitToSegments, estimateNarrationMs } from './splitter';
 import { ProgressState } from './progress-state';
 import { runNarration, type RunNarrationOptions } from './narrator';
 import { planResume } from './resume-planner';
@@ -115,33 +116,12 @@ const PHASE3_FILLER: FillerWordsConfig = {
   },
 };
 
-// Turn detection — ALIGNED to the base /api/invite-agent route (the `/` demo
-// whose STT is buttery-smooth). The tutor had diverged to a bare
-// `start_of_speech:{mode:'vad'}` + `end_of_speech:{mode:'semantic'}` with no
-// tuning, which caused the symptoms vs `/`:
-//   - semantic EoS runs an LLM to decide turn-end → laggy ("卡顿")
-//   - no prefix_padding_ms → the first ~300ms of speech is dropped ("缺开头")
-//   - no speech_threshold / interrupt_duration → defaults misfire
-// Matching the proven `/` config (deterministic VAD, 300ms prefix capture,
-// 480ms end silence) makes the tutor's STT behave like the 1:1 demo.
-const PHASE3_TURN: TurnDetectionConfig = {
-  config: {
-    speech_threshold: 0.5,
-    start_of_speech: {
-      mode: 'vad',
-      vad_config: {
-        interrupt_duration_ms: 160,
-        prefix_padding_ms: 300,
-      },
-    },
-    end_of_speech: {
-      mode: 'vad',
-      vad_config: {
-        silence_duration_ms: 480,
-      },
-    },
-  },
-};
+// Turn detection — shared with the base /api/invite-agent route (the `/` demo
+// whose STT is buttery-smooth) via the single BASELINE_TURN_DETECTION constant,
+// so the two agent-start paths can no longer drift (they once did: the tutor
+// had diverged to bare-vad SoS + `semantic` EoS with no prefix_padding, which
+// made its STT laggy + clipped speech starts vs `/`).
+const PHASE3_TURN: TurnDetectionConfig = BASELINE_TURN_DETECTION;
 
 const PHASE3_ADVANCED: AdvancedFeatures = { enable_rtm: true };
 
@@ -453,8 +433,10 @@ async function buildTutorHandle(args: {
         id: r.id,
         range: { start: 0, end: r.text.length },
         text: r.text,
-        approx_duration_ms:
-          Math.max(700, Math.round((r.text.length / 17) * 1000)) + 150,
+        // Reuse the splitter's script-aware estimate (CJK ~5/s vs Latin ~17/s)
+        // instead of a naive inline 17-chars/sec — the planner's replacement
+        // segments (often Chinese) were getting Latin-rate timing.
+        approx_duration_ms: estimateNarrationMs(r.text),
         category: orig?.category ?? 'exposition',
         elicitation_node: false,
       };
@@ -553,9 +535,9 @@ export async function startTutorSessionFromScenes(args: {
     id: scene.id,
     range: { start: 0, end: scene.narration_text.length },
     text: scene.narration_text,
-    // Heuristic: ~17 chars/sec English TTS + 150ms padding, floor 700ms.
-    approx_duration_ms:
-      Math.max(700, Math.round((scene.narration_text.length / 17) * 1000)) + 150,
+    // Script-aware estimate (CJK ~5/s vs Latin ~17/s) — same helper the
+    // splitter uses, so scene timing matches what the segmenter produces.
+    approx_duration_ms: estimateNarrationMs(scene.narration_text),
     category: 'exposition',
     elicitation_node: false,
   }));
