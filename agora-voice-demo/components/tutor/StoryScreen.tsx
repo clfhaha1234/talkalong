@@ -202,7 +202,9 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
             color: T.inkSoft,
           }}
         >
-          {scene.chapter.toUpperCase()}
+          {/* No "Chapter X" label — keep a neutral plate marker so the stage
+              reads like a video frame, not a storybook chapter. */}
+          PLATE {plate.toUpperCase()}
         </div>
 
         {/* playing/paused chip top-right */}
@@ -351,25 +353,6 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
 
 // ──────────────────────────────────────────────────────────────
 // Message bubbles
-function ChapterDivider({ label }: { label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 2px' }}>
-      <div style={{ flex: 1, height: 1, background: T.paperEdge }} />
-      <div
-        style={{
-          fontFamily: F_HEAD,
-          fontStyle: 'italic',
-          fontSize: 13,
-          color: T.inkSoft,
-          letterSpacing: '0.12em',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ flex: 1, height: 1, background: T.paperEdge }} />
-    </div>
-  );
-}
 
 interface TeacherBubbleProps {
   headline?: string;
@@ -464,7 +447,7 @@ function TeacherBubble({ headline, text, streaming, isAnswer }: TeacherBubblePro
   );
 }
 
-function UserBubble({ text }: { text: string }) {
+function UserBubble({ text, live = false }: { text: string; live?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
       <div
@@ -478,9 +461,25 @@ function UserBubble({ text }: { text: string }) {
           fontStyle: 'italic',
           fontSize: 17,
           lineHeight: 1.5,
+          // Interim (still-being-spoken) transcript: slightly translucent with a
+          // blinking caret, so it reads as "hearing you…" vs a committed turn.
+          opacity: live ? 0.7 : 1,
         }}
       >
         {text}
+        {live && (
+          <span
+            style={{
+              display: 'inline-block',
+              width: 2,
+              height: 16,
+              background: T.paper,
+              verticalAlign: -2,
+              marginLeft: 3,
+              animation: 'blink 0.9s infinite',
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -674,22 +673,23 @@ function ConversationPanel({
         }}
       >
         {scenes.slice(0, currentIndex + 1).flatMap((scene, i) => {
-          const nodes = [
-            // The current chapter's divider carries the ref the auto-scroll
-            // pins to the top of the feed when the chapter changes.
-            i === currentIndex ? (
-              <div key={`${scene.id}-chapter`} ref={currentChapterRef}>
-                <ChapterDivider label={scene.chapter} />
-              </div>
-            ) : (
-              <ChapterDivider key={`${scene.id}-chapter`} label={scene.chapter} />
-            ),
+          // Pure-chatbot feed: each narrated scene is just a teacher message —
+          // no "Chapter X" divider, no headline. The CURRENT scene's bubble
+          // carries the ref the auto-scroll pins to the top on scene change.
+          const narration = (
             <TeacherBubble
-              key={`${scene.id}-narration`}
-              headline={`${scene.headline[0]} ${scene.headline[1]}`.trim()}
               text={scene.narration_text}
               streaming={phase === 'reading' && i === currentIndex}
-            />,
+            />
+          );
+          const nodes = [
+            i === currentIndex ? (
+              <div key={`${scene.id}-narration`} ref={currentChapterRef}>
+                {narration}
+              </div>
+            ) : (
+              <div key={`${scene.id}-narration`}>{narration}</div>
+            ),
           ];
           // Interleave this scene's Q&A: user question, then the teacher's
           // gold-tinted answer (if any). Skip empties.
@@ -706,6 +706,13 @@ function ConversationPanel({
           });
           return nodes;
         })}
+        {/* LIVE interrupt — show the user's in-progress speech in real-time as a
+            chat bubble the moment they start talking (before it's committed to
+            qaHistory), so interrupting feels instant and you can SEE what STT is
+            hearing — mirrors the `/` chat's in-progress message. */}
+        {liveUserText && liveUserText.trim() && (
+          <UserBubble text={liveUserText} live />
+        )}
         {thinking && <ThinkingBubble />}
       </div>
 
