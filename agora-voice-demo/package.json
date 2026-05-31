@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/e2e/tutor-input-smoke.mjs",
+    "test:e2e": "node scripts/e2e/tutor-input-smoke.mjs && node scripts/e2e/tutor-storyscreen-smoke.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },
   "dependencies": {
@@ -42,12 +42,16 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.10.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.2",
+    "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
