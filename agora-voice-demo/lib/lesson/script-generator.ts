@@ -181,9 +181,12 @@ function ensureCacheDir(repoRoot: string): string {
 }
 
 function readCache(repoRoot: string, key: string): LlmScript | null {
-  const file = join(ensureCacheDir(repoRoot), `${key}.json`);
-  if (!existsSync(file)) return null;
+  // Fully best-effort: on a read-only prod FS (e.g. Vercel, where public/ is
+  // immutable) ensureCacheDir's mkdir throws — treat that as a cache miss, not
+  // a crash. (This is the dev script cache; regenerating on miss is fine.)
   try {
+    const file = join(ensureCacheDir(repoRoot), `${key}.json`);
+    if (!existsSync(file)) return null;
     return JSON.parse(readFileSync(file, 'utf8')) as LlmScript;
   } catch {
     return null;
@@ -191,8 +194,14 @@ function readCache(repoRoot: string, key: string): LlmScript | null {
 }
 
 function writeCache(repoRoot: string, key: string, script: LlmScript): void {
-  const file = join(ensureCacheDir(repoRoot), `${key}.json`);
-  writeFileSync(file, JSON.stringify(script, null, 2));
+  // Best-effort cache write. A read-only FS (Vercel: ENOENT/EROFS on
+  // public/lesson-cache) must NOT crash lesson generation — swallow it.
+  try {
+    const file = join(ensureCacheDir(repoRoot), `${key}.json`);
+    writeFileSync(file, JSON.stringify(script, null, 2));
+  } catch {
+    /* caching is optional; ignore read-only-FS / quota errors */
+  }
 }
 
 function parseLlmJson(raw: string): LlmScript {
