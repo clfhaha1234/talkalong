@@ -67,7 +67,18 @@ export async function runNarration(
 
     progress.startSegment(seg);
     try {
-      await session.say(seg.text, { priority: 'APPEND' });
+      // interruptable: true is THE flag that makes barge-in feel like raw Agora
+      // 1:1 chat. Without it, Agora treats a say()-injected broadcast as a
+      // non-interruptible announcement: the user's voice does NOT stop it, so
+      // the agent talks over them (subtitles keep moving) AND the user's audio
+      // overlaps the still-playing TTS, which wrecks STT. LLM-driven turns (our
+      // Q&A answers) are interruptible by default — which is exactly why 1:1
+      // chat is smooth but the narration was not. With this flag, Agora's native
+      // VAD stops the narration server-side the instant the listener speaks
+      // (~native latency, no browser round-trip), and the resulting
+      // speaking→listening transition is what then drives beginBranch() to pause
+      // the narrator loop so it doesn't queue the next segment.
+      await session.say(seg.text, { priority: 'APPEND', interruptable: true });
     } catch (err) {
       progress.emitError(`say() failed for ${seg.id}: ${(err as Error).message}`);
       throw err;

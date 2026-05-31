@@ -395,7 +395,12 @@ async function buildTutorHandle(args: {
       type: 'bridge_started',
       text: plan.bridge_text,
     } satisfies ProgressEvent);
-    await session.say(plan.bridge_text, { priority: 'INTERRUPT' });
+    // interruptable: true so the listener can barge in on the bridge too — if
+    // they have a follow-up the moment the story starts rejoining, the agent
+    // yields immediately instead of talking over them (same rationale as the
+    // narrator's say()). INTERRUPT priority flushes the paused segment's tail +
+    // any pre-BRANCH APPENDs so the bridge starts clean.
+    await session.say(plan.bridge_text, { priority: 'INTERRUPT', interruptable: true });
 
     // 2. Apply the planner's replacement_segments into ProgressState so the
     //    narrator loop, when it wakes from waitForMain(), picks up the
