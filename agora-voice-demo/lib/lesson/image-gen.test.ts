@@ -47,8 +47,11 @@ describe('generateSceneImage', () => {
     expect(r.cached).toBe(false);
     expect(r.latency_ms).toBeGreaterThanOrEqual(0);
     expect(r.bytes).toBe(5); // "Hello" decoded is 5 bytes
-    expect(existsSync(r.file_path)).toBe(true);
-    expect(readFileSync(r.file_path).toString('utf8')).toBe('Hello');
+    // file_path is set on the fs path (this test). It's optional on the type
+    // because the Vercel Blob path returns a Blob URL instead.
+    expect(r.file_path).toBeDefined();
+    expect(existsSync(r.file_path!)).toBe(true);
+    expect(readFileSync(r.file_path!).toString('utf8')).toBe('Hello');
     expect(r.url).toBe(`/lesson-cache/${r.hash}.jpg`);
     expect(r.hash).toHaveLength(16);
     expect(fetchMock).toHaveBeenCalledTimes(1);
