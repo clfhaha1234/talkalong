@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: typecheck · lint · test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agora-voice-demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: agora-voice-demo/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # Keyless checks — no Agora/Gemini credentials needed. The unit tests are
+      # pure logic (language detection, transcript attribution, the orchestrator
+      # spine, the session-message builder); the live benches/probes are
+      # on-demand scripts, not part of CI.
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm test
