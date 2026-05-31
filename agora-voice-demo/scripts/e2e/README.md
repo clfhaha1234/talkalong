@@ -33,16 +33,34 @@ StoryScreen with canned fixtures inside the same `ScalingStage` wrapper the real
 tutor uses, with no Agora / API / mic. Variants:
 `?variant=reading|muted|listening|paused|finished`.
 
-## Tier 3 is deliberately deferred (not a silent gap)
+## Tier 3 — full fake-mic session (BUILT, opt-in, costs credits)
 
-The full barge-in / STT / Chinese-resume round trip needs live Agora RTC/RTM, a
-real microphone, and paid LLM+TTS calls — it can't run headless in CI and burns
-credits per run. That round trip is covered another way today:
+`scripts/qa-bench/audio-barge-in/tutor-barge-in-e2e.mjs` (`pnpm test:e2e:live`)
+drives the REAL /tutor flow in headless Chromium with a **fake microphone**:
+it enters a topic, lets the real agent (Agora ConvoAI: Deepgram STT →
+gpt-4o-mini → MiniMax TTS) narrate a cat story, plays the spoken question
+*"What is the name of the cat?"* during narration, and reads the agent's real
+spoken answer from the server-side session log. It asserts the agent **names the
+cat** (a name from the narration) instead of teasing — proving barge-in fired
+from real audio, the branch paused narration, and the say()-injected context
+reached the LLM.
 
-- **orchestrator logic** by `lib/orchestrator/index.qa-resume.test.ts` +
-  `stt-config.test.ts` (the config can't silently drift from the proven `/` demo)
-- **barge-in latency** by the opt-in fake-mic harness in
-  `scripts/qa-bench/audio-barge-in/` (run manually against a live dev server)
+It is **NOT** in `pnpm eval` / CI on purpose: it needs a dev server with live
+Agora credentials, macOS `say` + ffmpeg for the WAV, and it spends real
+LLM/TTS/compose credits (~one cat story per run, ~2–3 min wall-clock).
 
-If/when Tier 3 is built, it belongs here as an opt-in script gated behind an
-env flag (keys present), never in the default `test`/CI path.
+```bash
+pnpm dev &                       # dev server with .env.local credentials
+pnpm test:e2e:live               # or: TUTOR_URL=… OBSERVE_MS=… node …/tutor-barge-in-e2e.mjs
+```
+
+Verified PASS 2026-05-30: heard the question, answered "The cat's name is
+Pemberley…", named the cat, did not tease. (The older `cat-name-e2e.mjs` in the
+same dir predates the always-on-mic rework — it waits for a `turn on microphone`
+button that no longer exists; `tutor-barge-in-e2e.mjs` is the current one,
+keyed off the `scene-dots` testid.)
+
+Still genuinely out of headless reach (and covered another way): barge-in
+**latency** distribution (the fake-mic latency harness `run-latency.mjs`) and
+the orchestrator branch/resume **logic** (`index.qa-resume.test.ts` +
+`stt-config.test.ts`, which also pin the config against drift).
