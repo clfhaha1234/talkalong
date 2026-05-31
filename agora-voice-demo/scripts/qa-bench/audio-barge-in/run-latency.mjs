@@ -91,7 +91,10 @@ function pageSnapshot() {
 // deriveLatencies is now in run-latency-lib.mjs (imported at the top).
 
 async function runTrial(testCase, trialIdx) {
-  const wavPath = join(WAV_DIR, testCase.wav);
+  // generate-wavs.mjs names files by case id (B01.wav). cases.json has no
+  // `wav` field, so derive it — falling back to testCase.wav if a future
+  // case schema adds an explicit filename.
+  const wavPath = join(WAV_DIR, testCase.wav ?? `${testCase.id}.wav`);
   if (!existsSync(wavPath)) return { error: 'wav-missing', wavPath };
 
   const browser = await chromium.launch({
