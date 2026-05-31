@@ -8,6 +8,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // The deployed product IS the AI tutor — send the site root straight to it
+  // (the raw `/` Agora 1:1 demo stays reachable only if you hit it directly via
+  // a deep link; 307 so it's easy to revert).
+  async redirects() {
+    return [{ source: '/', destination: '/tutor', permanent: false }];
+  },
   turbopack: {
     root: rootDir,
   },
