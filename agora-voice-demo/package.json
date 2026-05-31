@@ -19,6 +19,7 @@
     "test:e2e": "node scripts/e2e/tutor-input-smoke.mjs && node scripts/e2e/tutor-storyscreen-smoke.mjs",
     "eval": "node scripts/eval/run-all.mjs",
     "test:e2e:live": "node scripts/qa-bench/audio-barge-in/tutor-barge-in-e2e.mjs",
+    "test:e2e:suite": "node scripts/qa-bench/audio-barge-in/tutor-eval-suite.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },
   "dependencies": {
