@@ -5,8 +5,13 @@ The PRD's primary target was a paper walkthrough (clearest main-line structure, 
 pain point — researchers reading dense PDFs need this more than kids need bedtime stories).
 The storybook ended up shipping first because it's the **highest-stakes correctness setting**:
 you cannot fake continuity in front of a 6-year-old. If the engine handles "wait why is the
-bark silver, also switch to Chinese, and where's the fox now?" it handles anything. Same
-engine, different content layer.
+bark silver — and where's the fox now?" across back-to-back interrupts without losing the
+thread, it handles anything. Same engine, different content layer.
+
+(The story's *language* follows the topic you type — type it in Chinese, get a Chinese story.
+Switching language by *voice* mid-story isn't supported yet: speech-to-text is English-only
+for now, so a spoken non-English interrupt won't transcribe. That's a roadmap item, not a
+limitation of the orchestrator.)
 
 **Doesn't Agora already do this?**
 Agora does voice I/O — TTS, STT, interrupt, turn detection, the latency budget. Agora
