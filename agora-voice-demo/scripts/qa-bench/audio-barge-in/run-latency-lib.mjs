@@ -142,6 +142,69 @@ export function deriveSeamLatencies(seams, leadMs) {
   };
 }
 
+/**
+ * Fast verdict for the typed-QA path. This catches the manual Render failure
+ * mode where the user bubble appears, but the narrator keeps talking because
+ * the typed path never performed the local hush / branch transition.
+ *
+ * Input is the same seam array used by the heavier live harness:
+ *   typed_txt <text>       user submitted a typed question
+ *   hush 0                client locally muted the remote agent audio
+ *   branch_post N:typed   browser told the orchestrator to enter BRANCH
+ *   state speaking        answer started (optional; may exceed a short smoke)
+ */
+export function deriveTypedQaVerdict(seams, opts = {}) {
+  const maxHushMs = opts.maxHushMs ?? 250;
+  const maxBranchMs = opts.maxBranchMs ?? 500;
+  const maxAnswerMs = opts.maxAnswerMs ?? 8000;
+
+  const typed = seams.find((s) => s.ev === 'typed_txt');
+  if (!typed) {
+    return {
+      ok: false,
+      typed_seen: false,
+      hush_ok: false,
+      branch_ok: false,
+      answer_started: false,
+      failures: ['missing typed_txt seam'],
+    };
+  }
+
+  const hush = seams.find((s) => s.ev === 'hush' && String(s.detail) === '0' && s.t >= typed.t);
+  const branch = seams.find(
+    (s) => s.ev === 'branch_post' && /:typed\b/.test(String(s.detail ?? '')) && s.t >= typed.t,
+  );
+  const answer = seams.find((s) => s.ev === 'state' && s.detail === 'speaking' && s.t >= typed.t);
+
+  const hushMs = hush ? hush.t - typed.t : null;
+  const branchMs = branch ? branch.t - typed.t : null;
+  const answerMs = answer ? answer.t - typed.t : null;
+  const failures = [];
+
+  if (hushMs == null) failures.push('typed question did not locally hush agent audio');
+  else if (hushMs > maxHushMs) failures.push(`typed hush too slow (${hushMs}ms > ${maxHushMs}ms)`);
+
+  if (branchMs == null) failures.push('typed question did not POST branch-started as typed');
+  else if (branchMs > maxBranchMs) failures.push(`typed branch_post too slow (${branchMs}ms > ${maxBranchMs}ms)`);
+
+  if (answerMs != null && answerMs > maxAnswerMs) {
+    failures.push(`typed answer started too slowly (${answerMs}ms > ${maxAnswerMs}ms)`);
+  }
+
+  return {
+    ok: failures.length === 0,
+    typed_seen: true,
+    hush_ok: hushMs != null && hushMs <= maxHushMs,
+    branch_ok: branchMs != null && branchMs <= maxBranchMs,
+    answer_started: answerMs != null,
+    typed_text: typed.detail ?? '',
+    hush_ms: hushMs,
+    branch_ms: branchMs,
+    answer_ms: answerMs,
+    failures,
+  };
+}
+
 /** Nearest-rank percentile. Filters nulls. Empty → null. */
 export function pct(arr, p) {
   const xs = arr.filter((x) => x != null).sort((a, b) => a - b);

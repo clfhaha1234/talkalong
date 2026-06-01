@@ -56,7 +56,15 @@ node scripts/qa-bench/audio-barge-in/run-seam-latency.mjs --trials 3
 
 `run-seam-latency.mjs` reads the gated `[seam]` timeline from `/tutor?voicelog=1` and treats `branch_post` as a hard contract. If the UI hears a question but never POSTs `/api/tutor/branch-started`, the run fails even if a user bubble or answer-looking text appears. That specifically catches the 2026-06-01 typed-QA failure mode where the backend narrator stayed in MAIN and kept talking over the branch.
 
-It measures three latencies a listener actually feels, by polling the **user-visible DOM** (Voice Orb copy + branch overlay + "now reading" header) every 100ms — no app instrumentation, it tests the same surface the child sees:
+For the faster text-mode proxy against local or Render, run:
+
+```bash
+BARGE_BASE_URL=https://your-render-url pnpm test:e2e:typed
+```
+
+That script submits a typed question while narration is running and fails unless the seam stream shows `typed_txt -> hush 0 -> branch_post :typed` immediately, then verifies the answer renders as an `IN ANSWER TO YOU` bubble without narration leakage. It is the cheap daily smoke for the bug class usually found by "I just typed hi and it ignored me".
+
+The seam latency harness measures three latencies a listener actually feels from ground-truth app events, not copy scraped from the DOM:
 
 | metric | gap measured | "feels like" |
 |---|---|---|
@@ -77,7 +85,7 @@ The report answers the three things a listener actually feels, with 🟢/🟡/�
 
 It also prints a **resume budget** that splits T3 into the one *fixed, tunable product knob* — `SILENCE_TIMEOUT_MS` (the after-answer silence-confirm wait, currently mirrored from `components/TutorPage.tsx`, the dominant component of "how long after I go quiet does the story continue") — vs the variable live plan+bridge work. A drift guard greps the source so the harness constant can't silently fall out of sync. Lowering the fixed wait is the single highest-leverage resume-snappiness change; the budget table tells you whether it's actually the bottleneck for each case.
 
-The pure logic (`deriveLatencies`, `deriveSeamLatencies`, percentiles, bands, budget split) is unit-tested on synthetic timelines; the **full run needs a dev server with real Agora + LLM keys** (this worktree has none — same constraint as `run.mjs`).
+The pure logic (`deriveLatencies`, `deriveSeamLatencies`, `deriveTypedQaVerdict`, percentiles, bands, budget split) is unit-tested on synthetic timelines; the **full run needs a dev server with real Agora + LLM keys** (this worktree has none — same constraint as `run.mjs`).
 
 ## KPIs
 

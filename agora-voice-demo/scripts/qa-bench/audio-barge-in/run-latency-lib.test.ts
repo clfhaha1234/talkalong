@@ -18,6 +18,7 @@ import {
   KNOWN_FIXED,
   band,
   deriveSeamLatencies,
+  deriveTypedQaVerdict,
   deriveLatencies,
   pct,
   resumeBudget,
@@ -83,6 +84,46 @@ describe('deriveSeamLatencies() — branch-post tripwire', () => {
     // Latency can look fine while the backend state contract is broken; this is
     // the bug class the old bench missed.
     expect(result.t2_reply_ms).toBe(1500);
+  });
+});
+
+describe('deriveTypedQaVerdict() — typed screenshot tripwire', () => {
+  it('passes when typed submit immediately hushes and posts a typed branch', () => {
+    const result = deriveTypedQaVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'hi' },
+      { t: 1002, ev: 'hush', detail: '0' },
+      { t: 1003, ev: 'branch_post', detail: '7:typed' },
+      { t: 2400, ev: 'state', detail: 'speaking' },
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.hush_ms).toBe(2);
+    expect(result.branch_ms).toBe(3);
+    expect(result.answer_started).toBe(true);
+  });
+
+  it('fails the exact gap: user bubble exists, but typed path never locally hushes narration', () => {
+    const result = deriveTypedQaVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'hi' },
+      { t: 1003, ev: 'branch_post', detail: '7:typed' },
+      { t: 2400, ev: 'state', detail: 'speaking' },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.hush_ok).toBe(false);
+    expect(result.failures).toContain('typed question did not locally hush agent audio');
+  });
+
+  it('fails when the old typed path posts no typed branch marker', () => {
+    const result = deriveTypedQaVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'hi' },
+      { t: 1002, ev: 'hush', detail: '0' },
+      { t: 1003, ev: 'branch_post', detail: '7' },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.branch_ok).toBe(false);
+    expect(result.failures).toContain('typed question did not POST branch-started as typed');
   });
 });
 

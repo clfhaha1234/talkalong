@@ -11,6 +11,7 @@
 
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { deriveTypedQaVerdict } from './run-latency-lib.mjs';
 
 const BASE = process.env.BARGE_BASE_URL || 'http://localhost:3000';
 const TOPIC = process.env.TOPIC || 'Tell a short 3-scene bedtime story about a library cat named Pemberley.';
@@ -18,13 +19,24 @@ const QUESTION = process.env.QUESTION || 'What is the name of the cat?';
 const COMPOSE_TIMEOUT_MS = Number(process.env.COMPOSE_TIMEOUT_MS || 200000);
 const OUT = '/tmp/spike-mic/typed-qa';
 
+function parseSeam(line) {
+  const m = line.match(/\[seam\]\s+(\d+)\s+(\w+)(?:\s+(.*))?$/);
+  if (!m) return null;
+  return { t: Number(m[1]), ev: m[2], detail: (m[3] ?? '').trim() };
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const seams = [];
   try {
     const page = await (await browser.newContext()).newPage();
-    page.on('console', (m) => { if (m.text().includes('[seam]')) seams.push(m.text().replace(/^.*\[seam\]/, '[seam]')); });
+    page.on('console', (m) => {
+      if (!m.text().includes('[seam]')) return;
+      const raw = m.text().replace(/^.*\[seam\]/, '[seam]');
+      const parsed = parseSeam(raw);
+      seams.push(parsed ? { ...parsed, raw } : raw);
+    });
     await page.goto(`${BASE}/tutor?voicelog=1`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.locator('textarea, input[type="text"]').first().fill(TOPIC);
     await page.locator('button', { hasText: /begin/i }).first().click();
@@ -39,8 +51,11 @@ async function main() {
     await tb.fill(QUESTION);
     await tb.press('Enter');
     console.log(`typed question: "${QUESTION}" — waiting for the answer…`);
+    await page.waitForTimeout(500);
+    const instantVerdict = deriveTypedQaVerdict(seams.filter((s) => typeof s !== 'string'));
     await page.waitForTimeout(16000);
     await page.screenshot({ path: `${OUT}/typed-qa.png` }).catch(() => {});
+    const finalVerdict = deriveTypedQaVerdict(seams.filter((s) => typeof s !== 'string'));
 
     // Pull the answer text: the teacher bubble(s) flagged "IN ANSWER TO YOU".
     const answers = await page.evaluate(() => {
@@ -57,15 +72,18 @@ async function main() {
     console.log('\n=== IN-ANSWER bubbles ===');
     answers.forEach((a, i) => console.log(`  [${i}] ${a.slice(0, 200)}`));
     console.log('\n=== seams (tail) ===');
-    seams.slice(-12).forEach((s) => console.log('  ' + s));
+    seams.slice(-12).forEach((s) => console.log('  ' + (typeof s === 'string' ? s : s.raw)));
 
     const named = answers.some((a) => /pemberley/i.test(a));
     const leak = answers.some((a) => /padded softly|grassy hill|guardian of/i.test(a)); // narration phrases
     console.log('\n=== TYPED-QA VERDICT ===');
+    console.log(`  instant hush: ${instantVerdict.hush_ok ? '✅' : '❌'} ${instantVerdict.hush_ms ?? '—'}ms`);
+    console.log(`  instant typed branch: ${instantVerdict.branch_ok ? '✅' : '❌'} ${instantVerdict.branch_ms ?? '—'}ms`);
+    for (const f of instantVerdict.failures) console.log(`    - ${f}`);
     console.log(`  got an IN-ANSWER bubble: ${answers.length > 0 ? '✅' : '❌'}`);
     console.log(`  answer names the cat (Pemberley): ${named ? '✅' : '❓'}`);
     console.log(`  answer is NOT a narration leak: ${leak ? '❌ LEAK' : '✅'}`);
-    const pass = answers.length > 0 && !leak;
+    const pass = instantVerdict.ok && finalVerdict.ok && answers.length > 0 && !leak;
     console.log(`  ${pass ? '✅ PASS — agent answered, rendered as a clean QA answer' : '❌ FAIL — no clean answer'}`);
     console.log(`  screenshot: ${OUT}/typed-qa.png`);
     process.exit(pass ? 0 : 1);

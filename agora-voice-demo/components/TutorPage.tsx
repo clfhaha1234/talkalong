@@ -498,6 +498,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       if (!q || !sessionInfo) return;
       const now = Date.now();
       const typedTurn = { role: 'user' as const, text: q, ts: now };
+      seam('typed_txt', q);
       // Enter a branch (pause narration + locally hush TTS) if we're not already
       // in one — the same effect a voice barge-in has. For typed questions the
       // server ping deliberately skips session.interrupt(); sendText(INTERRUPTED)
@@ -526,7 +527,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           .catch((err) => console.warn('[tutor] sendText failed', err));
       }
     },
-    [sessionInfo, beginVoiceBranch],
+    [sessionInfo, beginVoiceBranch, seam],
   );
 
   // ── RTM client lifecycle ──────────────────────────────────
