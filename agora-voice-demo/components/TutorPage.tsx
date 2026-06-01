@@ -146,6 +146,26 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // transition-detector effect, so it can be stale when the agent's audio track
   // first publishes — agentStateRef is always current for the start-hushed check.
   const agentStateRef = useRef<string>('idle');
+  // ── Seam instrumentation for the audio-latency bench. GATED on ?voicelog=1
+  // so production stays silent. Emits a flat, greppable timeline the harness
+  // parses via page.on('console'): "[seam] <perf_ms> <event> [detail]". perf_ms
+  // is a monotonic clock (performance.now), so the bench derives T1/T2/T3 +
+  // false-barge-in + STT-completeness from ground-truth VOICE events, not the
+  // DOM (which drifts with copy) — see scripts/qa-bench/audio-barge-in.
+  const voiceLogRef = useRef(false);
+  useEffect(() => {
+    try {
+      voiceLogRef.current = new URLSearchParams(window.location.search).has('voicelog');
+    } catch {
+      /* no window (SSR) */
+    }
+  }, []);
+  const seam = useCallback((event: string, detail?: string | number) => {
+    if (!voiceLogRef.current) return;
+    const d = detail == null ? '' : ` ${String(detail).replace(/\s+/g, ' ').slice(0, 60)}`;
+    // eslint-disable-next-line no-console
+    console.log(`[seam] ${Math.round(performance.now())} ${event}${d}`);
+  }, []);
   const inBranchRef = useRef(false);
   // Scene index the BRANCH paused us on — so we know where to drop the
   // QA marginalia even if the orchestrator has already started the
@@ -267,6 +287,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     isReady && joinSuccess && micRequested,
   );
   usePublish([localMicrophoneTrack]);
+  // Seam: mic track created = getUserMedia fired = the fake-mic WAV playhead
+  // starts here. The bench anchors interrupt-onset off this (WAV lead silence).
+  useEffect(() => {
+    if (localMicrophoneTrack) seam('mic_live');
+  }, [localMicrophoneTrack, seam]);
   useEffect(() => {
     if (micError) {
       console.warn('[tutor] mic acquisition failed', micError.message);
@@ -321,9 +346,14 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   useEffect(() => {
     const track = agentAudioTrackRef.current;
     if (!track) return;
-    if (agentState === 'listening') track.setVolume(0);
-    else if (agentState === 'speaking') track.setVolume(100);
-  }, [agentState]);
+    if (agentState === 'listening') {
+      track.setVolume(0);
+      seam('hush', 0);
+    } else if (agentState === 'speaking') {
+      track.setVolume(100);
+      seam('hush', 100);
+    }
+  }, [agentState, seam]);
 
   // Local mute helper — the mute control in StoryScreen toggles this. Keeps
   // the track lifecycle owned by useLocalMicrophoneTrack (no manual close).
@@ -503,6 +533,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           (_agentUserId: string, event: StateChangeEvent) => {
             if (_agentUserId) agentUidRef.current = String(_agentUserId);
             agentStateRef.current = String(event.state);
+            seam('state', String(event.state));
             setAgentState(String(event.state));
           },
         );
@@ -539,7 +570,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             setLiveNarrationText(latestAgentText(items, localUid));
             // Feed the live user transcript to the voice composer so the
             // in-progress question echoes back as the user speaks.
-            setLiveUserText(latestUserText(items, localUid));
+            const ut = latestUserText(items, localUid);
+            setLiveUserText(ut);
+            if (ut) seam('user_txt', ut);
           },
         );
 
@@ -605,6 +638,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // what makes the story stop the instant the listener speaks (instead of
       // talking over them), and it also means the listener speaks into silence
       // so STT can actually hear them. Fire-and-forget.
+      seam('branch_post');
       void fetch('/api/tutor/branch-started', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -621,6 +655,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       qaTurnCountRef.current++;
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
+        seam('qa_post');
         const snapshot = qaTranscript.slice(-10);
         void fetch('/api/tutor/qa-ended', {
           method: 'POST',
@@ -785,6 +820,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         }
 
         case 'segment_started': {
+          seam('segment', e.segment_id);
           // Narration (re)starting = any QA branch is OVER. Close the capture
           // window so the resumed narration's transcript isn't mis-committed as
           // a QA answer (the "IN ANSWER TO YOU" duplicate-of-narration bug,
