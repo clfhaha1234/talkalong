@@ -80,7 +80,14 @@ async function main() {
     seams.slice(-12).forEach((s) => console.log('  ' + (typeof s === 'string' ? s : s.raw)));
 
     const named = answers.some((a) => /pemberley/i.test(a));
-    const leak = answers.some((a) => /padded softly|grassy hill|guardian of/i.test(a)); // narration phrases
+    // A real narration LEAK = the QA bubble shows story prose INSTEAD of an
+    // answer (the C3 bug). Markers must be narration-ONLY: dropped "guardian of"
+    // — that's the cat's ROLE ("the guardian of the library is called Pemberley")
+    // and appears in a correct in-character answer, so it false-flagged a genuine
+    // reply. And a bubble that correctly names the cat is BY DEFINITION an answer,
+    // not narration-instead-of-answer, so naming overrides the heuristic.
+    const NARRATION_ONLY = /padded softly|grassy hill/i;
+    const leak = !named && answers.some((a) => NARRATION_ONLY.test(a));
     const agentErrors = seams
       .filter((s) => typeof s !== 'string' && s.ev === 'agent_error')
       .map((s) => s.detail);
@@ -92,7 +99,12 @@ async function main() {
     console.log(`  got an IN-ANSWER bubble: ${answers.length > 0 ? '✅' : '❌'}`);
     console.log(`  answer names the cat (Pemberley): ${named ? '✅' : '❓'}`);
     console.log(`  answer is NOT a narration leak: ${leak ? '❌ LEAK' : '✅'}`);
-    const pass = instantVerdict.ok && finalVerdict.ok && answers.length > 0 && !leak;
+    // MUST name the cat: previously pass only checked !leak, so the agent-error
+    // fallback ("I'm having trouble answering right now") PASSED despite never
+    // answering — a false green that masked the llm:505 bug. Requiring `named`
+    // makes the e2e actually prove the agent answered the question.
+    const pass =
+      instantVerdict.ok && finalVerdict.ok && answers.length > 0 && named && !leak;
     console.log(`  ${pass ? '✅ PASS — agent answered, rendered as a clean QA answer' : '❌ FAIL — no clean answer'}`);
     console.log(`  screenshot: ${OUT}/typed-qa.png`);
     process.exit(pass ? 0 : 1);
