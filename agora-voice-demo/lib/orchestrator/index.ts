@@ -86,9 +86,11 @@ export interface RunTutorHandle {
    * moment the listener opens their mouth — and they speak into silence, which
    * also lets STT hear them cleanly. Idempotent.
    */
-  beginBranch: () => void;
-  /** Called by /api/tutor/qa-ended when the browser detects the user's Q&A digression has ended. */
-  handleQaEnded: (args: { qa_history: Array<{ role: 'user' | 'agent'; text: string; ts: number }> }) => Promise<void>;
+  beginBranch: (branchId?: number) => void;
+  /** Called by /api/tutor/qa-ended when the browser detects the user's Q&A digression has ended.
+   *  `branch_id` is the client's monotonic barge-in generation; a qa-ended older
+   *  than the latest barge-in is dropped (rapid re-barge / out-of-order guard). */
+  handleQaEnded: (args: { qa_history: Array<{ role: 'user' | 'agent'; text: string; ts: number }>; branch_id?: number }) => Promise<void>;
 }
 
 // Per-language base personas live in lib/language-config.ts (ENGLISH_PERSONA
@@ -324,7 +326,12 @@ async function buildTutorHandle(args: {
     closeSessionLogger(session_id);
   };
 
-  const beginBranch: RunTutorHandle['beginBranch'] = () => {
+  // Highest barge-in generation seen (client's branch_id). Monotonic; used to
+  // drop a stale /qa-ended that a newer barge-in has already superseded.
+  let currentBranchId = 0;
+
+  const beginBranch: RunTutorHandle['beginBranch'] = (branchId) => {
+    if (branchId != null && branchId > currentBranchId) currentBranchId = branchId;
     // Fires the instant the browser sees agent speaking→listening (the listener
     // started talking). Pause the narrator NOW — don't wait for the silence-
     // confirm + qa-ended — so the story stops mid-sentence instead of talking
@@ -340,7 +347,18 @@ async function buildTutorHandle(args: {
     void session.interrupt().catch(() => {});
   };
 
-  const handleQaEnded: RunTutorHandle['handleQaEnded'] = async ({ qa_history }) => {
+  const handleQaEnded: RunTutorHandle['handleQaEnded'] = async ({ qa_history, branch_id }) => {
+    // Stale-branch guard: drop a qa-ended from a branch OLDER than the latest
+    // barge-in (rapid re-barge can deliver an old /qa-ended after the new
+    // /branch-started — without this it would resume/rescript on top of the new
+    // branch). Equal-or-newer (incl. a missed beginBranch where currentBranchId
+    // is still behind) proceeds and advances the watermark.
+    if (branch_id != null && branch_id < currentBranchId) {
+      console.log(`[orchestrator] dropping stale qa-ended branch_id=${branch_id} < current=${currentBranchId}`);
+      return;
+    }
+    if (branch_id != null && branch_id > currentBranchId) currentBranchId = branch_id;
+
     // By the time this lands the browser has usually already called
     // beginBranch() on barge-in, so we're in BRANCH with the narrator paused.
 

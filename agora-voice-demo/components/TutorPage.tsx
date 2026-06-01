@@ -182,6 +182,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // planner alongside the listener's real question, swelling 1 real Q&A turn
   // into 4-6 polluted turns.
   const branchStartedAtRef = useRef<number | null>(null);
+  // Monotonic branch generation id. Incremented on every barge-in so late
+  // events (a silence-timer armed in branch N, a stale /qa-ended) can be dropped
+  // once branch N+1 has opened — principled replacement for ad-hoc timer
+  // clearing. Sent to the server in branch-started / qa-ended payloads so the
+  // orchestrator can reject stale signals too (P1 "branch_id" guard).
+  const branchGenRef = useRef(0);
 
   const [agentState, setAgentState] = useState<string>('idle');
   // The agent's remote audio track, captured on user-published. We locally
@@ -619,43 +625,56 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
 
     if (!sessionInfo || !sessionIdRef.current) return;
 
-    // 1. BARGE-IN
-    if (!inBranchRef.current && prev === 'speaking' && cur === 'listening') {
+    // 1. BARGE-IN — the listener started speaking. ANY transition INTO
+    // 'listening' is a barge-in. The old `prev === 'speaking'` guard MISSED
+    // narration-gap barge-ins: narration say() registers as silent/idle, so a
+    // barge-in there is `silent→listening` → the POST never fired → the server
+    // never entered the branch and narration just advanced with no answer
+    // (live-found via the seam timeline, 2026-06-01). `!inBranch` keeps a
+    // follow-up inside an open branch in block 3, not re-entry.
+    if (!inBranchRef.current && cur === 'listening') {
+      const gen = ++branchGenRef.current;
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
       branchAnchorRef.current = activeSceneIndex;
-      // Stamp branch start so TRANSCRIPT_UPDATED can floor-filter narration
-      // transcripts delivered before the interrupt out of qa_history. Also
-      // clear any stale narrator-era transcripts that may have accumulated
-      // pre-fix (defensive: this also handles a re-entered BRANCH from a
-      // follow-up question after the first one closed).
+      // Stamp branch start so TRANSCRIPT_UPDATED floor-filters pre-interrupt
+      // narration transcripts out of qa_history; clear stale typed turns.
       branchStartedAtRef.current = Date.now();
       typedTurnsRef.current = [];
       setQaTranscript([]);
       setInBranch(true);
-      // IMMEDIATELY tell the server to pause the narrator + cut the agent's
-      // in-flight TTS — don't wait for the silence-confirm + qa-ended. This is
-      // what makes the story stop the instant the listener speaks (instead of
-      // talking over them), and it also means the listener speaks into silence
-      // so STT can actually hear them. Fire-and-forget.
-      seam('branch_post');
+      // IMMEDIATELY tell the server to pause the narrator + cut in-flight TTS —
+      // don't wait for the silence-confirm. Carries branch_id so the server can
+      // reject a stale signal. Fire-and-forget.
+      seam('branch_post', gen);
       void fetch('/api/tutor/branch-started', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionIdRef.current }),
+        body: JSON.stringify({ session_id: sessionIdRef.current, branch_id: gen }),
       }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
     }
 
-    // 2. AGENT ANSWER ENDED → start silence countdown
+    // 2. AGENT SETTLED → start the resume countdown. Fires when, inside a
+    // branch, the agent goes quiet (idle/silent) after speaking (answer done),
+    // thinking (no answer produced — e.g. an untranscribed/false barge), OR
+    // listening (user spoke then stopped with no agent turn). Covering all
+    // three is REQUIRED now that entry is broadened: otherwise a no-answer
+    // branch never arms the timer and strands the narrator paused.
     if (
       inBranchRef.current &&
-      prev === 'speaking' &&
+      (prev === 'speaking' || prev === 'thinking' || prev === 'listening') &&
       (cur === 'idle' || cur === 'silent')
     ) {
       qaTurnCountRef.current++;
+      const gen = branchGenRef.current;
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
-        seam('qa_post');
+        // Drop a stale timer: a newer branch opened since this one was armed.
+        if (gen !== branchGenRef.current) {
+          silenceTimerRef.current = null;
+          return;
+        }
+        seam('qa_post', gen);
         const snapshot = qaTranscript.slice(-10);
         void fetch('/api/tutor/qa-ended', {
           method: 'POST',
@@ -663,10 +682,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           body: JSON.stringify({
             session_id: sessionIdRef.current,
             qa_history: snapshot,
+            branch_id: gen,
           }),
-        }).catch((err) =>
-          console.warn('[tutor] /qa-ended fetch error', err),
-        );
+        }).catch((err) => console.warn('[tutor] /qa-ended fetch error', err));
         inBranchRef.current = false;
         // Close the branch window: subsequent narration text won't be added
         // to qa_history until the listener interrupts again.
@@ -675,7 +693,8 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       }, SILENCE_TIMEOUT_MS);
     }
 
-    // 3. USER FOLLOW-UP — cancel timer
+    // 3. USER FOLLOW-UP — still talking within an open branch → cancel the
+    // resume countdown (don't resume mid-question).
     if (
       inBranchRef.current &&
       cur === 'listening' &&
@@ -684,7 +703,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-  }, [agentState, sessionInfo, qaTranscript, activeSceneIndex]);
+  }, [agentState, sessionInfo, qaTranscript, activeSceneIndex, seam]);
 
   // ── teardown ──────────────────────────────────────────────
   const teardownSession = useCallback(() => {

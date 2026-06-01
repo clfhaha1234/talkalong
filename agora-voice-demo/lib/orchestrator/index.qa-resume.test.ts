@@ -268,3 +268,53 @@ describe('handleQaEnded — no-question guard (false barge-in / narration tail)'
     expect(handle.progress.outerState()).toBe('MAIN');
   });
 });
+
+describe('handleQaEnded — branch_id stale-guard (rapid re-barge / out-of-order delivery)', () => {
+  // Now that branch ENTRY is broadened (any →listening posts /branch-started),
+  // rapid re-barges are more likely; a /qa-ended from an OLD branch can arrive
+  // after the NEW /branch-started and would otherwise resume/rescript on top of
+  // the new branch. The monotonic branch_id watermark drops the stale one.
+  it('drops a qa-ended whose branch_id is older than the latest barge-in', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    handle.beginBranch(2); // a NEW barge-in (generation 2) is now the current branch
+    // A LATE qa-ended from the OLD branch (generation 1) arrives out of order.
+    await handle.handleQaEnded({
+      qa_history: [{ role: 'user', text: 'stale question from the old branch', ts: 1 }],
+      branch_id: 1,
+    });
+
+    // Dropped before planning: no planner, nothing spoken, still in the new branch.
+    expect(planResume).not.toHaveBeenCalled();
+    expect(sayCalls.length).toBe(0);
+    expect(handle.progress.outerState()).toBe('BRANCH');
+  });
+
+  it('processes a qa-ended whose branch_id matches the latest barge-in', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    handle.beginBranch(3);
+    await handle.handleQaEnded({
+      qa_history: [{ role: 'user', text: '能不能用中文继续？', ts: 1 }],
+      branch_id: 3,
+    });
+
+    // Current branch → processed normally: planner ran, resumed to MAIN.
+    expect(planResume).toHaveBeenCalled();
+    expect(handle.progress.outerState()).toBe('MAIN');
+  });
+});
