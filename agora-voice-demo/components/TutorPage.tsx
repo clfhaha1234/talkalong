@@ -141,6 +141,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   const qaTurnCountRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevAgentStateRef = useRef<string>('idle');
+  // Live mirror of agentState, updated UNCONDITIONALLY in the AGENT_STATE_CHANGED
+  // handler. prevAgentStateRef is only advanced inside the (session-gated)
+  // transition-detector effect, so it can be stale when the agent's audio track
+  // first publishes — agentStateRef is always current for the start-hushed check.
+  const agentStateRef = useRef<string>('idle');
   const inBranchRef = useRef(false);
   // Scene index the BRANCH paused us on — so we know where to drop the
   // QA marginalia even if the orchestrator has already started the
@@ -285,7 +290,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         agentAudioTrackRef.current = track;
         // If the listener is already mid-interruption when the track arrives,
         // start it hushed so a just-published segment can't blast over them.
-        track.setVolume(prevAgentStateRef.current === 'listening' ? 0 : 100);
+        track.setVolume(agentStateRef.current === 'listening' ? 0 : 100);
         try {
           await track.play();
         } catch (playErr) {
@@ -497,6 +502,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           AgoraVoiceAIEvents.AGENT_STATE_CHANGED,
           (_agentUserId: string, event: StateChangeEvent) => {
             if (_agentUserId) agentUidRef.current = String(_agentUserId);
+            agentStateRef.current = String(event.state);
             setAgentState(String(event.state));
           },
         );
@@ -788,7 +794,21 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             inBranchRef.current = false;
             branchStartedAtRef.current = null;
             setInBranch(false);
+            // The QA is over once narration resumes — kill any pending silence
+            // timer so it can't fire a late/duplicate /qa-ended for a branch
+            // that's already closed here.
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
           }
+          // BARGE-IN HUSH RESTORE (belt for the agentState effect): narration is
+          // (re)starting, so the agent's audio must be audible. The effect only
+          // restores on the 'speaking' transition, which can be missed if a
+          // resume doesn't emit a fresh 'speaking' event after a 'listening'
+          // blip — that would leave the track stuck at volume 0. segment_started
+          // is the reliable resume signal, so restore here unconditionally.
+          agentAudioTrackRef.current?.setVolume(100);
           // Subtitle follows the SPOKEN text: when the resume-planner rewrites a
           // segment (e.g. switches it to Chinese), segment_started carries the
           // new text — sync it into the displayed scene so the subtitle matches
@@ -836,6 +856,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           // Close the QA capture window too — otherwise resumed narration after
           // a (voice) barge-in stays "inside the branch" and pollutes qa_history.
           branchStartedAtRef.current = null;
+          // Server already closed the branch — cancel any armed silence timer so
+          // it can't fire a duplicate /qa-ended after the fact.
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
           return;
 
         case 'active_scene_changed': {

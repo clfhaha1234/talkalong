@@ -149,10 +149,16 @@ export function mapTranscriptItems(
  * 2026-05-31). Keep the first occurrence of a given role+text and drop any
  * identical one within `windowMs` (the echo arrives within a couple seconds);
  * a genuinely-repeated question far apart in time is preserved.
+ *
+ * windowMs is deliberately TIGHT (4s): the sendText→RTM echo round-trips in
+ * ~1-2s, while a child re-asking the same short question ("why?", "什么?") can
+ * legitimately recur a handful of seconds apart — a wide window (the old 15s)
+ * would silently swallow those genuine repeats. 4s clears the echo without
+ * eating real re-asks.
  */
 export function dedupeQaTurns(
   turns: QaTranscriptTurn[],
-  windowMs = 15000,
+  windowMs = 4000,
 ): QaTranscriptTurn[] {
   const out: QaTranscriptTurn[] = [];
   for (const t of turns) {

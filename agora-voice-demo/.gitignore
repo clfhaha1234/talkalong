@@ -146,3 +146,4 @@ public/lesson-cache/scripts/
 
 # Per-session debug logs (session-logger.ts)
 logs/
+.env*.local
