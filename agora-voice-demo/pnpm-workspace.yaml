@@ -1,8 +1,0 @@
-# pnpm 11 moved settings out of package.json's "pnpm" field into this file
-# (see https://pnpm.io/settings). Without this, a clean container install
-# (Render's Docker build) hits ERR_PNPM_IGNORED_BUILDS for native postinstall
-# scripts and exits 1. Approve the ones we actually need built.
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - unrs-resolver

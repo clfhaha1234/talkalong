@@ -15,11 +15,10 @@ FROM node:22-slim
 RUN corepack enable
 WORKDIR /app
 
-# Install deps first (cached unless the lockfile changes). pnpm-workspace.yaml
-# carries the onlyBuiltDependencies allowlist (pnpm 11's home for that setting),
-# so it MUST be present before install or the native build scripts are ignored
-# → ERR_PNPM_IGNORED_BUILDS → exit 1.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Install deps first (cached unless the lockfile changes). package.json pins
+# pnpm 9 via "packageManager" (corepack honors it), which runs native postinstall
+# scripts without pnpm 10+'s approval gate.
+COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Build.

@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "description": "Next.js quickstart for building conversational AI applications with Agora's Conversational AI Engine",
   "private": true,
+  "//packageManager": "Pinned to pnpm 9: pnpm 10+ added a build-script approval gate (ERR_PNPM_IGNORED_BUILDS) that hard-fails a clean container install under --frozen-lockfile; pnpm 9 runs native postinstall scripts (sharp/esbuild) normally. Lockfile is v9.0 → fully compatible.",
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=22"
   },
