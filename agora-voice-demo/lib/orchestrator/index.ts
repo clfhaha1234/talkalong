@@ -26,6 +26,7 @@ import { splitToSegments, estimateNarrationMs } from './splitter';
 import { ProgressState } from './progress-state';
 import { runNarration, type RunNarrationOptions } from './narrator';
 import { planResume } from './resume-planner';
+import { isBackChannelOnly } from './back-channel';
 import { attachSessionLogger, closeSessionLogger } from './session-logger';
 import { createGeminiCompletion } from './gemini-client';
 import { register, unregister } from './session-registry';
@@ -390,10 +391,19 @@ async function buildTutorHandle(args: {
     const hasUserQuestion = qa_history.some(
       (t) => t.role === 'user' && t.text.trim().length > 0,
     );
-    if (!hasUserQuestion) {
+    // Back-channel: the listener only acknowledged ("okay", "yeah", "uh huh") —
+    // not a question. Treat like no-question: resume the story silently rather
+    // than running the planner + speaking a bridge over an utterance that asked
+    // nothing (P2 back-channel fast-resume, 2026-06-01).
+    const backChannelOnly = isBackChannelOnly(qa_history);
+    if (!hasUserQuestion || backChannelOnly) {
       progress.exitBranch();
       progress.emit('event', { type: 'bridge_completed' } satisfies ProgressEvent);
-      console.log('[orchestrator] qa-ended with no user question — resumed without a bridge');
+      console.log(
+        backChannelOnly
+          ? '[orchestrator] qa-ended was back-channel only — resumed without a bridge'
+          : '[orchestrator] qa-ended with no user question — resumed without a bridge',
+      );
       return;
     }
 

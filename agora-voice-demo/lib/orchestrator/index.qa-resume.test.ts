@@ -267,6 +267,25 @@ describe('handleQaEnded — no-question guard (false barge-in / narration tail)'
     expect(sayCalls.length).toBe(0);
     expect(handle.progress.outerState()).toBe('MAIN');
   });
+
+  it('back-channel-only ("okay") → no planner, no bridge, clean resume', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    await handle.handleQaEnded({
+      qa_history: [{ role: 'user', text: 'okay', ts: 1 }],
+    });
+
+    expect(planResume).not.toHaveBeenCalled();
+    expect(sayCalls.length, 'no bridge for a back-channel').toBe(0);
+    expect(handle.progress.outerState()).toBe('MAIN');
+  });
 });
 
 describe('handleQaEnded — branch_id stale-guard (rapid re-barge / out-of-order delivery)', () => {
