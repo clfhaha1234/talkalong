@@ -10,12 +10,13 @@
 // decision" from "live LLM/network latency". If you change the source, the
 // drift-guard test in run-latency-lib.test.ts fails — keep it in sync.
 export const KNOWN_FIXED = {
-  // components/TutorPage.tsx — how long the user must be silent before we
-  // decide their question is finished and start planning the resume. Pure UX
-  // knob: lower = snappier resume but risks cutting a mid-thought pause; higher
-  // = safer but feels sluggish. THIS is the dominant component of "how long
-  // after I stop talking does the story continue".
-  silence_confirm_ms: 2800,
+  // components/TutorPage.tsx `SILENCE_TIMEOUT_MS` — the AFTER-ANSWER silence
+  // window before we treat the Q&A as over and resume. Pure UX knob: lower =
+  // snappier resume but risks cutting a mid-thought pause; higher = sluggish.
+  // Dynamic as of 2026-06-01 (a no-answer/false barge uses a shorter
+  // SILENCE_NO_ANSWER_MS); this mirrors the after-answer value, the dominant
+  // component of "how long after I stop talking does the story continue".
+  silence_confirm_ms: 1400,
 };
 
 // ── UX target bands (ms). What a listener perceives, from voice-UX norms:

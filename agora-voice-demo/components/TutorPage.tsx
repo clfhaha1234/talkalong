@@ -69,10 +69,18 @@ import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 import { applyNarrationText } from './tutor/scene-sync';
 
-// Phase 3 end-of-Q&A detector tunable. The silence window is the gap we wait
-// after the agent stops speaking before we treat the Q&A as concluded and
-// POST /api/tutor/qa-ended. Mirrors the legacy value.
-const SILENCE_TIMEOUT_MS = 2800;
+// End-of-Q&A silence windows — how long we wait after the agent settles before
+// treating the digression as over and POSTing /api/tutor/qa-ended. DYNAMIC by
+// outcome (2026-06-01): a flat 2800ms made every resume feel sluggish (it
+// dominated T3). Now:
+//   - AFTER A REAL ANSWER (agent spoke): a short window for a follow-up, then
+//     resume. ~1.4s feels prompt without cutting off a quick "and also…".
+//   - NO ANSWER (false / untranscribed barge — agent went thinking/listening →
+//     idle without speaking): resume FAST, there's nothing to wait for.
+// SILENCE_TIMEOUT_MS keeps its name (the audio-bench drift-guard greps it) and
+// is the after-answer value; the no-answer value is separate.
+const SILENCE_TIMEOUT_MS = 1400;
+const SILENCE_NO_ANSWER_MS = 800;
 
 type Stage = 'input' | 'loading' | 'story' | 'error';
 
@@ -667,6 +675,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     ) {
       qaTurnCountRef.current++;
       const gen = branchGenRef.current;
+      // Dynamic window: a real answer (agent was speaking) earns a short
+      // follow-up grace; a no-answer settle (thinking/listening → quiet, e.g. a
+      // false/untranscribed barge) resumes fast — no point waiting 1.4s for a
+      // question that never came.
+      const settleMs = prev === 'speaking' ? SILENCE_TIMEOUT_MS : SILENCE_NO_ANSWER_MS;
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         // Drop a stale timer: a newer branch opened since this one was armed.
@@ -690,7 +703,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         // to qa_history until the listener interrupts again.
         branchStartedAtRef.current = null;
         silenceTimerRef.current = null;
-      }, SILENCE_TIMEOUT_MS);
+      }, settleMs);
     }
 
     // 3. USER FOLLOW-UP — still talking within an open branch → cancel the

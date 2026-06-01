@@ -160,8 +160,9 @@ describe('resumeBudget()', () => {
 });
 
 describe('drift guard: SILENCE_TIMEOUT_MS source = harness constant', () => {
-  // The harness constant `KNOWN_FIXED.silence_confirm_ms` claims to mirror the
-  // app-side `SILENCE_TIMEOUT_MS = 2000` in components/TutorPage.tsx. If either
+  // The harness constant `KNOWN_FIXED.silence_confirm_ms` mirrors the app-side
+  // after-answer `SILENCE_TIMEOUT_MS` in components/TutorPage.tsx (1400ms as of
+  // 2026-06-01; a separate SILENCE_NO_ANSWER_MS handles false barges). If either
   // moves without the other, the report's "fixed wait vs live work" split
   // becomes a lie. Grep the source and assert equality.
   it('matches the constant declared in components/TutorPage.tsx', () => {
