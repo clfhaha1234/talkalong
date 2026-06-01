@@ -16,6 +16,10 @@ import { deriveTypedQaVerdict } from './run-latency-lib.mjs';
 const BASE = process.env.BARGE_BASE_URL || 'http://localhost:3000';
 const TOPIC = process.env.TOPIC || 'Tell a short 3-scene bedtime story about a library cat named Pemberley.';
 const QUESTION = process.env.QUESTION || 'What is the name of the cat?';
+// Substring the answer MUST contain to count as "actually answered". Defaults to
+// 'pemberley' for the cat-name question; override (or set to '' to skip) when the
+// QUESTION isn't a naming one (e.g. a "why" question has no single required word).
+const EXPECT = (process.env.EXPECT ?? 'pemberley').toLowerCase();
 const COMPOSE_TIMEOUT_MS = Number(process.env.COMPOSE_TIMEOUT_MS || 200000);
 const OUT = '/tmp/spike-mic/typed-qa';
 
@@ -41,8 +45,21 @@ async function main() {
     await page.locator('textarea, input[type="text"]').first().fill(TOPIC);
     await page.locator('button', { hasText: /begin/i }).first().click();
     await page.locator('[data-testid="scene-dots"]').waitFor({ state: 'visible', timeout: COMPOSE_TIMEOUT_MS });
-    console.log('story screen up; letting narration start…');
-    await page.waitForTimeout(8000);
+    console.log('story screen up; waiting for the SESSION to be live before typing…');
+    // Gate typing on the session actually being live, NOT a fixed delay. Under a
+    // slow cold-start compose the first narration segment can land ~25s after the
+    // scene-dots appear; typing before sessionInfo is set makes onTextQuestion
+    // no-op (`if (!sessionInfo) return`) → the question is silently dropped (no
+    // branch, no answer). The first `segment` (or `state speaking`) seam proves
+    // the orchestrator session started. (Harness flake fixed 2026-06-01.)
+    const sessionLive = async () =>
+      seams.some((s) => typeof s !== 'string' && (s.ev === 'segment' || (s.ev === 'state' && s.detail === 'speaking')));
+    for (let i = 0; i < 60 && !(await sessionLive()); i++) await page.waitForTimeout(1000);
+    if (!(await sessionLive())) throw new Error('session never went live (no segment/speaking seam) — compose stalled');
+    // How long to let the narration run before barging in. Lower = earlier barge
+    // (more narration still mid-flight); higher = the opening (incl. names) has
+    // been spoken. Tunable so we can probe timing-dependent behavior.
+    await page.waitForTimeout(Number(process.env.NARRATE_MS || 3000));
 
     // Switch to keyboard mode + type the question.
     const kb = page.getByTitle('Keyboard');
@@ -55,6 +72,15 @@ async function main() {
     await tb.waitFor({ state: 'visible', timeout: 5000 });
     await tb.fill(QUESTION);
     await tb.press('Enter');
+    // Confirm the submit actually registered (typed_txt seam). If the keypress
+    // was eaten by a focus/StrictMode race, re-type once before giving up.
+    const typed = async () => seams.some((s) => typeof s !== 'string' && s.ev === 'typed_txt');
+    await page.waitForTimeout(800);
+    if (!(await typed())) {
+      console.log('no typed_txt seam yet — re-submitting once');
+      await tb.fill(QUESTION);
+      await tb.press('Enter');
+    }
     console.log(`typed question: "${QUESTION}" — waiting for the answer…`);
     await page.waitForTimeout(500);
     const instantVerdict = deriveTypedQaVerdict(seams.filter((s) => typeof s !== 'string'));
@@ -79,7 +105,11 @@ async function main() {
     console.log('\n=== seams (tail) ===');
     seams.slice(-12).forEach((s) => console.log('  ' + (typeof s === 'string' ? s : s.raw)));
 
-    const named = answers.some((a) => /pemberley/i.test(a));
+    const named = !EXPECT || answers.some((a) => a.toLowerCase().includes(EXPECT));
+    // The agent-error fallback ("…having trouble answering right now…") is NOT an
+    // answer — if every bubble is the fallback, the agent didn't actually reply.
+    const isFallback =
+      answers.length > 0 && answers.every((a) => /trouble answering right now/i.test(a));
     // A real narration LEAK = the QA bubble shows story prose INSTEAD of an
     // answer (the C3 bug). Markers must be narration-ONLY: dropped "guardian of"
     // — that's the cat's ROLE ("the guardian of the library is called Pemberley")
@@ -97,14 +127,14 @@ async function main() {
     if (agentErrors.length) console.log(`  agent errors: ${agentErrors.join(', ')}`);
     for (const f of instantVerdict.failures) console.log(`    - ${f}`);
     console.log(`  got an IN-ANSWER bubble: ${answers.length > 0 ? '✅' : '❌'}`);
-    console.log(`  answer names the cat (Pemberley): ${named ? '✅' : '❓'}`);
+    console.log(`  answer contains "${EXPECT || '(any)'}": ${named ? '✅' : '❓'}`);
+    console.log(`  not the error-fallback: ${isFallback ? '❌ FALLBACK' : '✅'}`);
     console.log(`  answer is NOT a narration leak: ${leak ? '❌ LEAK' : '✅'}`);
-    // MUST name the cat: previously pass only checked !leak, so the agent-error
-    // fallback ("I'm having trouble answering right now") PASSED despite never
-    // answering — a false green that masked the llm:505 bug. Requiring `named`
-    // makes the e2e actually prove the agent answered the question.
+    // Honest gate: the bubble must exist, NOT be the error-fallback (which masked
+    // the llm:505 bug), contain the expected token if one is set, and not be a
+    // narration leak.
     const pass =
-      instantVerdict.ok && finalVerdict.ok && answers.length > 0 && named && !leak;
+      instantVerdict.ok && finalVerdict.ok && answers.length > 0 && named && !isFallback && !leak;
     console.log(`  ${pass ? '✅ PASS — agent answered, rendered as a clean QA answer' : '❌ FAIL — no clean answer'}`);
     console.log(`  screenshot: ${OUT}/typed-qa.png`);
     process.exit(pass ? 0 : 1);
