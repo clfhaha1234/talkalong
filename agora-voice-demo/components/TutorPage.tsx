@@ -84,6 +84,8 @@ import { appendTypedTurn } from './tutor/typed-qa-contract';
 //     speech ever comes (a true false / back-channel barge) this is the fallback.
 const SILENCE_TIMEOUT_MS = 1400;
 const SILENCE_NO_ANSWER_MS = 3000;
+const QA_ERROR_FALLBACK =
+  "I heard you, but I'm having trouble answering right now. Let me keep us with the story.";
 
 type Stage = 'input' | 'loading' | 'story' | 'error';
 
@@ -682,6 +684,18 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
               error.code,
               error.message,
             );
+            seam('agent_error', `${error.type}:${error.code}`);
+            if (inBranchRef.current && qaTranscriptRef.current.some((turn) => turn.role === 'user')) {
+              const hasAgentTurn = qaTranscriptRef.current.some((turn) => turn.role === 'agent');
+              if (!hasAgentTurn) {
+                const next = [
+                  ...qaTranscriptRef.current,
+                  { role: 'agent' as const, text: QA_ERROR_FALLBACK, ts: Date.now() },
+                ];
+                qaTranscriptRef.current = next;
+                setQaTranscript(next);
+              }
+            }
           },
         );
 

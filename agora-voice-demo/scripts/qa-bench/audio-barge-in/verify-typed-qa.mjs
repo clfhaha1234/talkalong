@@ -45,9 +45,14 @@ async function main() {
     await page.waitForTimeout(8000);
 
     // Switch to keyboard mode + type the question.
-    const kb = page.locator('[title="Keyboard"]');
-    if (await kb.count()) await kb.click().catch(() => {});
-    const tb = page.getByRole('textbox').first();
+    const kb = page.getByTitle('Keyboard');
+    await kb.waitFor({ state: 'visible', timeout: 10000 }).catch(async (err) => {
+      await page.screenshot({ path: `${OUT}/typed-qa-no-keyboard.png` }).catch(() => {});
+      throw new Error(`Keyboard toggle not found on StoryScreen; cannot drive typed QA: ${err.message}`);
+    });
+    await kb.click();
+    const tb = page.locator('input[placeholder*="Type a question to interrupt"]');
+    await tb.waitFor({ state: 'visible', timeout: 5000 });
     await tb.fill(QUESTION);
     await tb.press('Enter');
     console.log(`typed question: "${QUESTION}" — waiting for the answer…`);
@@ -66,7 +71,7 @@ async function main() {
           out.push(t.replace(/IN ANSWER TO YOU/i, '').trim());
         }
       }
-      return [...new Set(out)];
+      return [...new Set(out)].filter((text) => text.length > 0);
     });
 
     console.log('\n=== IN-ANSWER bubbles ===');
@@ -76,9 +81,13 @@ async function main() {
 
     const named = answers.some((a) => /pemberley/i.test(a));
     const leak = answers.some((a) => /padded softly|grassy hill|guardian of/i.test(a)); // narration phrases
+    const agentErrors = seams
+      .filter((s) => typeof s !== 'string' && s.ev === 'agent_error')
+      .map((s) => s.detail);
     console.log('\n=== TYPED-QA VERDICT ===');
     console.log(`  instant hush: ${instantVerdict.hush_ok ? '✅' : '❌'} ${instantVerdict.hush_ms ?? '—'}ms`);
     console.log(`  instant typed branch: ${instantVerdict.branch_ok ? '✅' : '❌'} ${instantVerdict.branch_ms ?? '—'}ms`);
+    if (agentErrors.length) console.log(`  agent errors: ${agentErrors.join(', ')}`);
     for (const f of instantVerdict.failures) console.log(`    - ${f}`);
     console.log(`  got an IN-ANSWER bubble: ${answers.length > 0 ? '✅' : '❌'}`);
     console.log(`  answer names the cat (Pemberley): ${named ? '✅' : '❓'}`);

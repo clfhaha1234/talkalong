@@ -75,6 +75,15 @@ describe('field regressions caught from live/manual testing', () => {
     expect(src).toContain("seam('hush', 0)");
   });
 
+  it('2026-06-01 typed QA screenshot: agent LLM errors must render as an answer bubble, not silent ignore', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    expect(src).toContain('QA_ERROR_FALLBACK');
+    expect(src).toContain("seam('agent_error'");
+    expect(src).toContain("role: 'agent' as const, text: QA_ERROR_FALLBACK");
+  });
+
   it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {
     const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
     const src = readFileSync(tutorPagePath, 'utf8');
