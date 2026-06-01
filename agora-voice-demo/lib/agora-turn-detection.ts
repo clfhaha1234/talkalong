@@ -28,7 +28,15 @@ export const BASELINE_TURN_DETECTION: TurnDetectionConfig = {
     end_of_speech: {
       mode: 'vad',
       vad_config: {
-        silence_duration_ms: 480, // ms of silence before the turn ends
+        // ms of silence before the turn is considered OVER. 480 was too eager:
+        // a natural mid-sentence pause ("…what's the [beat] story going to be?")
+        // ended the turn early, so STT finalized half the sentence, the agent
+        // auto-replied, then the rest came as a SECOND turn + SECOND reply — one
+        // spoken question rendered as two bubbles + two answers (live-found
+        // 2026-05-31). 800ms tolerates a thinking-pause. NOTE: this is the
+        // END-of-turn timer only; barge-in ONSET is interrupt_duration_ms (160ms
+        // above), so interrupting stays just as snappy.
+        silence_duration_ms: 800,
       },
     },
   },

@@ -9,7 +9,7 @@
 //   STT:  DeepgramSTT({ model: 'nova-3', language: 'en' })
 //   turn_detection: speech_threshold 0.5; start_of_speech vad
 //     { interrupt_duration_ms: 160, prefix_padding_ms: 300 };
-//     end_of_speech VAD { silence_duration_ms: 480 }
+//     end_of_speech VAD { silence_duration_ms: 800 }  (was 480 — too eager)
 //   session.remoteUids: [requester_id]   (NOT ['*'])
 
 import { describe, it, expect, vi } from 'vitest';
@@ -98,6 +98,10 @@ describe('tutor agent STT config is aligned to the base / demo (anti-divergence)
     expect(cap.turn?.config?.start_of_speech?.mode).toBe('vad');
     expect(cap.turn?.config?.start_of_speech?.vad_config?.prefix_padding_ms).toBe(300);
     expect(cap.turn?.config?.speech_threshold).toBe(0.5);
+    // End-of-turn silence pinned at 800ms: tolerates a mid-sentence pause so one
+    // spoken question isn't split into two turns + two answers (2026-05-31).
+    // 480 (the old value) was too eager. Don't drop it back below ~700.
+    expect(cap.turn?.config?.end_of_speech?.vad_config?.silence_duration_ms).toBe(800);
 
     // remoteUids scoped to the listener — NOT ['*'], which fed the agent's own
     // narration TTS back into STT (garbled recognition + false barge-ins).
