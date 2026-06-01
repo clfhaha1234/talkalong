@@ -141,12 +141,15 @@ export async function generateSceneImage(
     return { hash, url: blob.url, cached: false, latency_ms: latencyMs, bytes: buf.length };
   }
 
-  // Filesystem path (local dev / persistent host): cache on disk, serve via
-  // Next's /lesson-cache static route.
+  // Filesystem path (local dev / persistent host): cache on disk, served via
+  // the /api/lesson-image/<hash> route — NOT the static /lesson-cache/ path.
+  // `next start` (production, e.g. Render) does NOT serve public/ files written
+  // AFTER the build, so the static path 404s in prod; the route reads the file
+  // from disk per request and works regardless of when it was written.
   const cacheDir = opts.cache_dir ?? defaultCacheDir();
   ensureCacheDir(cacheDir);
   const filePath = join(cacheDir, `${hash}.jpg`);
-  const url = `/lesson-cache/${hash}.jpg`;
+  const url = `/api/lesson-image/${hash}`;
 
   if (existsSync(filePath)) {
     return { hash, url, file_path: filePath, cached: true, latency_ms: 0 };

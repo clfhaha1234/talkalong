@@ -52,7 +52,9 @@ describe('generateSceneImage', () => {
     expect(r.file_path).toBeDefined();
     expect(existsSync(r.file_path!)).toBe(true);
     expect(readFileSync(r.file_path!).toString('utf8')).toBe('Hello');
-    expect(r.url).toBe(`/lesson-cache/${r.hash}.jpg`);
+    // Served via the route (reads from disk), NOT the static /lesson-cache path:
+    // next start doesn't serve runtime-written public/ files in production.
+    expect(r.url).toBe(`/api/lesson-image/${r.hash}`);
     expect(r.hash).toHaveLength(16);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
