@@ -1083,18 +1083,15 @@ const REVEAL_TICK_MS = 200;
  */
 function useSubtitleReveal(narration: string, spokenSoFar: string | null, active: boolean): string {
   const tokens = useMemo(() => tokenize(narration), [narration]);
-  const [revealed, setRevealed] = useState(0);
+  const [floor, setFloor] = useState<{ narration: string; count: number }>({
+    narration,
+    count: 0,
+  });
 
-  // New scene → restart the reveal from the top.
-  useEffect(() => {
-    setRevealed(0);
-  }, [narration]);
-
-  // Audio-synced advance: jump to however many words Agora reports as spoken.
-  useEffect(() => {
+  // Audio-synced count: jump to however many words Agora reports as spoken.
+  const audioRevealed = useMemo(() => {
     if (!active) return;
-    const n = revealedTokenCount(narration, spokenSoFar ?? '');
-    if (n >= 0) setRevealed((r) => Math.max(r, n));
+    return revealedTokenCount(narration, spokenSoFar ?? '');
   }, [narration, spokenSoFar, active]);
 
   // Speech-paced floor — advances ONLY while actively narrating (so it pauses
@@ -1102,11 +1099,16 @@ function useSubtitleReveal(narration: string, spokenSoFar: string | null, active
   useEffect(() => {
     if (!active) return;
     const id = setInterval(() => {
-      setRevealed((r) => Math.min(tokens.length, r + 1));
+      setFloor((prev) => {
+        const count = prev.narration === narration ? prev.count : 0;
+        return { narration, count: Math.min(tokens.length, count + 1) };
+      });
     }, REVEAL_TICK_MS);
     return () => clearInterval(id);
-  }, [active, tokens.length]);
+  }, [active, narration, tokens.length]);
 
+  const floorRevealed = floor.narration === narration ? floor.count : 0;
+  const revealed = Math.max(floorRevealed, audioRevealed && audioRevealed > 0 ? audioRevealed : 0);
   return tokens.slice(0, Math.min(revealed, tokens.length)).join('');
 }
 

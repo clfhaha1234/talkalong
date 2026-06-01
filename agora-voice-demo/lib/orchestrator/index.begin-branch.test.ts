@@ -143,4 +143,30 @@ describe('beginBranch — instant pause on barge-in', () => {
     await handle.stop();
     void narration; // parked in waitForMain by design — do not await
   });
+
+  it('can pause the narrator without issuing a server-side audio interrupt (typed questions)', async () => {
+    interruptCalls.length = 0;
+    sayCalls.length = 0;
+
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    const narration = handle.startNarration().catch(() => {});
+    await pollUntil(
+      () => handle.progress.snapshot().outer_state === 'MAIN' && sayCalls.length >= 1,
+    );
+
+    handle.beginBranch(1, { interruptAudio: false });
+
+    expect(handle.progress.snapshot().outer_state).toBe('BRANCH');
+    expect(interruptCalls.length).toBe(0);
+
+    const sayCountAtBranch = sayCalls.length;
+    await wait(150);
+    expect(sayCalls.length).toBe(sayCountAtBranch);
+
+    await handle.stop();
+    void narration;
+  });
 });

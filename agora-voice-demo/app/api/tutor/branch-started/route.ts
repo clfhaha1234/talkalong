@@ -14,7 +14,7 @@ import { get } from '@/lib/orchestrator/session-registry';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  let body: { session_id?: string; branch_id?: number };
+  let body: { session_id?: string; branch_id?: number; interrupt_audio?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!handle) return NextResponse.json({ error: 'session not found' }, { status: 404 });
 
   try {
-    handle.beginBranch(body.branch_id);
+    handle.beginBranch(body.branch_id, { interruptAudio: body.interrupt_audio !== false });
   } catch (err) {
     console.warn('[branch-started] beginBranch threw:', err);
   }

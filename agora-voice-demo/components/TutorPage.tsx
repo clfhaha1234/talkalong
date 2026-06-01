@@ -451,26 +451,42 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       const q = text.trim();
       if (!q || !sessionInfo) return;
       const now = Date.now();
+      const typedTurn = { role: 'user' as const, text: q, ts: now };
       // Enter a branch (pause narration + cut TTS) if we're not already in one
       // — the same effect a voice barge-in has.
       if (!inBranchRef.current) {
+        const gen = ++branchGenRef.current;
         inBranchRef.current = true;
         qaTurnCountRef.current = 0;
         branchAnchorRef.current = activeSceneIndex;
         branchStartedAtRef.current = now;
         typedTurnsRef.current = []; // fresh branch
         setInBranch(true);
-        // NOTE: we deliberately do NOT POST /branch-started here. That calls
-        // session.interrupt() server-side, which was suppressing the agent's
-        // reply to the chat message. sendText(priority: INTERRUPTED) below makes
-        // the AGENT itself interrupt its narration to answer — which also yields
-        // the speaking→listening transition the narrator-pause keys off.
+        // Pause the server-side narrator immediately, but do NOT call
+        // session.interrupt() from the server for typed questions. The
+        // sendText(INTERRUPTED) below is what interrupts the current TTS and
+        // starts the answer; a concurrent server interrupt was live-found to
+        // suppress that reply. This branch-started ping is only for the
+        // deterministic spine (MAIN -> BRANCH) so narration cannot keep queuing
+        // over the typed Q&A.
+        seam('branch_post', gen);
+        void fetch('/api/tutor/branch-started', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionIdRef.current,
+            branch_id: gen,
+            interrupt_audio: false,
+          }),
+        }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
       }
       // Record the typed question so it shows in the feed + pairs with the answer.
-      typedTurnsRef.current.push({ role: 'user', text: q, ts: now });
-      setQaTranscript((prev) =>
-        [...prev, { role: 'user' as const, text: q, ts: now }].sort((a, b) => a.ts - b.ts),
-      );
+      typedTurnsRef.current.push(typedTurn);
+      setQaTranscript((prev) => {
+        const next = [...prev, typedTurn].sort((a, b) => a.ts - b.ts);
+        qaTranscriptRef.current = next;
+        return next;
+      });
       // Send it to the agent — it replies with TTS + a transcript turn.
       const ai = AgoraVoiceAI.getInstance();
       if (ai) {
@@ -484,7 +500,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           .catch((err) => console.warn('[tutor] sendText failed', err));
       }
     },
-    [sessionInfo, activeSceneIndex],
+    [sessionInfo, activeSceneIndex, seam],
   );
 
   // ── RTM client lifecycle ──────────────────────────────────
@@ -982,7 +998,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         }
       }
     },
-    [scenes, activeSceneIndex, teardownSession],
+    [scenes, activeSceneIndex, teardownSession, seam],
   );
 
   // ── start the SSE pipeline ────────────────────────────────

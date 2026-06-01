@@ -87,7 +87,7 @@ export interface RunTutorHandle {
    * moment the listener opens their mouth — and they speak into silence, which
    * also lets STT hear them cleanly. Idempotent.
    */
-  beginBranch: (branchId?: number) => void;
+  beginBranch: (branchId?: number, opts?: { interruptAudio?: boolean }) => void;
   /** Called by /api/tutor/qa-ended when the browser detects the user's Q&A digression has ended.
    *  `branch_id` is the client's monotonic barge-in generation; a qa-ended older
    *  than the latest barge-in is dropped (rapid re-barge / out-of-order guard). */
@@ -331,7 +331,7 @@ async function buildTutorHandle(args: {
   // drop a stale /qa-ended that a newer barge-in has already superseded.
   let currentBranchId = 0;
 
-  const beginBranch: RunTutorHandle['beginBranch'] = (branchId) => {
+  const beginBranch: RunTutorHandle['beginBranch'] = (branchId, opts) => {
     if (branchId != null && branchId > currentBranchId) currentBranchId = branchId;
     // Fires the instant the browser sees agent speaking→listening (the listener
     // started talking). Pause the narrator NOW — don't wait for the silence-
@@ -345,7 +345,9 @@ async function buildTutorHandle(args: {
     } catch {
       /* never let a barge-in signal throw */
     }
-    void session.interrupt().catch(() => {});
+    if (opts?.interruptAudio !== false) {
+      void session.interrupt().catch(() => {});
+    }
   };
 
   const handleQaEnded: RunTutorHandle['handleQaEnded'] = async ({ qa_history, branch_id }) => {
