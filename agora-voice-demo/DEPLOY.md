@@ -99,12 +99,17 @@ Set these in your host's dashboard (see `.env.example` for the annotated list):
 |---|---|
 | `NEXT_PUBLIC_AGORA_APP_ID` | Agora project App ID (console.agora.io) |
 | `NEXT_AGORA_APP_CERTIFICATE` | Agora App Certificate (token signing) |
-| `GOOGLE_API_KEY` | Gemini — script/scene/image generation + resume planner |
+| `GOOGLE_API_KEY` | Gemini — script/scene/image generation, resume planner, **and the live voice agent's Q&A LLM** (via Gemini's OpenAI-compatible endpoint; Agora's bundled OpenAI reseller 401s on this project — see [postmortem](docs/postmortem-2026-06-01-qa-no-answer.md)) |
+| `GEMINI_TUTOR_MODEL` | Optional — override the agent's Q&A model (default `gemini-3.1-flash-lite`) |
 | `NEXT_PUBLIC_AGENT_UID` | agent RTC uid (default `123456`) |
 | `LESSON_CACHE_DIR` | Optional persistent cache directory for scripts/images, e.g. `/var/data/lesson-cache` on a Render disk |
 
-The STT/LLM/TTS vendor keys (Deepgram / OpenAI / MiniMax) live in the **Agora
-project dashboard**, not here — the app only mints tokens + invites the agent.
+The **STT (Deepgram)** and **TTS (MiniMax)** vendor keys live in the **Agora
+project dashboard** (managed reseller) — the app only mints tokens + invites the
+agent. The **LLM is the exception**: the agent is configured to call **Gemini**
+with `GOOGLE_API_KEY` from this app, *not* the Agora OpenAI reseller (which 401s
+here). So `GOOGLE_API_KEY` is the one credential that must be valid for the agent
+to actually answer questions.
 
 ---
 

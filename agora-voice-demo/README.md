@@ -64,6 +64,17 @@ pattern), NOT an agentic tool loop — a choice [validated with data](docs/exper
    composes a one-line bridge and decides the strategy (continue / restart /
    skip); the narrator resumes on the right scene.
 
+**The voice agent's brain is Gemini.** The agent runs Agora's managed
+**Deepgram STT → LLM → MiniMax TTS** pipeline, but the **LLM is pointed at
+Gemini's OpenAI-compatible endpoint** with the same `GOOGLE_API_KEY` used for
+generation ([`lib/orchestrator/index.ts`](lib/orchestrator/index.ts) →
+`buildAgent`), not Agora's bundled OpenAI reseller. So a single provider powers
+the whole stack: lesson generation, the agent's Q&A answers, and the resume
+planner. (Agora's OpenAI reseller returned `401` on this project, which silently
+broke every answer — see
+[the postmortem](docs/postmortem-2026-06-01-qa-no-answer.md). Override the model
+with `GEMINI_TUTOR_MODEL`.)
+
 Per-session conversation + latency is logged for debugging via
 [`lib/orchestrator/session-logger.ts`](lib/orchestrator/session-logger.ts)
 (console always; `logs/sessions/<ts>-<id>.txt` locally).
