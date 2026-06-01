@@ -2,14 +2,13 @@
 // real SSE progress instead of fake timers.
 //
 // Step → SSE mapping (per spec):
-//   Step 0 "Reading your material"      done on `script_drafted`
-//   Step 1 "Drafting the story script"  done on `scenes_composed`
-//   Step 2 "Composing the scenes"       fractional progress = imagesReady / totalScenes
-//   Step 3 "Sketching each illustration"done on `all_images_ready`
+//   Step 0 "Drafting the lesson"        done on `scenes_composed`
+//   Step 1 "Sketching each illustration"fractional progress = imagesReady / totalScenes
+//   Step 2 "Bringing them to life"      done on first `video_ready`
 //
 // `session_started` is what flips the parent from loading → story; we don't
 // observe it here, but we do drive the overall progress bar from the same
-// 0..1 scalar the prototype used (step + intra-step / 4).
+// 0..1 scalar the prototype used (step + intra-step / 3).
 
 'use client';
 
@@ -36,9 +35,7 @@ export interface LoadingState {
 }
 
 const STEP_NAMES = [
-  { label: 'Reading your material', sub: 'Skimming for the good parts' },
-  { label: 'Drafting the story script', sub: 'Picking the through-line' },
-  { label: 'Composing the scenes', sub: 'Breaking it into pages' },
+  { label: 'Drafting the lesson', sub: 'Reading, outlining, and breaking it into pages' },
   {
     label: 'Sketching each illustration',
     sub: 'Page-by-page, in ink and wash',
@@ -59,8 +56,9 @@ interface StepView {
 }
 
 function deriveSteps(s: LoadingState): StepView[] {
-  // Step 0 is always at least active from the start (we begin "reading"
-  // the moment the SSE stream opens).
+  // Step 0 is the fast text-planning phase. The old UI split this into three
+  // rows, but those SSE events usually land together, so one honest row reads
+  // better than a fake cascade.
   const out: StepView[] = STEP_NAMES.map((step, i) => ({
     index: i,
     label: step.label,
@@ -69,44 +67,32 @@ function deriveSteps(s: LoadingState): StepView[] {
     intraProgress: 0,
   }));
 
-  // Step 0 — reading. We have no granular signal, so it's active from start
-  // and flips done on script_drafted.
-  out[0].status = s.scriptDrafted ? 'done' : 'active';
-  out[0].intraProgress = s.scriptDrafted ? 1 : 0.4;
-  if (!s.scriptDrafted) return out;
-
-  // Step 1 — drafting. Active until scenes_composed.
-  out[1].status = s.scenesComposed ? 'done' : 'active';
-  out[1].intraProgress = s.scenesComposed ? 1 : 0.5;
+  out[0].status = s.scenesComposed ? 'done' : 'active';
+  out[0].intraProgress = s.scriptDrafted ? 0.75 : 0.35;
   if (!s.scenesComposed) return out;
 
-  // Step 2 — composing (scenes_composed fires instantly, so this is
-  // effectively done the moment we receive the scene list).
-  out[2].status = 'done';
-  out[2].intraProgress = 1;
-
-  // Step 3 — sketching. Tracks per-image readiness.
+  // Step 1 — sketching. Tracks per-image readiness.
   const fraction =
     s.totalScenes > 0 ? Math.min(1, s.imagesReady / s.totalScenes) : 0;
   if (s.allImagesReady) {
-    out[3].status = 'done';
-    out[3].intraProgress = 1;
+    out[1].status = 'done';
+    out[1].intraProgress = 1;
   } else {
-    out[3].status = 'active';
-    out[3].intraProgress = fraction;
+    out[1].status = 'active';
+    out[1].intraProgress = fraction;
     return out;
   }
 
-  // Step 4 — animating. Scene 1's clip renders (~8s) between all_images_ready
+  // Step 2 — animating. Scene 1's clip renders (~8s) between all_images_ready
   // and session_started; this step fills that window so the bar doesn't sit at
   // a frozen 100%. Done the moment the first video lands (we then cut to the
   // story almost immediately).
   if (s.videosReady >= 1) {
-    out[4].status = 'done';
-    out[4].intraProgress = 1;
+    out[2].status = 'done';
+    out[2].intraProgress = 1;
   } else {
-    out[4].status = 'active';
-    out[4].intraProgress = 0.4;
+    out[2].status = 'active';
+    out[2].intraProgress = 0.4;
   }
 
   return out;
@@ -292,9 +278,9 @@ export function LoadingScreen({ state }: LoadingScreenProps) {
                     fontFamily: F_HEAD,
                   }}
                 >
-                  {s.index === 3 && state.totalScenes > 0
+                  {s.index === 1 && state.totalScenes > 0
                     ? `${state.imagesReady}/${state.totalScenes} …`
-                    : s.index === 4
+                    : s.index === 2
                       ? 'rendering …'
                       : 'in progress …'}
                 </div>
