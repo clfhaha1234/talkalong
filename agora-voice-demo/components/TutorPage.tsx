@@ -71,17 +71,19 @@ import { applyNarrationText } from './tutor/scene-sync';
 import { appendTypedTurn, postTypedBranchStarted } from './tutor/typed-qa-contract';
 
 // End-of-Q&A silence windows — how long we wait after the agent settles before
-// treating the digression as over and POSTing /api/tutor/qa-ended. DYNAMIC by
-// outcome (2026-06-01): a flat 2800ms made every resume feel sluggish (it
-// dominated T3). Now:
-//   - AFTER A REAL ANSWER (agent spoke): a short window for a follow-up, then
-//     resume. ~1.4s feels prompt without cutting off a quick "and also…".
-//   - NO ANSWER (false / untranscribed barge — agent went thinking/listening →
-//     idle without speaking): resume FAST, there's nothing to wait for.
-// SILENCE_TIMEOUT_MS keeps its name (the audio-bench drift-guard greps it) and
-// is the after-answer value; the no-answer value is separate.
+// treating the digression as over and POSTing /api/tutor/qa-ended.
+//   - AFTER A REAL ANSWER (agent was speaking → quiet): a short follow-up grace,
+//     then resume. ~1.4s feels prompt without cutting off a quick "and also…".
+//   - AGENT WENT QUIET WITHOUT SPEAKING YET (thinking/listening → quiet): the
+//     answer may still be COMPOSING — gpt-4o-mini's first token can take 1-2.5s,
+//     so a fast resume here cuts the answer off BEFORE it starts. That was the
+//     "无视我的QA" bug (typed-QA seam: thinking→silent→qa_post@800ms→resume, no
+//     answer rendered, live-found 2026-06-01). Wait long enough for the answer
+//     to BEGIN; the instant the agent enters 'speaking' the timer is cancelled
+//     (block 3) and re-armed with the after-answer grace once it finishes. If no
+//     speech ever comes (a true false / back-channel barge) this is the fallback.
 const SILENCE_TIMEOUT_MS = 1400;
-const SILENCE_NO_ANSWER_MS = 800;
+const SILENCE_NO_ANSWER_MS = 3000;
 
 type Stage = 'input' | 'loading' | 'story' | 'error';
 
@@ -707,10 +709,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     ) {
       qaTurnCountRef.current++;
       const gen = branchGenRef.current;
-      // Dynamic window: a real answer (agent was speaking) earns a short
-      // follow-up grace; a no-answer settle (thinking/listening → quiet, e.g. a
-      // false/untranscribed barge) resumes fast — no point waiting 1.4s for a
-      // question that never came.
+      // Window depends on whether the answer already played: speaking→quiet =
+      // answer done → short follow-up grace; thinking/listening→quiet = answer
+      // may still be composing → wait long enough for it to BEGIN (block 3
+      // cancels this the instant the agent speaks). Only fires as the resume
+      // fallback when no answer ever comes.
       const settleMs = prev === 'speaking' ? SILENCE_TIMEOUT_MS : SILENCE_NO_ANSWER_MS;
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
@@ -740,11 +743,14 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       }, settleMs);
     }
 
-    // 3. USER FOLLOW-UP — still talking within an open branch → cancel the
-    // resume countdown (don't resume mid-question).
+    // 3. AGENT ANSWERING or USER FOLLOW-UP → cancel the resume countdown. The
+    // agent entering 'speaking' means the reply has STARTED (the no-answer timer
+    // armed during its thinking gap must NOT fire mid-answer); 'listening' means
+    // the listener is still talking. After the answer finishes, speaking→idle
+    // re-arms the (short, after-answer) timer via block 2.
     if (
       inBranchRef.current &&
-      cur === 'listening' &&
+      (cur === 'listening' || cur === 'speaking') &&
       silenceTimerRef.current
     ) {
       clearTimeout(silenceTimerRef.current);
