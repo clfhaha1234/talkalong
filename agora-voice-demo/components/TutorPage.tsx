@@ -206,6 +206,21 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   const [qaTranscript, setQaTranscript] = useState<
     Array<{ role: 'user' | 'agent'; text: string; ts: number }>
   >([]);
+  // Live mirror of qaTranscript for the silence timer to read. The timer is
+  // armed when the agent SETTLES (block 2) and fires 800-1400ms later; it must
+  // post the LATEST transcript, not the value captured in the closure at
+  // arm-time. Agora can finalize/extend the user transcript AFTER the agent
+  // settles (STT lag) but BEFORE the timer fires — and the agentState effect
+  // does NOT re-arm on that update (prev===cur===idle), so a closed-over
+  // snapshot would post empty/partial qa_history → a REAL question gets treated
+  // as no-question/back-channel and resumes without answering ("问了像没听到").
+  // The shorter dynamic windows make this race more likely. Read the ref instead.
+  const qaTranscriptRef = useRef<
+    Array<{ role: 'user' | 'agent'; text: string; ts: number }>
+  >([]);
+  useEffect(() => {
+    qaTranscriptRef.current = qaTranscript;
+  }, [qaTranscript]);
   // What the agent is speaking RIGHT NOW (Agora's live agent transcript, grown
   // word-by-word as the TTS plays). Drives StoryScreen's audio-synced word
   // reveal so the on-screen cursor tracks the voice instead of a fixed timer.
@@ -688,7 +703,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           return;
         }
         seam('qa_post', gen);
-        const snapshot = qaTranscript.slice(-10);
+        // Read the LIVE transcript (ref), NOT the closed-over qaTranscript from
+        // the render that armed this timer — see qaTranscriptRef rationale.
+        const snapshot = qaTranscriptRef.current.slice(-10);
         void fetch('/api/tutor/qa-ended', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -716,7 +733,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-  }, [agentState, sessionInfo, qaTranscript, activeSceneIndex, seam]);
+    // qaTranscript intentionally NOT a dep: the timer reads qaTranscriptRef for
+    // the live value, so this effect needn't re-run on every transcript update.
+  }, [agentState, sessionInfo, activeSceneIndex, seam]);
 
   // ── teardown ──────────────────────────────────────────────
   const teardownSession = useCallback(() => {
