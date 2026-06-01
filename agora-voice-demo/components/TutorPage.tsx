@@ -159,6 +159,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   const branchStartedAtRef = useRef<number | null>(null);
 
   const [agentState, setAgentState] = useState<string>('idle');
+  // The agent's remote audio track, captured on user-published. We locally
+  // hush it the instant the listener starts speaking (agentState→listening) so
+  // the narration goes quiet WITHOUT waiting for the server-side interrupt
+  // round-trip — closing the "it kept talking over me" gap vs the 1:1 demo.
+  const agentAudioTrackRef = useRef<IAgoraRTCRemoteUser['audioTrack']>(undefined);
   const [qaTranscript, setQaTranscript] = useState<
     Array<{ role: 'user' | 'agent'; text: string; ts: number }>
   >([]);
@@ -277,6 +282,10 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         await client.subscribe(user, mediaType);
         const track = user.audioTrack;
         if (!track) return;
+        agentAudioTrackRef.current = track;
+        // If the listener is already mid-interruption when the track arrives,
+        // start it hushed so a just-published segment can't blast over them.
+        track.setVolume(prevAgentStateRef.current === 'listening' ? 0 : 100);
         try {
           await track.play();
         } catch (playErr) {
@@ -291,9 +300,25 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     client,
     'user-unpublished',
     (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
-      if (mediaType === 'audio') user.audioTrack?.stop();
+      if (mediaType === 'audio') {
+        user.audioTrack?.stop();
+        agentAudioTrackRef.current = undefined;
+      }
     },
   );
+
+  // INSTANT BARGE-IN HUSH: the moment the listener starts speaking (agent state
+  // flips to 'listening'), drop the agent's remote-audio volume to 0 LOCALLY —
+  // so residual/queued narration goes silent immediately, without waiting for
+  // the server-side session.interrupt() round-trip. Restore to full volume when
+  // the agent speaks again (resumed narration OR the answer). This is what makes
+  // barge-in feel as snappy as the raw 1:1 demo despite the say()-injection model.
+  useEffect(() => {
+    const track = agentAudioTrackRef.current;
+    if (!track) return;
+    if (agentState === 'listening') track.setVolume(0);
+    else if (agentState === 'speaking') track.setVolume(100);
+  }, [agentState]);
 
   // Local mute helper — the mute control in StoryScreen toggles this. Keeps
   // the track lifecycle owned by useLocalMicrophoneTrack (no manual close).
