@@ -59,7 +59,7 @@ describe('typed QA contract', () => {
     const tutorPagePath = join(dirname(fileURLToPath(import.meta.url)), '..', 'TutorPage.tsx');
     const src = readFileSync(tutorPagePath, 'utf8');
 
-    expect(src).toContain('postTypedBranchStarted({');
+    expect(src).toContain("beginVoiceBranch('typed', now, { interruptAudio: false })");
     expect(src).toContain('appendTypedTurn(prev, typedTurn)');
   });
 });

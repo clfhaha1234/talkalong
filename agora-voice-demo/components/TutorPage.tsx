@@ -68,7 +68,7 @@ import {
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 import { applyNarrationText } from './tutor/scene-sync';
-import { appendTypedTurn, postTypedBranchStarted } from './tutor/typed-qa-contract';
+import { appendTypedTurn } from './tutor/typed-qa-contract';
 
 // End-of-Q&A silence windows — how long we wait after the agent settles before
 // treating the digression as over and POSTing /api/tutor/qa-ended.
@@ -456,7 +456,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   }, [micRequested]);
 
   const beginVoiceBranch = useCallback(
-    (reason: 'state' | 'transcript', startedAt = Date.now()) => {
+    (
+      reason: 'state' | 'transcript' | 'typed',
+      startedAt = Date.now(),
+      opts: { interruptAudio?: boolean } = {},
+    ) => {
       if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return false;
       const gen = ++branchGenRef.current;
       inBranchRef.current = true;
@@ -474,7 +478,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       void fetch('/api/tutor/branch-started', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionIdRef.current, branch_id: gen }),
+        body: JSON.stringify({
+          session_id: sessionIdRef.current,
+          branch_id: gen,
+          interrupt_audio: opts.interruptAudio !== false,
+        }),
       }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
       return true;
     },
@@ -490,28 +498,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       if (!q || !sessionInfo) return;
       const now = Date.now();
       const typedTurn = { role: 'user' as const, text: q, ts: now };
-      // Enter a branch (pause narration + cut TTS) if we're not already in one
-      // — the same effect a voice barge-in has.
+      // Enter a branch (pause narration + locally hush TTS) if we're not already
+      // in one — the same effect a voice barge-in has. For typed questions the
+      // server ping deliberately skips session.interrupt(); sendText(INTERRUPTED)
+      // below owns the answer turn, while beginVoiceBranch owns local hush +
+      // deterministic narrator pause.
       if (!inBranchRef.current) {
-        const gen = ++branchGenRef.current;
-        inBranchRef.current = true;
-        qaTurnCountRef.current = 0;
-        branchAnchorRef.current = activeSceneIndex;
-        branchStartedAtRef.current = now;
-        typedTurnsRef.current = []; // fresh branch
-        setInBranch(true);
-        // Pause the server-side narrator immediately, but do NOT call
-        // session.interrupt() from the server for typed questions. The
-        // sendText(INTERRUPTED) below is what interrupts the current TTS and
-        // starts the answer; a concurrent server interrupt was live-found to
-        // suppress that reply. This branch-started ping is only for the
-        // deterministic spine (MAIN -> BRANCH) so narration cannot keep queuing
-        // over the typed Q&A.
-        postTypedBranchStarted({
-          sessionId: sessionIdRef.current,
-          branchId: gen,
-          seam,
-        });
+        beginVoiceBranch('typed', now, { interruptAudio: false });
       }
       // Record the typed question so it shows in the feed + pairs with the answer.
       typedTurnsRef.current.push(typedTurn);
@@ -533,7 +526,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           .catch((err) => console.warn('[tutor] sendText failed', err));
       }
     },
-    [sessionInfo, activeSceneIndex, seam],
+    [sessionInfo, beginVoiceBranch],
   );
 
   // ── RTM client lifecycle ──────────────────────────────────

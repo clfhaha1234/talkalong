@@ -2,7 +2,7 @@
 // or screenshots, not by the original benchmark. Keep them named like incidents
 // so `pnpm test` tells us whether the suite protects real user-visible failures.
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   MessageType,
@@ -12,7 +12,6 @@ import {
   type UserTranscription,
 } from 'agora-agent-client-toolkit';
 import { mapTranscriptItems } from '../../components/tutor/transcript-mapping';
-import { postTypedBranchStarted } from '../../components/tutor/typed-qa-contract';
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
 
@@ -67,26 +66,13 @@ describe('field regressions caught from live/manual testing', () => {
     ]);
   });
 
-  it('2026-06-01 typed QA screenshot: text-mode QA must notify the server branch before answer handling', () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
-    const ok = postTypedBranchStarted({
-      sessionId: 'render-session-1',
-      branchId: 42,
-      fetchImpl,
-    });
+  it('2026-06-01 typed QA screenshot: text-mode QA must enter the same local hush branch as voice', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
 
-    expect(ok).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledWith(
-      '/api/tutor/branch-started',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          session_id: 'render-session-1',
-          branch_id: 42,
-          interrupt_audio: false,
-        }),
-      }),
-    );
+    expect(src).toContain("beginVoiceBranch('typed', now, { interruptAudio: false })");
+    expect(src).toContain('agentAudioTrackRef.current?.setVolume(0)');
+    expect(src).toContain("seam('hush', 0)");
   });
 
   it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {

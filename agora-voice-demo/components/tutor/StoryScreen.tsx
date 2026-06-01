@@ -81,7 +81,7 @@ interface StoryScreenProps {
   onExit: () => void;
 }
 
-type Phase = 'reading' | 'paused' | 'listening' | 'thinking';
+type Phase = 'reading' | 'paused' | 'listening' | 'thinking' | 'answering';
 
 // ──────────────────────────────────────────────────────────────
 // Composer waveform — bars react to mic amplitude when active. Mirrors the
@@ -126,7 +126,7 @@ interface StageFrameProps {
 
 function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
   const paused = phase === 'paused';
-  const busy = phase === 'thinking';
+  const busy = phase === 'thinking' || phase === 'answering';
 
   // If the clip fails to load/decode, fall back to the still illustration
   // rather than showing a black box. Track WHICH clip url failed (not a bare
@@ -152,7 +152,8 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
   }, [scene.video_url]);
 
   const dotColor = busy ? T.rose : paused ? T.inkWhisper : T.sage;
-  const chipLabel = busy ? 'paused for you' : paused ? 'paused' : 'narrating';
+  const chipLabel =
+    phase === 'answering' ? 'answering' : busy ? 'paused for you' : paused ? 'paused' : 'narrating';
   const plate = ['i', 'ii', 'iii', 'iv', 'v', 'vi'][sceneIndex] || 'i';
 
   return (
@@ -593,7 +594,7 @@ function ConversationPanel({
   const currentChapterRef = useRef<HTMLDivElement>(null);
 
   const listening = phase === 'listening';
-  const thinking = phase === 'thinking';
+  const thinking = phase === 'thinking' || phase === 'answering';
 
   // NEW CHAPTER → bring its heading to the TOP of the feed (a "fresh page"
   // turn), so the chapter you're hearing reads from the top down and earlier
@@ -1053,7 +1054,9 @@ function ConversationPanel({
                     ? 'Story paused · just speak, or it’ll continue on its own'
                     : phase === 'listening'
                       ? 'Listening · I’ll answer when you pause'
-                      : 'The teacher is thinking…'}
+                      : phase === 'answering'
+                        ? 'Answering you…'
+                        : 'The teacher is thinking…'}
           </div>
           {modeToggle}
         </div>
@@ -1173,7 +1176,7 @@ export function StoryScreen({
     if (!inBranch && agentState === 'speaking') return 'reading';
     if (inBranch && agentState === 'thinking') return 'thinking';
     if (inBranch && agentState === 'listening' && !micMuted) return 'listening';
-    if (inBranch && agentState === 'speaking') return 'reading';
+    if (inBranch && agentState === 'speaking') return 'answering';
     return 'paused';
   }, [inBranch, agentState, micMuted]);
 
@@ -1207,7 +1210,9 @@ export function StoryScreen({
         ? 'LISTENING'
         : phase === 'thinking'
           ? 'THINKING'
-          : 'PAUSED';
+          : phase === 'answering'
+            ? 'ANSWERING'
+            : 'PAUSED';
 
   return (
     <div

@@ -155,9 +155,10 @@ describe('StoryScreen — feed renders narrated scenes (subtitle reveal)', () =>
 });
 
 describe('StoryScreen — derived phase / status across all states', () => {
-  // The phase useMemo: reading (!inBranch & speaking, or inBranch & speaking),
-  // thinking (inBranch & thinking), listening (inBranch & listening & !muted),
-  // else paused. Each surfaces a distinct footer hint — the user-visible signal.
+  // The phase useMemo: reading (!inBranch & speaking), answering
+  // (inBranch & speaking), thinking (inBranch & thinking), listening
+  // (inBranch & listening & !muted), else paused. Each surfaces a distinct
+  // footer hint — the user-visible signal.
   it('reading: mic-live hint when narrating', () => {
     render(<StoryScreen {...baseProps({ inBranch: false, agentState: 'speaking' })} />);
     expect(screen.getByText(/mic is live/i)).toBeInTheDocument();
@@ -171,6 +172,13 @@ describe('StoryScreen — derived phase / status across all states', () => {
   it('thinking: shows the thinking hint when in branch + agent thinking', () => {
     render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'thinking' })} />);
     expect(screen.getByText(/the teacher is thinking/i)).toBeInTheDocument();
+  });
+
+  it('answering: does not label branch speech as narration', () => {
+    render(<StoryScreen {...baseProps({ inBranch: true, agentState: 'speaking' })} />);
+    expect(screen.getByText(/answering you/i)).toBeInTheDocument();
+    expect(screen.getByText('ANSWERING')).toBeInTheDocument();
+    expect(screen.queryByText(/NARRATING/i)).not.toBeInTheDocument();
   });
 
   it('paused: shows the paused hint when in branch but agent idle', () => {
