@@ -40,9 +40,16 @@ The sections below (Start Here, Patterns, Anti-Patterns, etc.) remain the canoni
 
 ### Vercel Deployment
 
-- Deploy the repository as a single Next.js app.
-- Set `NEXT_PUBLIC_AGORA_APP_ID` and `NEXT_AGORA_APP_CERTIFICATE` in the deployment target.
-- Keep `NEXT_AGORA_APP_CERTIFICATE` server-side only.
+- Deploy the repository as a single Next.js app. **See [DEPLOY.md](./DEPLOY.md)**
+  for the full runbook — the `/tutor` app is live at
+  <https://agora-voice-demo.vercel.app> (`/` 307-redirects to `/tutor`).
+- Set `NEXT_PUBLIC_AGORA_APP_ID` and `NEXT_AGORA_APP_CERTIFICATE` in the
+  deployment target (the `NEXT_PUBLIC_*` one is inlined at build → redeploy after
+  changes). Keep `NEXT_AGORA_APP_CERTIFICATE` server-side only.
+- The tutor also needs `GOOGLE_API_KEY` (Gemini). On Vercel, illustrations
+  require **Vercel Blob** (`BLOB_READ_WRITE_TOKEN`) because `public/` is
+  read-only at runtime; `image-gen.ts` auto-switches to Blob when that token is
+  present. See DEPLOY.md for the `vercel blob`-clobbers-`.env.local` gotcha.
 
 ## Routing / Ownership
 

@@ -53,7 +53,11 @@ pattern), NOT an agentic tool loop — a choice [validated with data](docs/exper
    Agora-hosted voice agent speaks each scene; the UI reveals text + plays the
    scene's clip in lockstep ([`components/tutor/StoryScreen.tsx`](components/tutor/StoryScreen.tsx)).
 3. **Barge in** — Agora's server-side VAD detects you speaking and pauses the
-   narration (no button needed once the mic is on). The voice agent answers your
+   narration (no button needed once the mic is on). The browser *also* **hushes
+   the agent's audio the instant you start speaking**
+   ([`components/TutorPage.tsx`](components/TutorPage.tsx)) — locally muting any
+   residual narration without waiting for the server-side interrupt round-trip,
+   so barge-in feels as snappy as a 1:1 call. The voice agent then answers your
    question in the storyteller's voice.
 4. **Resume** — when you go quiet, a single-shot Gemini "resume planner"
    ([`lib/orchestrator/resume-planner.ts`](lib/orchestrator/resume-planner.ts))
@@ -287,7 +291,8 @@ NEXT_ELEVENLABS_VOICE_ID=...
 - `lib/orchestrator/` — the deterministic spine: `progress-state.ts` (source of truth),
   `narrator.ts`, `resume-planner.ts` (single-shot resume brain), `session-logger.ts` (debug log)
 - `lib/language-config.ts` — per-language persona + the shared `buildStorytellerSystemMessage` (single source of truth for the agent's runtime context, used by both prod and the bench)
-- `components/tutor/transcript-mapping.ts` — pure user/agent transcript attribution + barge-in Q&A filtering (unit-tested)
+- `components/tutor/transcript-mapping.ts` — pure user/agent transcript attribution, barge-in Q&A filtering + typed-question echo dedupe (unit-tested)
+- `components/tutor/scene-sync.ts` — pure helper that re-syncs the on-screen subtitle to the *spoken* text when the resume planner rewrites a segment (e.g. switching it to the listener's language) (unit-tested)
 - `docs/experiments/` — data-backed decisions (agentic-vs-singleshot, climax-leak, typed-segment, …)
 - `scripts/qa-bench/` — offline eval: the qa-resume benchmark + grader + audio barge-in harness
 - `scripts/voice-qa-bench/` — prod-faithful voice-AI Q&A bench (8 interrupt types × stories × languages)

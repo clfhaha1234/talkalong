@@ -1,44 +1,72 @@
 # Deploying talkalong (/tutor)
 
-## Vercel (current target) — status + the 2 steps only you can do
+## Vercel (current target) — LIVE & PUBLIC
 
-The app is **deployed to Vercel** and all code/config deploy-blockers are fixed:
-- function size (was 571MB — a stale 589MB `public/lesson-cache` of local dev
-  mp4s got traced into the lambda; now excluded via `.vercelignore` +
+The app is **deployed and public** on Vercel:
+
+- **Stable URL: <https://agora-voice-demo.vercel.app>** (`/` 307-redirects to
+  `/tutor` via `next.config.mjs`). Project `arclow/agora-voice-demo` (Pro).
+- Deploy a new prod build with `vercel --prod --scope arclow` from this dir.
+  (GitHub auto-deploy is **not** wired — deploys are manual CLI.)
+
+All code/config deploy-blockers are fixed:
+
+- **function size** (was 571MB — a stale 589MB `public/lesson-cache` of local
+  dev mp4s got traced into the lambda; now excluded via `.vercelignore` +
   `outputFileTracingExcludes`)
-- `maxDuration` lowered 1200→**800** (Vercel Pro's hard ceiling)
-- `outputFileTracingRoot` pinned to this dir (subdir-app safety)
+- **`maxDuration`** lowered 1200→**800** (Vercel Pro's hard ceiling)
+- **`outputFileTracingRoot`** pinned to this dir (subdir-app safety)
+- **read-only-FS crash**: `script-generator.ts` and `image-gen.ts` used to write
+  caches under `public/lesson-cache/` and threw `ENOENT: mkdir` on Vercel's
+  immutable FS, killing the whole lesson. Both now **fail soft** (try/catch →
+  cache miss / Blob path).
 
-Latest preview: `https://agora-voice-demo-*.vercel.app` (`vercel deploy`).
+Two manual steps were required and are **done** (they're yours to redo if you
+re-provision the project — I can't toggle a security setting or enter secrets):
 
-**Two remaining steps are yours** (I'm not permitted to do either — security
-setting + secret keys):
+1. ✅ **Deployment Protection is off** — Settings → Deployment Protection. (If a
+   redeploy ever returns `401 Authentication Required`, this got re-enabled.)
+2. ✅ **Env vars set** on **Production + Preview**: `NEXT_PUBLIC_AGORA_APP_ID`,
+   `NEXT_AGORA_APP_CERTIFICATE`, `GOOGLE_API_KEY`, `NEXT_PUBLIC_AGENT_UID`
+   (+ `BLOB_READ_WRITE_TOKEN`, auto-injected when the Blob store was linked).
+   The `NEXT_PUBLIC_*` ones are inlined **at build time**, so changing them
+   **requires a redeploy** (`vercel --prod`).
 
-1. **Turn off Deployment Protection** (or add a bypass) — Vercel project →
-   Settings → Deployment Protection. Until then every URL returns `401
-   Authentication Required`.
-2. **Set the env vars** — Vercel project → Settings → Environment Variables,
-   add all four from `.env.example` (`NEXT_PUBLIC_AGORA_APP_ID`,
-   `NEXT_AGORA_APP_CERTIFICATE`, `GOOGLE_API_KEY`, `NEXT_PUBLIC_AGENT_UID`) to
-   **Production + Preview**. The `NEXT_PUBLIC_*` ones are inlined **at build
-   time**, so a **redeploy is required after setting them** (`vercel deploy`).
+### Illustrations on Vercel = Vercel Blob (done)
 
-### Known Vercel runtime limits (the serverless tradeoffs)
+`public/` is read-only on Vercel **and** runtime-written files aren't served by
+the CDN — so the local filesystem image cache can't work there. `image-gen.ts`
+detects Vercel by `process.env.BLOB_READ_WRITE_TOKEN` and, when present, uploads
+each generated JPEG to the **Vercel Blob** store (`put()` with
+`addRandomSuffix:false` + `allowOverwrite:true`, deterministic
+`lesson-cache/<hash>.jpg`) and returns the CDN URL. Locally / on a persistent
+host the same function falls back to the disk cache + Remotion video path.
 
-- **Illustrations**: `public/` is read-only on Vercel, so `image-gen`'s
-  disk-write fails *soft* → scenes show the "sketching" placeholder, not a
-  generated image. The story still narrates. To get real illustrations on
-  Vercel, move image storage to **Vercel Blob** (a contained change to
-  `image-gen.ts` + a Blob store) — not yet done.
+> ⚠️ **Gotcha — `vercel blob create-store` / `delete-store` clobbers
+> `.env.local`.** Those commands silently run `vercel env pull` and overwrite the
+> local file with the *development* env, **dropping** any Sensitive (write-only)
+> keys that were only set for Production/Preview — which breaks local dev + the
+> fake-mic e2e. Back up `.env.local` before running any `vercel blob` store
+> command and restore after. (Recorded in agent memory `vercel-blob-env-clobber`.)
+>
+> 💰 **Cost follow-up (not yet done):** the Blob path has **no read-before-write
+> check**, so it re-generates + re-uploads (a paid Gemini call) on every run even
+> for an identical hash. Add a `head()`/`list()` cache-hit short-circuit to match
+> the disk path's free cache hits.
+
+### Other Vercel runtime limits (the serverless tradeoffs)
+
 - **Narration length**: capped at 800s/session. Fine for 3–5 scene stories; a
   much longer session would be cut off.
 - **Barge-in across requests**: the in-memory session registry assumes one
-  process; serverless may route `branch-started`/`qa-ended` to a different
-  instance. Verify barge-in once env is set; if flaky, it needs a durable
-  store (KV).
+  process; serverless *may* route `branch-started`/`qa-ended` to a different
+  instance. Observed working on the live deploy, but under load it could miss —
+  if flaky, move the registry to a durable store (KV).
+- **Video**: Ken-Burns clips need Remotion (repo root, headless Chromium); not in
+  the Vercel build, so scenes show the still illustration (see below).
 
 **A persistent Node host (below) has none of these limits** — it's the option
-for full fidelity. Vercel is fine for a UI/demo + short-story narration.
+for full fidelity (incl. video). Vercel is the live public demo.
 
 ## Alternative — a persistent Node host (full functionality, no limits)
 
