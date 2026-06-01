@@ -516,6 +516,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       });
       // Send it to the agent — it replies with TTS + a transcript turn.
       const ai = AgoraVoiceAI.getInstance();
+      seam('send_uid', String(agentUidRef.current));
       if (ai) {
         void ai
           .sendText(agentUidRef.current, {
@@ -524,7 +525,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             responseInterruptable: true,
             text: q,
           })
-          .catch((err) => console.warn('[tutor] sendText failed', err));
+          .then(() => seam('sent_ok'))
+          .catch((err) => {
+            seam('send_err', String(err?.message ?? err).slice(0, 50));
+            console.warn('[tutor] sendText failed', err);
+          });
+      } else {
+        seam('send_err', 'no AgoraVoiceAI instance');
       }
     },
     [sessionInfo, beginVoiceBranch, seam],
@@ -606,6 +613,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             if (_agentUserId) agentUidRef.current = String(_agentUserId);
             agentStateRef.current = String(event.state);
             seam('state', String(event.state));
+            seam('agent_uid', String(_agentUserId));
             setAgentState(String(event.state));
           },
         );
@@ -640,7 +648,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             setQaTranscript(merged);
             // Feed the live agent transcript to the word-reveal so captions
             // track the actual voice (audio-synced) rather than a fixed timer.
-            setLiveNarrationText(latestAgentText(items, localUid));
+            const agentNow = latestAgentText(items, localUid);
+            setLiveNarrationText(agentNow);
+            // Diagnostic: surface any agent transcript that arrives WHILE a branch
+            // is open — i.e. a reply to the question (vs narration). If none ever
+            // logs, the agent isn't producing a reply at all.
+            if (inBranchRef.current && agentNow) seam('agent_reply', agentNow);
             // Feed the live user transcript to the voice composer so the
             // in-progress question echoes back as the user speaks.
             const liveUserTurn = latestUserTurn(items, localUid);
