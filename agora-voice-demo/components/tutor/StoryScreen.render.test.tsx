@@ -116,12 +116,34 @@ describe('StoryScreen — typed question wiring', () => {
   });
 });
 
-describe('StoryScreen — feed renders narrated scenes', () => {
-  it('renders the first scene narration as a teacher bubble', () => {
-    render(<StoryScreen {...baseProps({ activeSceneIndex: 0 })} />);
-    expect(
-      screen.getByText(/the clock tower ticked slower/i),
-    ).toBeInTheDocument();
+describe('StoryScreen — feed renders narrated scenes (subtitle reveal)', () => {
+  const SCENE1 = 'Albert noticed the clock tower ticked slower as the tram sped away.';
+
+  it('reveals the spoken words of the current scene (audio-synced)', () => {
+    // Live transcript covers all of scene 1 → the whole sentence is revealed.
+    render(
+      <StoryScreen
+        {...baseProps({ activeSceneIndex: 0, liveNarrationText: SCENE1, agentState: 'speaking' })}
+      />,
+    );
+    expect(screen.getByText(/the clock tower ticked slower/i)).toBeInTheDocument();
+  });
+
+  it('subtitle reveal: does NOT show words ahead of the voice (anti-spoiler)', () => {
+    // The voice has only reached "Albert noticed the clock tower" — the rest of
+    // the sentence MUST NOT be on screen yet (else the listener reads ahead =
+    // self-spoiler, the exact bug this fixes).
+    render(
+      <StoryScreen
+        {...baseProps({
+          activeSceneIndex: 0,
+          liveNarrationText: 'Albert noticed the clock tower',
+          agentState: 'speaking',
+        })}
+      />,
+    );
+    expect(screen.getByText(/Albert noticed the clock tower/i)).toBeInTheDocument();
+    expect(screen.queryByText(/the tram sped away/i)).not.toBeInTheDocument();
   });
 
   it('does not reveal a later scene before the audio reaches it', () => {

@@ -26,8 +26,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { T, F_HEAD, F_BODY, F_MONO, type Scene } from './theme';
-import { matchSceneIndex } from './reveal-sync';
+import { T, F_HEAD, F_BODY, F_MONO, tokenize, type Scene } from './theme';
+import { matchSceneIndex, revealedTokenCount } from './reveal-sync';
 import { MicIcon, PlayIcon } from './ornaments';
 import { clamp } from '@/lib/utils';
 
@@ -540,6 +540,11 @@ interface ConversationPanelProps {
   scenes: Scene[];
   currentIndex: number;
   phase: Phase;
+  /** True while a Q&A branch is open — pauses the subtitle reveal so it can't
+   *  creep ahead while the narration voice is stopped. */
+  inBranch: boolean;
+  /** Agora's live agent transcript — drives the current scene's subtitle reveal. */
+  liveNarrationText: string | null;
   qaHistoryByScene: Record<number, QaEntry[]>;
   liveUserText: string | null;
   micLevel: number;
@@ -557,6 +562,8 @@ function ConversationPanel({
   scenes,
   currentIndex,
   phase,
+  inBranch,
+  liveNarrationText,
   qaHistoryByScene,
   liveUserText,
   micLevel,
@@ -566,6 +573,16 @@ function ConversationPanel({
   onToggleMic,
   onTextQuestion,
 }: ConversationPanelProps) {
+  // Subtitle reveal for the scene being narrated (anti-spoiler) — only the words
+  // spoken so far, synced to the live voice. ACTIVE whenever NOT in a Q&A branch
+  // (i.e. during narration): narration say() registers as agent-state silent,
+  // NOT speaking, so gating on "speaking" left the subtitle blank through whole
+  // scenes (live-found 2026-06-01). Past scenes render in full.
+  const currentRevealedText = useSubtitleReveal(
+    scenes[currentIndex]?.narration_text ?? '',
+    liveNarrationText,
+    !inBranch && !finished,
+  );
   // Voice-first by default; text mode is a real alternative path (onTextQuestion).
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice');
   const [draft, setDraft] = useState('');
@@ -682,15 +699,19 @@ function ConversationPanel({
           // Pure-chatbot feed: each narrated scene is just a teacher message —
           // no "Chapter X" divider, no headline. The CURRENT scene's bubble
           // carries the ref the auto-scroll pins to the top on scene change.
+          const isCurrent = i === currentIndex;
           const narration = (
             <TeacherBubble
-              text={scene.narration_text}
-              streaming={phase === 'reading' && i === currentIndex}
+              // Current scene: subtitle reveal (only words spoken so far) so the
+              // listener can't read the whole scene ahead of the voice. Past
+              // scenes: full text (already spoken).
+              text={isCurrent ? currentRevealedText : scene.narration_text}
+              streaming={phase === 'reading' && isCurrent}
             />
           );
           const nodes = [
             i === currentIndex ? (
-              <div key={`${scene.id}-narration`} ref={currentChapterRef}>
+              <div key={`${scene.id}-narration`} ref={currentChapterRef} data-testid="narration-current">
                 {narration}
               </div>
             ) : (
@@ -1044,6 +1065,51 @@ function ConversationPanel({
   );
 }
 
+// Tokens revealed per floor-tick — a speech-paced fallback so the subtitle
+// keeps flowing when the live transcript lags or misses, WITHOUT racing ahead
+// of the voice (≈150 wpm ≈ 2.5 words/s ≈ 5 tokens/s ≈ 1 token / 200ms; tokenize
+// keeps separators so a word ≈ 2 tokens → ~1 word / 400ms). Audio-sync
+// (revealedTokenCount) overrides this UPWARD whenever the transcript aligns.
+const REVEAL_TICK_MS = 200;
+
+/**
+ * SUBTITLE REVEAL for the scene currently being narrated: show only the words
+ * spoken so far — audio-synced to Agora's live agent transcript, with a
+ * speech-paced time floor (so text still appears if the transcript lags) and a
+ * pause while `active` is false (a barge-in), so the reveal can NEVER run ahead
+ * of the voice. This is the anti-spoiler fix: dumping the whole scene text at
+ * once let the listener read instead of listen. Past scenes render in full
+ * (already spoken) — the caller passes their text directly, not through here.
+ */
+function useSubtitleReveal(narration: string, spokenSoFar: string | null, active: boolean): string {
+  const tokens = useMemo(() => tokenize(narration), [narration]);
+  const [revealed, setRevealed] = useState(0);
+
+  // New scene → restart the reveal from the top.
+  useEffect(() => {
+    setRevealed(0);
+  }, [narration]);
+
+  // Audio-synced advance: jump to however many words Agora reports as spoken.
+  useEffect(() => {
+    if (!active) return;
+    const n = revealedTokenCount(narration, spokenSoFar ?? '');
+    if (n >= 0) setRevealed((r) => Math.max(r, n));
+  }, [narration, spokenSoFar, active]);
+
+  // Speech-paced floor — advances ONLY while actively narrating (so it pauses
+  // during a barge-in and can't creep ahead while the voice is stopped).
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => {
+      setRevealed((r) => Math.min(tokens.length, r + 1));
+    }, REVEAL_TICK_MS);
+    return () => clearInterval(id);
+  }, [active, tokens.length]);
+
+  return tokens.slice(0, Math.min(revealed, tokens.length)).join('');
+}
+
 // ──────────────────────────────────────────────────────────────
 // MAIN
 export function StoryScreen({
@@ -1226,6 +1292,8 @@ export function StoryScreen({
           scenes={scenes}
           currentIndex={currentIndex}
           phase={phase}
+          inBranch={inBranch}
+          liveNarrationText={liveNarrationText}
           qaHistoryByScene={qaHistoryByScene}
           liveUserText={liveUserText}
           micLevel={micLevel}
