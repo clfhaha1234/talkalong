@@ -209,3 +209,58 @@ export function dedupeQaTurns(
   }
   return out;
 }
+
+/**
+ * Drop agent turns that occur BEFORE the first user turn in the branch.
+ *
+ * In a branch the only agent speech that can precede the question is the
+ * leftover narration tail — the `say()` that was still mid-flight when the
+ * listener barged in (the interrupt takes a round-trip to land). That is NOT an
+ * answer; the q/a pairing would render it as a phantom "IN ANSWER TO YOU" bubble
+ * with an empty question (live-found 2026-06-01: the first bubble was scene-1
+ * narration the listener hadn't asked about). An answer must follow a question —
+ * so anything before the first user turn is discarded. If there's no user turn
+ * yet, there are no answers to show.
+ */
+export function dropLeadingAgentTurns(turns: QaTranscriptTurn[]): QaTranscriptTurn[] {
+  const firstUser = turns.findIndex((t) => t.role === 'user');
+  if (firstUser === -1) return turns.filter((t) => t.role === 'user');
+  return turns.slice(firstUser);
+}
+
+/**
+ * Merge consecutive same-role turns into one.
+ *
+ * Agora finalizes a single spoken answer in MULTIPLE chunks, each arriving as
+ * its own transcript turn — so one answer rendered as several "IN ANSWER TO YOU"
+ * bubbles (live-found 2026-06-01). Joining adjacent same-role turns gives the
+ * storyteller's natural shape: one question → one answer. This is safe inside a
+ * branch because the narrator is PAUSED there, so consecutive agent turns are
+ * all part of the same reply — never fresh narration getting swallowed.
+ *
+ * Handles the growing-transcript case (a later chunk is a superset/extension of
+ * an earlier one) so we don't double up overlapping text.
+ */
+export function coalesceConsecutiveTurns(
+  turns: QaTranscriptTurn[],
+): QaTranscriptTurn[] {
+  const out: QaTranscriptTurn[] = [];
+  for (const t of turns) {
+    const last = out[out.length - 1];
+    const text = t.text.trim();
+    if (!last || last.role !== t.role) {
+      out.push({ role: t.role, text, ts: t.ts });
+      continue;
+    }
+    const prev = last.text;
+    if (text === prev || prev.includes(text)) {
+      // exact dup or already contained — keep the longer, advance ts
+    } else if (text.startsWith(prev)) {
+      last.text = text; // the chunk grew the previous one
+    } else {
+      last.text = `${prev} ${text}`;
+    }
+    last.ts = Math.max(last.ts, t.ts);
+  }
+  return out;
+}

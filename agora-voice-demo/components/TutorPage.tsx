@@ -64,6 +64,8 @@ import {
   latestAgentText,
   latestUserTurn,
   dedupeQaTurns,
+  dropLeadingAgentTurns,
+  coalesceConsecutiveTurns,
 } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
@@ -72,8 +74,15 @@ import { appendTypedTurn } from './tutor/typed-qa-contract';
 
 // End-of-Q&A silence windows — how long we wait after the agent settles before
 // treating the digression as over and POSTing /api/tutor/qa-ended.
-//   - AFTER A REAL ANSWER (agent was speaking → quiet): a short follow-up grace,
-//     then resume. ~1.4s feels prompt without cutting off a quick "and also…".
+//   - AFTER A REAL ANSWER (agent was speaking → quiet): a GENEROUS follow-up
+//     grace, then resume. First principles — a real storyteller, after answering
+//     a child, pauses and lets the moment breathe; they don't snap back to
+//     reading a beat later (the old 1.4s — "回主线太快", live-found 2026-06-01),
+//     nor do they interrogate "any other questions?". ~4s of genuine silence is
+//     the natural "you're done, let's read on" signal; a follow-up within that
+//     window cancels the resume (block 3) and re-arms it after. The composer
+//     still shows "Listening — just speak to interrupt" the whole time, so the
+//     listener knows the floor is theirs.
 //   - AGENT WENT QUIET WITHOUT SPEAKING YET (thinking/listening → quiet): the
 //     answer may still be COMPOSING — gpt-4o-mini's first token can take 1-2.5s,
 //     so a fast resume here cuts the answer off BEFORE it starts. That was the
@@ -82,7 +91,7 @@ import { appendTypedTurn } from './tutor/typed-qa-contract';
 //     to BEGIN; the instant the agent enters 'speaking' the timer is cancelled
 //     (block 3) and re-armed with the after-answer grace once it finishes. If no
 //     speech ever comes (a true false / back-channel barge) this is the fallback.
-const SILENCE_TIMEOUT_MS = 1400;
+const SILENCE_TIMEOUT_MS = 4000;
 const SILENCE_NO_ANSWER_MS = 3000;
 const QA_ERROR_FALLBACK =
   "I heard you, but I'm having trouble answering right now. Let me keep us with the story.";
@@ -661,7 +670,12 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
                   [...committed, ...typedTurnsRef.current].sort((a, b) => a.ts - b.ts),
                 )
               : committed;
-            setQaTranscript(merged);
+            // Clean the panel to a storyteller's natural shape: drop the leftover
+            // narration tail that finalized after the barge-in (phantom no-question
+            // "answer"), then coalesce the chunked agent transcript so one reply is
+            // ONE bubble, not three. (Both live-found 2026-06-01.)
+            const cleaned = coalesceConsecutiveTurns(dropLeadingAgentTurns(merged));
+            setQaTranscript(cleaned);
             // Feed the live agent transcript to the word-reveal so captions
             // track the actual voice (audio-synced) rather than a fixed timer.
             const agentNow = latestAgentText(items, localUid);

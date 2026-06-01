@@ -17,6 +17,8 @@ import {
   latestUserTurn,
   latestUserText,
   dedupeQaTurns,
+  dropLeadingAgentTurns,
+  coalesceConsecutiveTurns,
 } from './transcript-mapping';
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
@@ -308,5 +310,88 @@ describe('latestUserText (live composer echo source)', () => {
       item({ uid: LOCAL_UID, text: '   ', time: 200, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
     ];
     expect(latestUserText(items, LOCAL_UID)).toBe('real question');
+  });
+});
+
+describe('dropLeadingAgentTurns — narration tail before the question is not an answer', () => {
+  it('drops the leftover narration that finalized after the barge-in (no phantom answer)', () => {
+    // The 2026-06-01 screenshot: an agent turn (scene narration) preceded the
+    // user's question and rendered as a "IN ANSWER TO YOU" bubble with no Q.
+    const turns = [
+      { role: 'agent' as const, text: 'Little Albert lived in the charming city of Ulm.', ts: 100 },
+      { role: 'user' as const, text: 'Where is this from?', ts: 200 },
+      { role: 'agent' as const, text: 'This story is set in Ulm, Germany.', ts: 300 },
+    ];
+    expect(dropLeadingAgentTurns(turns)).toEqual([
+      { role: 'user', text: 'Where is this from?', ts: 200 },
+      { role: 'agent', text: 'This story is set in Ulm, Germany.', ts: 300 },
+    ]);
+  });
+
+  it('returns no answers when there is no question yet', () => {
+    const turns = [
+      { role: 'agent' as const, text: 'narration a', ts: 1 },
+      { role: 'agent' as const, text: 'narration b', ts: 2 },
+    ];
+    expect(dropLeadingAgentTurns(turns)).toEqual([]);
+  });
+
+  it('keeps a normal multi-exchange branch intact', () => {
+    const turns = [
+      { role: 'user' as const, text: 'q1', ts: 1 },
+      { role: 'agent' as const, text: 'a1', ts: 2 },
+      { role: 'user' as const, text: 'q2', ts: 3 },
+      { role: 'agent' as const, text: 'a2', ts: 4 },
+    ];
+    expect(dropLeadingAgentTurns(turns)).toEqual(turns);
+  });
+});
+
+describe('coalesceConsecutiveTurns — one reply is ONE bubble', () => {
+  it('merges chunked agent turns into a single answer', () => {
+    // Agora finalized one spoken answer as 3 chunks → 3 bubbles (screenshot bug).
+    const turns = [
+      { role: 'user' as const, text: 'Where is this from?', ts: 100 },
+      { role: 'agent' as const, text: 'This story is set in Ulm,', ts: 200 },
+      { role: 'agent' as const, text: 'in Germany,', ts: 210 },
+      { role: 'agent' as const, text: 'around 1879.', ts: 220 },
+    ];
+    expect(coalesceConsecutiveTurns(turns)).toEqual([
+      { role: 'user', text: 'Where is this from?', ts: 100 },
+      { role: 'agent', text: 'This story is set in Ulm, in Germany, around 1879.', ts: 220 },
+    ]);
+  });
+
+  it('collapses a growing (prefix) transcript without duplicating text', () => {
+    const turns = [
+      { role: 'agent' as const, text: 'His name is', ts: 1 },
+      { role: 'agent' as const, text: 'His name is Pemberley.', ts: 2 },
+    ];
+    expect(coalesceConsecutiveTurns(turns)).toEqual([
+      { role: 'agent', text: 'His name is Pemberley.', ts: 2 },
+    ]);
+  });
+
+  it('does not merge across a role change (q/a stay separate)', () => {
+    const turns = [
+      { role: 'user' as const, text: 'q1', ts: 1 },
+      { role: 'agent' as const, text: 'a1', ts: 2 },
+      { role: 'user' as const, text: 'q2', ts: 3 },
+    ];
+    expect(coalesceConsecutiveTurns(turns)).toEqual(turns);
+  });
+
+  it('drops-then-coalesce produces a clean single q→a from the screenshot scenario', () => {
+    const turns = [
+      { role: 'agent' as const, text: 'Little Albert lived in Ulm.', ts: 100 }, // narration tail
+      { role: 'user' as const, text: 'Where is this from?', ts: 200 },
+      { role: 'agent' as const, text: 'It is set in Ulm,', ts: 300 },
+      { role: 'agent' as const, text: 'Germany, in 1879.', ts: 310 },
+    ];
+    const cleaned = coalesceConsecutiveTurns(dropLeadingAgentTurns(turns));
+    expect(cleaned).toEqual([
+      { role: 'user', text: 'Where is this from?', ts: 200 },
+      { role: 'agent', text: 'It is set in Ulm, Germany, in 1879.', ts: 310 },
+    ]);
   });
 });

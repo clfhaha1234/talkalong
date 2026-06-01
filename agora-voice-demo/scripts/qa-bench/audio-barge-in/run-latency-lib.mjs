@@ -16,7 +16,9 @@ export const KNOWN_FIXED = {
   // Dynamic as of 2026-06-01 (a no-answer/false barge uses a shorter
   // SILENCE_NO_ANSWER_MS); this mirrors the after-answer value, the dominant
   // component of "how long after I stop talking does the story continue".
-  silence_confirm_ms: 1400,
+  // Raised 1400→4000 (2026-06-01): a storyteller pauses after answering so the
+  // listener can ask a follow-up; 1.4s resumed too fast ("回主线太快").
+  silence_confirm_ms: 4000,
 };
 
 // ── UX target bands (ms). What a listener perceives, from voice-UX norms:
