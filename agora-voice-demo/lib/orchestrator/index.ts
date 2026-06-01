@@ -162,7 +162,26 @@ function buildAgent(config: OrchestratorConfig, name: string): Agent {
   })
     // English-only STT for all languages — see STT_LANGUAGE rationale.
     .withStt(new DeepgramSTT({ model: STT_MODEL, language: STT_LANGUAGE }))
-    .withLlm(new OpenAI({ model: 'gpt-4o-mini', maxHistory: 6 }))
+    // LLM: point the agent at Gemini's OpenAI-COMPATIBLE endpoint with our own
+    // GOOGLE_API_KEY rather than Agora's OpenAI *reseller* preset.
+    //
+    // WHY (live-found 2026-06-01): the reseller preset (`new OpenAI({ model })`
+    // with no key) routes to api.openai.com with Agora-injected credentials that
+    // return HTTP 401 on this project — surfaced as `llm:505` ("Attempt to decode
+    // JSON with unexpected mimetype: text/plain", url=api.openai.com). So EVERY
+    // QA answer (voice and typed) silently errored → the agent never spoke → the
+    // long-hunted "无视我的QA". No eval caught it because they all mocked the LLM;
+    // only a live answer exercises the credential. GOOGLE_API_KEY is already
+    // provisioned + verified on Render (lesson generation uses the same key +
+    // endpoint), so this needs no new secret.
+    .withLlm(
+      new OpenAI({
+        apiKey: process.env.GOOGLE_API_KEY ?? '',
+        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        model: process.env.GEMINI_TUTOR_MODEL ?? 'gemini-3.1-flash-lite',
+        maxHistory: 6,
+      }),
+    )
     .withTts(
       new MiniMaxTTS({
         model: 'speech_2_8_turbo',
