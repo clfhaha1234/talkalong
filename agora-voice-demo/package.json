@@ -6,6 +6,10 @@
   "engines": {
     "node": ">=22"
   },
+  "pnpm": {
+    "//": "pnpm 10 blocks native postinstall build scripts in a clean install (Render's Docker build) and ERRORS under --frozen-lockfile (ERR_PNPM_IGNORED_BUILDS). Approve the ones we actually need built.",
+    "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"]
+  },
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
     "dev": "next dev --webpack",
