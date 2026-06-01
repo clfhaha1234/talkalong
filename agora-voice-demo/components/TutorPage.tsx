@@ -463,7 +463,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       startedAt = Date.now(),
       opts: { interruptAudio?: boolean } = {},
     ) => {
-      if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return false;
+      if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return null;
       const gen = ++branchGenRef.current;
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
@@ -477,7 +477,10 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       agentAudioTrackRef.current?.setVolume(0);
       seam('hush', 0);
       seam('branch_post', `${gen}:${reason}`);
-      void fetch('/api/tutor/branch-started', {
+      // Returns the POST promise so callers that must SEQUENCE work after the
+      // server-side interrupt lands (typed QA — see onTextQuestion) can await it.
+      // Voice callers ignore the return and fire-and-forget.
+      return fetch('/api/tutor/branch-started', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -485,8 +488,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           branch_id: gen,
           interrupt_audio: opts.interruptAudio !== false,
         }),
-      }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
-      return true;
+      })
+        .then(() => {})
+        .catch((err) => console.warn('[tutor] /branch-started fetch error', err));
     },
     [sessionInfo, seam],
   );
@@ -495,19 +499,29 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // send it to the agent via the toolkit's sendText so it answers exactly like
   // a spoken Q&A — then the existing silence-timer → qa-ended path resumes.
   const onTextQuestion = useCallback(
-    (text: string) => {
+    async (text: string) => {
       const q = text.trim();
       if (!q || !sessionInfo) return;
       const now = Date.now();
       const typedTurn = { role: 'user' as const, text: q, ts: now };
       seam('typed_txt', q);
       // Enter a branch (pause narration + locally hush TTS) if we're not already
-      // in one — the same effect a voice barge-in has. For typed questions the
-      // server ping deliberately skips session.interrupt(); sendText(INTERRUPTED)
-      // below owns the answer turn, while beginVoiceBranch owns local hush +
-      // deterministic narrator pause.
+      // in one — the same effect a voice barge-in has. CRITICAL ORDERING: the
+      // buffered narration TTS keeps PLAYING until session.interrupt() flushes it
+      // (sendText alone does NOT interrupt say()-injected narration — proven live
+      // 2026-06-01: the agent's branch transcript was the narration, not a reply,
+      // so the answer never got a voice turn → "无视我的QA"). So we interrupt the
+      // narration FIRST (interruptAudio:true), AWAIT the server ping so the flush
+      // has landed, then sendText — the reply now plays into a cleared TTS. The
+      // earlier interruptAudio:false was an over-correction for a CONCURRENT
+      // interrupt cutting the reply; sequencing (interrupt → settle → send) fixes
+      // both: the narration is gone AND the interrupt is done before the reply.
       if (!inBranchRef.current) {
-        beginVoiceBranch('typed', now, { interruptAudio: false });
+        const posted = beginVoiceBranch('typed', now, { interruptAudio: true });
+        if (posted) await posted.catch(() => {});
+        // session.interrupt() is fired (not awaited) inside beginBranch before the
+        // ping responds, so give the flush a beat to complete before the reply.
+        await new Promise((r) => setTimeout(r, 250));
       }
       // Record the typed question so it shows in the feed + pairs with the answer.
       typedTurnsRef.current.push(typedTurn);
