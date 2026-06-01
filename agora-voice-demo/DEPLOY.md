@@ -101,6 +101,7 @@ Set these in your host's dashboard (see `.env.example` for the annotated list):
 | `NEXT_AGORA_APP_CERTIFICATE` | Agora App Certificate (token signing) |
 | `GOOGLE_API_KEY` | Gemini — script/scene/image generation + resume planner |
 | `NEXT_PUBLIC_AGENT_UID` | agent RTC uid (default `123456`) |
+| `LESSON_CACHE_DIR` | Optional persistent cache directory for scripts/images, e.g. `/var/data/lesson-cache` on a Render disk |
 
 The STT/LLM/TTS vendor keys (Deepgram / OpenAI / MiniMax) live in the **Agora
 project dashboard**, not here — the app only mints tokens + invites the agent.
@@ -147,8 +148,8 @@ env vars via `fly secrets set`.
 
 ## What works vs. what's deferred in this container
 
-**Works:** lesson generation, scene **images** (Gemini → `public/lesson-cache`,
-served from disk), the full narration → barge-in → QA → Chinese-resume loop,
+**Works:** lesson generation, scene **images** (Gemini → `LESSON_CACHE_DIR` if
+set, else `public/lesson-cache`, served from disk), the full narration → barge-in → QA → Chinese-resume loop,
 typed questions.
 
 **Deferred — video rendering.** The Ken-Burns clips are rendered by **Remotion,

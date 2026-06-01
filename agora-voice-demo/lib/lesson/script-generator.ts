@@ -175,7 +175,9 @@ function cacheKey(input: string, langCode: string): string {
 }
 
 function ensureCacheDir(repoRoot: string): string {
-  const dir = join(repoRoot, CACHE_SUBDIR);
+  const dir = process.env.LESSON_CACHE_DIR
+    ? join(process.env.LESSON_CACHE_DIR, 'scripts')
+    : join(repoRoot, CACHE_SUBDIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }

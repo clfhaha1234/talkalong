@@ -14,6 +14,7 @@ import {
   attributeRole,
   mapTranscriptItems,
   latestAgentText,
+  latestUserTurn,
   latestUserText,
   dedupeQaTurns,
 } from './transcript-mapping';
@@ -274,6 +275,10 @@ describe('latestUserText (live composer echo source)', () => {
       item({ uid: LOCAL_UID, text: 'what if I run faster than light', time: 200, object: MessageType.USER_TRANSCRIPTION, status: TurnStatus.IN_PROGRESS }),
     ];
     expect(latestUserText(items, LOCAL_UID)).toBe('what if I run faster than light');
+    expect(latestUserTurn(items, LOCAL_UID)).toEqual({
+      text: 'what if I run faster than light',
+      ts: 200,
+    });
   });
 
   it('ignores agent items (only the user question echoes in the composer)', () => {

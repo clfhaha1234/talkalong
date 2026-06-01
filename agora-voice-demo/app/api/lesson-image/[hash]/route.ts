@@ -25,7 +25,8 @@ export async function GET(
   if (!/^[a-f0-9]{8,40}$/.test(hash)) {
     return new Response('bad image id', { status: 400 });
   }
-  const file = join(process.cwd(), 'public', 'lesson-cache', `${hash}.jpg`);
+  const cacheDir = process.env.LESSON_CACHE_DIR ?? join(process.cwd(), 'public', 'lesson-cache');
+  const file = join(cacheDir, `${hash}.jpg`);
   try {
     const buf = await readFile(file);
     return new Response(new Uint8Array(buf), {

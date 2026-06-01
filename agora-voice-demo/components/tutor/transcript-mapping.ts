@@ -116,6 +116,13 @@ export function latestAgentText(items: Item[], localUid: string): string | null 
  * would duplicate that committed bubble (the "字幕出现2次" bug, 2026-05-31).
  */
 export function latestUserText(items: Item[], localUid: string): string | null {
+  return latestUserTurn(items, localUid)?.text ?? null;
+}
+
+export function latestUserTurn(
+  items: Item[],
+  localUid: string,
+): { text: string; ts: number } | null {
   let best: { text: string; t: number } | null = null;
   for (const item of items) {
     if (attributeRole(item, localUid) !== 'user') continue;
@@ -124,7 +131,7 @@ export function latestUserText(items: Item[], localUid: string): string | null {
     const t = typeof item._time === 'number' ? item._time : 0;
     if (!best || t >= best.t) best = { text: item.text, t };
   }
-  return best ? best.text : null;
+  return best ? { text: best.text, ts: best.t } : null;
 }
 
 /**

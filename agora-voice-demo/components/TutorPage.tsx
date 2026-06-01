@@ -62,7 +62,7 @@ import { StoryScreen } from './tutor/StoryScreen';
 import {
   mapTranscriptItems,
   latestAgentText,
-  latestUserText,
+  latestUserTurn,
   dedupeQaTurns,
 } from './tutor/transcript-mapping';
 import { T, F_HEAD } from './tutor/theme';
@@ -136,6 +136,10 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // scene's id as the segment_id (one segment per scene). We track the
   // active scene index so StoryScreen can flip pages on segment_completed.
   const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
+  const activeSceneIndexRef = useRef(0);
+  useEffect(() => {
+    activeSceneIndexRef.current = activeSceneIndex;
+  }, [activeSceneIndex]);
   // True once narration_complete fires — we stay on the story's last spread
   // (like the closing page of a book) instead of switching to a terminal card.
   const [finished, setFinished] = useState<boolean>(false);
@@ -225,6 +229,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   const qaTranscriptRef = useRef<
     Array<{ role: 'user' | 'agent'; text: string; ts: number }>
   >([]);
+  const lastLiveUserTurnRef = useRef<{ role: 'user'; text: string; ts: number } | null>(null);
   useEffect(() => {
     qaTranscriptRef.current = qaTranscript;
   }, [qaTranscript]);
@@ -450,6 +455,32 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setMicMuted((m) => !m);
   }, [micRequested]);
 
+  const beginVoiceBranch = useCallback(
+    (reason: 'state' | 'transcript', startedAt = Date.now()) => {
+      if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return false;
+      const gen = ++branchGenRef.current;
+      inBranchRef.current = true;
+      qaTurnCountRef.current = 0;
+      branchAnchorRef.current = activeSceneIndexRef.current;
+      branchStartedAtRef.current = startedAt;
+      typedTurnsRef.current = [];
+      lastLiveUserTurnRef.current = null;
+      qaTranscriptRef.current = [];
+      setQaTranscript([]);
+      setInBranch(true);
+      agentAudioTrackRef.current?.setVolume(0);
+      seam('hush', 0);
+      seam('branch_post', `${gen}:${reason}`);
+      void fetch('/api/tutor/branch-started', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionIdRef.current, branch_id: gen }),
+      }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
+      return true;
+    },
+    [sessionInfo, seam],
+  );
+
   // Typed question (text-mode QA): interrupt the story, show the question, and
   // send it to the agent via the toolkit's sendText so it answers exactly like
   // a spoken Q&A — then the existing silence-timer → qa-ended path resumes.
@@ -618,7 +649,18 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             setLiveNarrationText(latestAgentText(items, localUid));
             // Feed the live user transcript to the voice composer so the
             // in-progress question echoes back as the user speaks.
-            const ut = latestUserText(items, localUid);
+            const liveUserTurn = latestUserTurn(items, localUid);
+            const ut = liveUserTurn?.text ?? null;
+            if (liveUserTurn && !inBranchRef.current) {
+              beginVoiceBranch('transcript', liveUserTurn.ts);
+            }
+            if (liveUserTurn) {
+              lastLiveUserTurnRef.current = {
+                role: 'user',
+                text: liveUserTurn.text,
+                ts: liveUserTurn.ts,
+              };
+            }
             setLiveUserText(ut);
             if (ut) seam('user_txt', ut);
           },
@@ -657,7 +699,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, joinSuccess, rtmClient, sessionInfo]);
+  }, [isReady, joinSuccess, rtmClient, sessionInfo, beginVoiceBranch]);
 
   // ── End-of-Q&A detector ───────────────────────────────────
   useEffect(() => {
@@ -675,25 +717,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     // (live-found via the seam timeline, 2026-06-01). `!inBranch` keeps a
     // follow-up inside an open branch in block 3, not re-entry.
     if (!inBranchRef.current && cur === 'listening') {
-      const gen = ++branchGenRef.current;
-      inBranchRef.current = true;
-      qaTurnCountRef.current = 0;
-      branchAnchorRef.current = activeSceneIndex;
-      // Stamp branch start so TRANSCRIPT_UPDATED floor-filters pre-interrupt
-      // narration transcripts out of qa_history; clear stale typed turns.
-      branchStartedAtRef.current = Date.now();
-      typedTurnsRef.current = [];
-      setQaTranscript([]);
-      setInBranch(true);
-      // IMMEDIATELY tell the server to pause the narrator + cut in-flight TTS —
-      // don't wait for the silence-confirm. Carries branch_id so the server can
-      // reject a stale signal. Fire-and-forget.
-      seam('branch_post', gen);
-      void fetch('/api/tutor/branch-started', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionIdRef.current, branch_id: gen }),
-      }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
+      beginVoiceBranch('state');
     }
 
     // 2. AGENT SETTLED → start the resume countdown. Fires when, inside a
@@ -725,7 +749,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         seam('qa_post', gen);
         // Read the LIVE transcript (ref), NOT the closed-over qaTranscript from
         // the render that armed this timer — see qaTranscriptRef rationale.
-        const snapshot = qaTranscriptRef.current.slice(-10);
+        let snapshot = qaTranscriptRef.current.slice(-10);
+        if (!snapshot.some((turn) => turn.role === 'user') && lastLiveUserTurnRef.current) {
+          snapshot = [...snapshot, lastLiveUserTurnRef.current].sort((a, b) => a.ts - b.ts).slice(-10);
+          qaTranscriptRef.current = snapshot;
+        }
         void fetch('/api/tutor/qa-ended', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -758,7 +786,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     }
     // qaTranscript intentionally NOT a dep: the timer reads qaTranscriptRef for
     // the live value, so this effect needn't re-run on every transcript update.
-  }, [agentState, sessionInfo, activeSceneIndex, seam]);
+  }, [agentState, sessionInfo, activeSceneIndex, seam, beginVoiceBranch]);
 
   // ── teardown ──────────────────────────────────────────────
   const teardownSession = useCallback(() => {
@@ -768,6 +796,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setQaTranscript([]);
     setLiveUserText(null);
     typedTurnsRef.current = [];
+    lastLiveUserTurnRef.current = null;
     inBranchRef.current = false;
     branchStartedAtRef.current = null;
     qaTurnCountRef.current = 0;

@@ -54,6 +54,7 @@ interface GeminiImageResponse {
 }
 
 function defaultCacheDir(): string {
+  if (process.env.LESSON_CACHE_DIR) return process.env.LESSON_CACHE_DIR;
   return join(process.cwd(), 'public', 'lesson-cache');
 }
 

@@ -3,6 +3,7 @@
 // so `pnpm test` tells us whether the suite protects real user-visible failures.
 
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   MessageType,
   TurnStatus,
@@ -86,5 +87,13 @@ describe('field regressions caught from live/manual testing', () => {
         }),
       }),
     );
+  });
+
+  it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    expect(src).toContain("beginVoiceBranch('transcript', liveUserTurn.ts)");
+    expect(src).toContain('lastLiveUserTurnRef.current');
   });
 });
