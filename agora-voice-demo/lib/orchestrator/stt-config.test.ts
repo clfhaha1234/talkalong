@@ -24,6 +24,7 @@ interface Captured {
     };
   };
   session?: { remoteUids?: string[] };
+  filler?: { enable?: boolean };
 }
 const cap: Captured = {};
 
@@ -50,7 +51,7 @@ vi.mock('agora-agent-server-sdk', async (importOriginal) => {
       withStt() { return this; }
       withLlm() { return this; }
       withTts() { return this; }
-      withFillerWords() { return this; }
+      withFillerWords(c: Captured['filler']) { cap.filler = c; return this; }
       withTurnDetection(c: Captured['turn']) { cap.turn = c; return this; }
       withAdvancedFeatures() { return this; }
       withParameters() { return this; }
@@ -107,5 +108,19 @@ describe('tutor agent STT config is aligned to the base / demo (anti-divergence)
     // narration TTS back into STT (garbled recognition + false barge-ins).
     expect(cap.session?.remoteUids).toEqual(['100000']);
     expect(cap.session?.remoteUids).not.toContain('*');
+  });
+
+  // Filler words are DISABLED (2026-06-01). With fixed_time @ 800ms they fired on
+  // nearly every barge-in answer (gpt-4o-mini's first token routinely >800ms) and
+  // the engine glued the phrase onto the answer ("Let me see.I am…") or surfaced
+  // it as its own transcript turn — degenerate "Hmm." / "One sec." QA bubbles
+  // (live-found on the Vercel deploy). Pin enable=false so they can't silently
+  // return without also revisiting the transcript-side filtering.
+  it('ships filler words DISABLED (no degenerate Hmm./One sec. QA bubbles)', async () => {
+    await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b', client_uid: '100000' },
+    });
+    expect(cap.filler?.enable).toBe(false);
   });
 });

@@ -101,8 +101,18 @@ export interface RunTutorHandle {
 // let me read this through for you…") that breaks the storybook illusion.
 const DEFAULT_GREETING = ``;
 
+// Filler words DISABLED (2026-06-01). With fixed_time @ 800ms they fired on
+// nearly every barge-in answer (gpt-4o-mini's first token routinely takes
+// >800ms), and the engine glued the phrase onto the answer with no space
+// ("Let me see.I am the voice…") or surfaced it as its OWN transcript turn —
+// so the QA panel showed degenerate standalone bubbles "Hmm." / "One sec."
+// (live-found on the Vercel deploy). For a warm storybook tutor those break the
+// illusion and read as "the agent is broken / not answering". A brief think-
+// pause after a barge-in (the narration is already hushed instantly client-side)
+// is cleaner than filler gibberish. Re-enable only with a much higher
+// response_wait_ms AND a transcript-side filter if naturalness is wanted back.
 const PHASE3_FILLER: FillerWordsConfig = {
-  enable: true,
+  enable: false,
   trigger: {
     mode: 'fixed_time',
     fixed_time_config: { response_wait_ms: 800 },
