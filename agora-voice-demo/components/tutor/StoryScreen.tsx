@@ -132,7 +132,9 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
   // rather than showing a black box. Track WHICH clip url failed (not a bare
   // boolean) so the fallback auto-resets when a new scene's clip swaps in.
   const [failedVideoUrl, setFailedVideoUrl] = useState<string | null>(null);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const videoFailed = !!scene.video_url && failedVideoUrl === scene.video_url;
+  const imageFailed = !!scene.image_url && failedImageUrl === scene.image_url;
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // A browser that defers muted autoplay leaves the video parked on its blank
@@ -261,10 +263,11 @@ function StageFrame({ scene, sceneIndex, sceneCount, phase }: StageFrameProps) {
               playsInline
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
-          ) : scene.image_url ? (
+          ) : scene.image_url && !imageFailed ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={scene.image_url}
+              onError={() => setFailedImageUrl(scene.image_url ?? null)}
               alt={`Illustration for ${scene.chapter}: ${scene.headline.join(' ')}`}
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />

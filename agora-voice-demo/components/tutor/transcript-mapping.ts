@@ -48,9 +48,29 @@ export interface MapTranscriptOptions {
   graceMs?: number;
   /** Max turns to retain (most recent). Default 20. */
   keep?: number;
+  /** Main-line narration texts for the current lesson. Any agent transcript that
+   *  is just a substring of these texts is narration leakage, not a QA answer. */
+  narrationTexts?: string[];
 }
 
 type Item = TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>;
+
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[“”"'.!?;:,—–-]/g, '')
+    .trim();
+}
+
+function looksLikeNarrationLeak(text: string, narrationTexts: string[] = []): boolean {
+  const norm = normalizeText(text);
+  if (norm.length < 24) return false;
+  return narrationTexts.some((narration) => {
+    const scene = normalizeText(narration);
+    return scene.length >= norm.length && scene.includes(norm);
+  });
+}
 
 /**
  * Decide whether a single transcript item belongs to the user or the agent.
@@ -136,7 +156,16 @@ export function mapTranscriptItems(
       text: item.text,
       ts: item._time,
     }))
-    .filter((t) => t.text && t.text.trim().length > 0);
+    .filter((t) => t.text && t.text.trim().length > 0)
+    // C3: narrator leakage AFTER branch start. On Render/live Agora, the
+    // interrupted main-line say() can still finalize an assistant transcript
+    // after branchStartedAt; time-gating alone then mis-renders it as
+    // "IN ANSWER TO YOU". Drop agent turns that are exact narration substrings.
+    .filter(
+      (t) =>
+        t.role !== 'agent' ||
+        !looksLikeNarrationLeak(t.text, opts.narrationTexts),
+    );
 
   return committed.slice(-keep);
 }

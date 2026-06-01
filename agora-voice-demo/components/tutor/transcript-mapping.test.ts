@@ -135,6 +135,59 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('drops post-branch agent transcript when it is just main-line narration leakage', () => {
+    const narration =
+      'He realized that if he moved as fast as light, the world around him would look very different.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'Hello? Can you hear me?', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text: 'He realized that if he moved as fast as light,',
+          time: 30_900,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: [narration],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: 'Hello? Can you hear me?', ts: 30_100 },
+    ]);
+  });
+
+  it('keeps a real QA answer even when narration-text filtering is enabled', () => {
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'What is time dilation?', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text: 'It means time can pass at different rates when motion is very fast.',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: ['Young Albert imagined riding alongside a beam of sunlight.'],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: 'What is time dilation?', ts: 30_100 },
+      {
+        role: 'agent',
+        text: 'It means time can pass at different rates when motion is very fast.',
+        ts: 31_000,
+      },
+    ]);
+  });
+
   it('respects keep (most recent N)', () => {
     const items = Array.from({ length: 25 }, (_, i) =>
       item({ uid: LOCAL_UID, text: `q${i}`, time: 10_000 + i, object: MessageType.USER_TRANSCRIPTION }),

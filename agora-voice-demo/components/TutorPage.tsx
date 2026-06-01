@@ -126,6 +126,10 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
 
   // ── scene + narration state ───────────────────────────────
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const scenesRef = useRef<Scene[]>([]);
+  useEffect(() => {
+    scenesRef.current = scenes;
+  }, [scenes]);
   // The orchestrator emits segment_started / segment_completed using the
   // scene's id as the segment_id (one segment per scene). We track the
   // active scene index so StoryScreen can flip pages on segment_completed.
@@ -594,6 +598,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             const committed = mapTranscriptItems(items, {
               localUid,
               branchStartedAt: branchStartedAtRef.current,
+              narrationTexts: scenesRef.current.map((scene) => scene.narration_text),
             });
             // Merge typed questions (not in the RTM transcript) by timestamp so
             // a typed Q pairs with the agent's spoken answer.
