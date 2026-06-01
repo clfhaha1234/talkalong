@@ -59,7 +59,10 @@ describe('typed QA contract', () => {
     const tutorPagePath = join(dirname(fileURLToPath(import.meta.url)), '..', 'TutorPage.tsx');
     const src = readFileSync(tutorPagePath, 'utf8');
 
-    expect(src).toContain("beginVoiceBranch('typed', now, { interruptAudio: false })");
+    // Intent: the typed path enters the SAME branch as a voice barge-in. Don't
+    // pin the interrupt option literal (it flipped false→true when we fixed the
+    // narration-smother bug) — just assert the typed branch entry + turn append.
+    expect(src).toContain("beginVoiceBranch('typed', now,");
     expect(src).toContain('appendTypedTurn(prev, typedTurn)');
   });
 });

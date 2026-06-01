@@ -70,7 +70,12 @@ describe('field regressions caught from live/manual testing', () => {
     const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
     const src = readFileSync(tutorPagePath, 'utf8');
 
-    expect(src).toContain("beginVoiceBranch('typed', now, { interruptAudio: false })");
+    // Don't pin the interrupt option literal — it flipped false→true when we
+    // fixed the narration-smother bug (interrupt the narration BEFORE the reply
+    // so the answer gets a voice turn). The regression guarded here is that the
+    // typed path enters the same hush branch as voice, which the entry + hush
+    // assertions below cover.
+    expect(src).toContain("beginVoiceBranch('typed', now,");
     expect(src).toContain('agentAudioTrackRef.current?.setVolume(0)');
     expect(src).toContain("seam('hush', 0)");
   });
