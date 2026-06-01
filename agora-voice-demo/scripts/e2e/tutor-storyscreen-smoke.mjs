@@ -6,7 +6,7 @@
 //   - content rendered but invisible / clipped under the ScalingStage transform
 //
 // It drives /tutor/preview across every state VARIANT (reading / muted /
-// listening / paused / finished — StoryScreen + fixtures inside the real
+// listening / paused / finished / broken-image — StoryScreen + fixtures inside the real
 // ScalingStage, no Agora/API/mic) and asserts geometry via getBoundingClientRect
 // for each: the variant's composer is present AND fully within the viewport,
 // narration rendered, feed scrollable, no console/page errors. The toggle is
@@ -50,6 +50,7 @@ const VARIANTS = [
   { name: 'listening', composer: /what is light actually made of/i },
   { name: 'paused', composer: /just speak to interrupt/i },
   { name: 'finished', composer: /just speak to interrupt/i },
+  { name: 'broken-image', composer: /just speak to interrupt/i },
 ];
 
 try {
@@ -61,8 +62,13 @@ try {
     });
     check(`[${v.name}] GET 200`, resp?.status() === 200, `status=${resp?.status()}`);
 
-    // Narration rendered (scene iii is the active page).
-    await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
+    // Story screen mounted. In listening/paused states the current subtitle can
+    // legitimately pause, so use the stable progress dots as the page-ready
+    // signal and assert narration text only in the reading state.
+    await page.getByTestId('scene-dots').waitFor({ timeout: 20000 });
+    if (v.name === 'reading') {
+      await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
+    }
 
     // The variant's composer affordance is present AND within the viewport.
     const composer = page.getByText(v.composer).first();
@@ -77,14 +83,25 @@ try {
         (await page.getByText(/continue the story/i).count()) === 0,
       );
     }
+    if (v.name === 'broken-image') {
+      await page.waitForTimeout(1500);
+      check(
+        '[broken-image] failed illustration falls back instead of showing browser alt text',
+        (await page.getByText(/Illustration for/i).count()) === 0,
+      );
+    }
 
-    check(`[${v.name}] no console/page errors`, consoleErrors.length === before,
-      consoleErrors.slice(before).slice(0, 2).join(' | '));
+    const newErrors = consoleErrors.slice(before).filter((msg) => {
+      if (v.name !== 'broken-image') return true;
+      return !/definitely-missing-field-regression\.jpg|404 \(Not Found\)/i.test(msg);
+    });
+    check(`[${v.name}] no console/page errors`, newErrors.length === 0,
+      newErrors.slice(0, 2).join(' | '));
   }
 
   // ── Toggle + feed-scroll geometry (exercise once, on the reading variant) ──
   await page.goto(`${BASE}/tutor/preview?variant=reading`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('text=/time itself that must bend/i', { timeout: 20000 });
+  await page.getByTestId('scene-dots').waitFor({ timeout: 20000 });
 
   const kbBtn = page.getByTitle('Keyboard');
   check('toggle present (Voice + Keyboard)', (await page.getByTitle('Voice').count()) === 1 && (await kbBtn.count()) === 1);

@@ -49,7 +49,13 @@ const QA = {
   ],
 };
 
-export type PreviewVariant = 'reading' | 'muted' | 'listening' | 'paused' | 'finished';
+export type PreviewVariant =
+  | 'reading'
+  | 'muted'
+  | 'listening'
+  | 'paused'
+  | 'finished'
+  | 'broken-image';
 
 // Each variant pins the StoryScreen props that exercise a distinct phase/state.
 const VARIANTS: Record<PreviewVariant, Record<string, unknown>> = {
@@ -65,21 +71,28 @@ const VARIANTS: Record<PreviewVariant, Record<string, unknown>> = {
   },
   paused: { inBranch: true, agentState: 'idle', micMuted: false, micLevel: 0, liveUserText: null, finished: false },
   finished: { inBranch: true, agentState: 'idle', micMuted: false, micLevel: 0, liveUserText: null, finished: true },
+  'broken-image': { inBranch: false, agentState: 'speaking', micMuted: false, micLevel: 0, liveUserText: null, finished: false },
 };
 
 const noop = () => {};
 
 export function PreviewClient({ variant }: { variant: PreviewVariant }) {
   const v = VARIANTS[variant] ?? VARIANTS.reading;
+  const scenes =
+    variant === 'broken-image'
+      ? SCENES.map((scene, idx) =>
+          idx === 2 ? { ...scene, image_url: '/lesson-cache/definitely-missing-field-regression.jpg' } : scene,
+        )
+      : SCENES;
   return (
     <ScalingStage>
       <div style={{ position: 'absolute', inset: 0 }}>
         <StoryScreen
-          scenes={SCENES}
+          scenes={scenes}
           activeSceneIndex={2}
           inBranch={v.inBranch as boolean}
           finished={v.finished as boolean}
-          liveNarrationText={SCENES[2].narration_text}
+          liveNarrationText={scenes[2].narration_text}
           liveUserText={v.liveUserText as string | null}
           qaHistoryByScene={QA}
           micDenied={false}

@@ -10,11 +10,11 @@
 //
 // Server component reads ?variant= and hands a serializable string to the client
 // half (PreviewClient) — no client-side window reading, so no hydration mismatch.
-// Variants: reading (default) | muted | listening | paused | finished
+// Variants: reading (default) | muted | listening | paused | finished | broken-image
 
 import { PreviewClient, type PreviewVariant } from './PreviewClient';
 
-const VALID: PreviewVariant[] = ['reading', 'muted', 'listening', 'paused', 'finished'];
+const VALID: PreviewVariant[] = ['reading', 'muted', 'listening', 'paused', 'finished', 'broken-image'];
 
 export default async function StoryScreenPreviewPage({
   searchParams,
