@@ -109,6 +109,7 @@ describe('session-logger', () => {
     attachSessionLogger(handle);
     emit({
       type: 'session_started',
+      session_id: 'TSTSEC',
       channel: 'lesson-1-abcd',
       agent_id: 'AGENT123',
       rtc_token: 'SECRET_RTC_TOKEN_xyz',

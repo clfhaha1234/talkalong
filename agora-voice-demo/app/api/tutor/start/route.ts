@@ -2,7 +2,7 @@
 // Body: { input_text: string }
 // Response: text/event-stream (SSE) with ProgressEvent payloads.
 //
-// First event: { type: 'session_started', channel, agent_id, rtc_token, rtm_token, client_uid }
+// First event: { type: 'session_started', session_id, channel, agent_id, rtc_token, rtm_token, client_uid }
 // Subsequent events: snapshot, segment_started, segment_completed, narration_complete, error
 //
 // The client opens this with `fetch(...).body` and parses SSE chunks. Once

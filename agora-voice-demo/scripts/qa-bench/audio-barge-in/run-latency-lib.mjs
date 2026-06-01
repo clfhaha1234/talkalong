@@ -69,6 +69,79 @@ export function deriveLatencies(timeline, leadMs) {
   return { interrupt_ms: interruptT, t1_pause_ms: t1, t2_reply_ms: t2, t3_resume_ms: t3 };
 }
 
+/**
+ * Derive the same barge-in metrics from TutorPage's seam stream:
+ *   { t, ev, detail } where ev is mic_live/state/user_txt/branch_post/qa_post/segment.
+ *
+ * This is intentionally stricter than the old latency-only view. A UI can show
+ * a user bubble and even produce an answer while the server-side narrator stays
+ * in MAIN; that was the typed-QA regression from 2026-06-01. `branch_posted`
+ * is therefore a first-class correctness signal, not just debug decoration.
+ */
+export function deriveSeamLatencies(seams, leadMs) {
+  const micLive = seams.find((s) => s.ev === 'mic_live');
+  if (!micLive) return { error: 'no mic_live seam (mic never went live)' };
+  const onset = micLive.t + leadMs;
+
+  const listen = seams.find(
+    (s) => s.ev === 'state' && s.detail === 'listening' && s.t >= onset - 500,
+  );
+  const t1 = listen ? Math.max(0, listen.t - onset) : null;
+
+  let t2 = null;
+  let t3 = null;
+  let answerEnd = null;
+  let resume = null;
+  let speak = null;
+  let userTxt = null;
+  let branchPost = null;
+  let qaPost = null;
+
+  if (listen) {
+    userTxt = seams.find((s) => s.ev === 'user_txt' && s.t >= listen.t - 1500)?.detail ?? null;
+    branchPost = seams.find((s) => s.ev === 'branch_post' && s.t >= listen.t - 500) ?? null;
+    qaPost = seams.find((s) => s.ev === 'qa_post' && s.t >= listen.t) ?? null;
+
+    // T2/T3 (answer + resume) are ONLY meaningful when the question actually
+    // transcribed — otherwise a following `speaking` seam may be narration.
+    if (userTxt) {
+      speak = seams.find((s, i) => {
+        if (s.ev !== 'state' || s.detail !== 'speaking' || s.t < listen.t) return false;
+        const prevSeg = [...seams.slice(0, i)].reverse().find(
+          (p) => p.ev === 'segment' || (p.ev === 'state' && p.detail === 'speaking'),
+        );
+        return !(prevSeg && prevSeg.ev === 'segment' && s.t - prevSeg.t < 1500);
+      });
+      t2 = speak ? speak.t - listen.t : null;
+      if (speak) {
+        answerEnd = seams.find((s) => s.ev === 'state' && s.detail !== 'speaking' && s.t > speak.t);
+        const base = answerEnd ?? speak;
+        resume = seams.find((s) => s.ev === 'segment' && s.t >= base.t);
+        t3 = resume ? resume.t - base.t : null;
+      }
+    }
+  }
+
+  const listens = seams.filter((s) => s.ev === 'state' && s.detail === 'listening');
+  const falseBarges = listens.filter(
+    (l) => !seams.some((s) => s.ev === 'user_txt' && s.t >= l.t - 500 && s.t <= l.t + 3000),
+  ).length;
+
+  return {
+    onset_ms: onset,
+    t1_pause_ms: t1,
+    t2_reply_ms: t2,
+    t3_resume_ms: t3,
+    stt_text: userTxt,
+    stt_ok: !!userTxt,
+    branch_posted: !!branchPost,
+    branch_post_ms: branchPost && listen ? branchPost.t - listen.t : null,
+    qa_posted: !!qaPost,
+    listen_count: listens.length,
+    false_barge_count: falseBarges,
+  };
+}
+
 /** Nearest-rank percentile. Filters nulls. Empty → null. */
 export function pct(arr, p) {
   const xs = arr.filter((x) => x != null).sort((a, b) => a - b);

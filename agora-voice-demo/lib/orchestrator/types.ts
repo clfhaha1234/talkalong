@@ -80,4 +80,12 @@ export type ProgressEvent =
       scene_id: string;
       reason: 'planner_restart' | 'planner_skip' | 'planner_continue';
     }
-  | { type: 'session_started'; channel: string; agent_id: string; rtc_token: string; rtm_token: string; client_uid: string };
+  | {
+      type: 'session_started';
+      session_id: string;
+      channel: string;
+      agent_id: string;
+      rtc_token: string;
+      rtm_token: string;
+      client_uid: string;
+    };

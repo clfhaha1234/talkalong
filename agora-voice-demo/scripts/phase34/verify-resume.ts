@@ -145,6 +145,7 @@ async function main() {
           break;
         case 'session_started':
           sessionStarted = true;
+          if (!sessionId && typeof ev.session_id === 'string') sessionId = ev.session_id;
           log(type, `agent=${ev.agent_id}`);
           break;
         case 'snapshot': {

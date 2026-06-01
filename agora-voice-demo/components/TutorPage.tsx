@@ -68,6 +68,7 @@ import {
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 import { applyNarrationText } from './tutor/scene-sync';
+import { appendTypedTurn, postTypedBranchStarted } from './tutor/typed-qa-contract';
 
 // End-of-Q&A silence windows — how long we wait after the agent settles before
 // treating the digression as over and POSTing /api/tutor/qa-ended. DYNAMIC by
@@ -469,21 +470,16 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         // suppress that reply. This branch-started ping is only for the
         // deterministic spine (MAIN -> BRANCH) so narration cannot keep queuing
         // over the typed Q&A.
-        seam('branch_post', gen);
-        void fetch('/api/tutor/branch-started', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionIdRef.current,
-            branch_id: gen,
-            interrupt_audio: false,
-          }),
-        }).catch((err) => console.warn('[tutor] /branch-started fetch error', err));
+        postTypedBranchStarted({
+          sessionId: sessionIdRef.current,
+          branchId: gen,
+          seam,
+        });
       }
       // Record the typed question so it shows in the feed + pairs with the answer.
       typedTurnsRef.current.push(typedTurn);
       setQaTranscript((prev) => {
-        const next = [...prev, typedTurn].sort((a, b) => a.ts - b.ts);
+        const next = appendTypedTurn(prev, typedTurn);
         qaTranscriptRef.current = next;
         return next;
       });
@@ -854,6 +850,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             );
             return;
           }
+          sessionIdRef.current = e.session_id;
           setSessionInfo({
             channel: e.channel,
             agent_id: e.agent_id,

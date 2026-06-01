@@ -97,6 +97,7 @@ export type ServerEvent =
   | { type: 'all_videos_ready' }
   | {
       type: 'session_started';
+      session_id: string;
       channel: string;
       agent_id: string;
       rtc_token: string;

@@ -171,6 +171,7 @@ export class ProgressState extends EventEmitter {
   }
 
   emitSessionStarted(args: {
+    session_id: string;
     channel: string;
     agent_id: string;
     rtc_token: string;
@@ -179,6 +180,7 @@ export class ProgressState extends EventEmitter {
   }): void {
     this.emit('event', {
       type: 'session_started',
+      session_id: args.session_id,
       channel: args.channel,
       agent_id: args.agent_id,
       rtc_token: args.rtc_token,

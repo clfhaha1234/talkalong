@@ -259,6 +259,7 @@ async function buildTutorHandle(args: {
   // Note: DO NOT emit events here. The caller hasn't subscribed yet. Save the
   // session_started payload and let the caller fire it after subscribing.
   const sessionStartedEvent = {
+    session_id,
     channel,
     agent_id,
     rtc_token: client_token,

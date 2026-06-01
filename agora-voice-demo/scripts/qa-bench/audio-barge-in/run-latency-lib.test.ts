@@ -17,6 +17,7 @@ import {
   BANDS,
   KNOWN_FIXED,
   band,
+  deriveSeamLatencies,
   deriveLatencies,
   pct,
   resumeBudget,
@@ -37,6 +38,51 @@ describe('band()', () => {
   it('returns 🔴 when ms > ok', () => {
     expect(band(1201, BANDS.t1_pause)).toBe('🔴');
     expect(band(99999, BANDS.t1_pause)).toBe('🔴');
+  });
+});
+
+describe('deriveSeamLatencies() — branch-post tripwire', () => {
+  it('marks a healthy barge-in when listening, branch_post, STT, answer, and resume all happen', () => {
+    const result = deriveSeamLatencies(
+      [
+        { t: 1000, ev: 'mic_live' },
+        { t: 6100, ev: 'state', detail: 'listening' },
+        { t: 6125, ev: 'branch_post', detail: '1' },
+        { t: 6400, ev: 'user_txt', detail: 'What is the cat name?' },
+        { t: 7600, ev: 'state', detail: 'speaking' },
+        { t: 9000, ev: 'state', detail: 'idle' },
+        { t: 10600, ev: 'segment', detail: 's2' },
+        { t: 10700, ev: 'qa_post', detail: '1' },
+      ],
+      5000,
+    );
+
+    expect(result.t1_pause_ms).toBe(100);
+    expect(result.branch_posted).toBe(true);
+    expect(result.branch_post_ms).toBe(25);
+    expect(result.stt_ok).toBe(true);
+    expect(result.t2_reply_ms).toBe(1500);
+    expect(result.t3_resume_ms).toBe(1600);
+  });
+
+  it('fails the server-pause contract when a user question transcribes but branch_post is missing', () => {
+    const result = deriveSeamLatencies(
+      [
+        { t: 1000, ev: 'mic_live' },
+        { t: 6100, ev: 'state', detail: 'listening' },
+        { t: 6400, ev: 'user_txt', detail: 'Hello? Can you hear me?' },
+        { t: 7600, ev: 'state', detail: 'speaking' },
+        { t: 9000, ev: 'state', detail: 'idle' },
+        { t: 10600, ev: 'segment', detail: 's3' },
+      ],
+      5000,
+    );
+
+    expect(result.stt_ok).toBe(true);
+    expect(result.branch_posted).toBe(false);
+    // Latency can look fine while the backend state contract is broken; this is
+    // the bug class the old bench missed.
+    expect(result.t2_reply_ms).toBe(1500);
   });
 });
 
@@ -184,7 +230,7 @@ describe('drift guard: SILENCE_TIMEOUT_MS source = harness constant', () => {
 
 describe('BANDS sanity', () => {
   it('every band has good <= ok', () => {
-    for (const [name, b] of Object.entries(BANDS)) {
+    for (const [_name, b] of Object.entries(BANDS)) {
       expect(b.good).toBeLessThanOrEqual(b.ok);
     }
   });

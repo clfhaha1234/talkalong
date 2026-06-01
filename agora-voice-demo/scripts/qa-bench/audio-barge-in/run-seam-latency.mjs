@@ -40,7 +40,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BANDS, KNOWN_FIXED, band, pct, resumeBudget } from './run-latency-lib.mjs';
+import { BANDS, KNOWN_FIXED, band, deriveSeamLatencies, pct, resumeBudget } from './run-latency-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_URL = process.env.BARGE_BASE_URL || 'http://localhost:3000';
@@ -81,63 +81,11 @@ function genWav() {
   return wav;
 }
 
-const STATES = new Set(['listening', 'thinking', 'speaking', 'silent', 'idle']);
-
 // Parse "[seam] 12345 state listening" → {t:12345, ev:'state', detail:'listening'}
 function parseSeam(line) {
   const m = line.match(/\[seam\]\s+(\d+)\s+(\w+)(?:\s+(.*))?$/);
   if (!m) return null;
   return { t: Number(m[1]), ev: m[2], detail: (m[3] ?? '').trim() };
-}
-
-// Derive the three latencies + quality flags from a seam stream.
-function derive(seams) {
-  const micLive = seams.find((s) => s.ev === 'mic_live');
-  if (!micLive) return { error: 'no mic_live seam (mic never went live)' };
-  const onset = micLive.t + LEAD_MS;
-
-  const listen = seams.find((s) => s.ev === 'state' && s.detail === 'listening' && s.t >= onset - 500);
-  const t1 = listen ? Math.max(0, listen.t - onset) : null;
-
-  let t2 = null, t3 = null, answerEnd = null, resume = null, speak = null;
-  let userTxt = null;
-  if (listen) {
-    // STT-completeness: any user transcription around the barge-in.
-    userTxt = seams.find((s) => s.ev === 'user_txt' && s.t >= listen.t - 1500)?.detail ?? null;
-    // T2/T3 (answer + resume) are ONLY meaningful when the question actually
-    // transcribed — otherwise there is no question to answer and a following
-    // `speaking` seam is just NARRATION resuming (preceded by a `segment`), not
-    // an answer. Gating on userTxt avoids mis-attributing narration as a reply
-    // (which produced a bogus T2 with synthetic `say` audio that STT dropped).
-    if (userTxt) {
-      // The answer is a `speaking` NOT immediately preceded by a `segment`
-      // (a segment→speaking pair is narration, since narration say() can show
-      // as speaking once resumed).
-      speak = seams.find((s, i) => {
-        if (s.ev !== 'state' || s.detail !== 'speaking' || s.t < listen.t) return false;
-        const prevSeg = [...seams.slice(0, i)].reverse().find((p) => p.ev === 'segment' || (p.ev === 'state' && p.detail === 'speaking'));
-        return !(prevSeg && prevSeg.ev === 'segment' && s.t - prevSeg.t < 1500);
-      });
-      t2 = speak ? speak.t - listen.t : null;
-      if (speak) {
-        answerEnd = seams.find((s) => s.ev === 'state' && s.detail !== 'speaking' && s.t > speak.t);
-        const base = answerEnd ?? speak;
-        resume = seams.find((s) => s.ev === 'segment' && s.t >= base.t);
-        t3 = resume ? resume.t - base.t : null;
-      }
-    }
-  }
-  // False barge-in: a listening event with no user transcription within 3s.
-  const listens = seams.filter((s) => s.ev === 'state' && s.detail === 'listening');
-  const falseBarges = listens.filter(
-    (l) => !seams.some((s) => s.ev === 'user_txt' && s.t >= l.t - 500 && s.t <= l.t + 3000),
-  ).length;
-
-  return {
-    onset_ms: onset, t1_pause_ms: t1, t2_reply_ms: t2, t3_resume_ms: t3,
-    stt_text: userTxt, stt_ok: !!userTxt,
-    listen_count: listens.length, false_barge_count: falseBarges,
-  };
 }
 
 async function runTrial(wav, idx) {
@@ -172,7 +120,7 @@ async function runTrial(wav, idx) {
     // already feeding. Just observe the seam stream.
     await page.waitForTimeout(OBSERVE_MS);
     await ctx.close();
-    return { trial: idx, seams, derived: derive(seams) };
+    return { trial: idx, seams, derived: deriveSeamLatencies(seams, LEAD_MS) };
   } finally {
     await browser.close();
   }
@@ -192,7 +140,7 @@ async function main() {
     const d = r.derived;
     if (d.error) { console.log(`  ${d.error}; seams=${r.seams.length}`); }
     else {
-      console.log(`  T1=${d.t1_pause_ms ?? '—'}ms T2=${d.t2_reply_ms ?? '—'}ms T3=${d.t3_resume_ms ?? '—'}ms | STT="${d.stt_text ?? ''}" listens=${d.listen_count} false=${d.false_barge_count}`);
+      console.log(`  T1=${d.t1_pause_ms ?? '—'}ms T2=${d.t2_reply_ms ?? '—'}ms T3=${d.t3_resume_ms ?? '—'}ms | branch=${d.branch_posted ? 'yes' : 'NO'} STT="${d.stt_text ?? ''}" listens=${d.listen_count} false=${d.false_barge_count}`);
     }
     trials.push(r);
   }
@@ -205,6 +153,7 @@ async function main() {
     t2_p50: pct(ds.map((d) => d.t2_reply_ms), 50), t2_p95: pct(ds.map((d) => d.t2_reply_ms), 95),
     t3_p50: pct(ds.map((d) => d.t3_resume_ms), 50), t3_p95: pct(ds.map((d) => d.t3_resume_ms), 95),
     stt_ok_rate: ds.length ? ds.filter((d) => d.stt_ok).length / ds.length : null,
+    branch_post_rate: ds.length ? ds.filter((d) => d.branch_posted).length / ds.length : null,
     false_barge_total: ds.reduce((a, d) => a + (d.false_barge_count || 0), 0),
   };
 
@@ -213,9 +162,15 @@ async function main() {
 
   console.log('\n# Barge-in seam latency (p50/p95, ms) — 🟢good 🟡ok 🔴sluggish');
   const cell = (p50, p95, b) => (p50 == null ? '—' : `${band(p50, b)} ${p50}/${p95}`);
-  console.log('| n | ①stop-talk T1 | ②answer T2 | ③resume T3 | STT-ok | false-barge |');
-  console.log('|---|---|---|---|---|---|');
-  console.log(`| ${agg.n} | ${cell(agg.t1_p50, agg.t1_p95, BANDS.t1_pause)} | ${cell(agg.t2_p50, agg.t2_p95, BANDS.t2_reply)} | ${cell(agg.t3_p50, agg.t3_p95, BANDS.t3_resume)} | ${agg.stt_ok_rate == null ? '—' : Math.round(agg.stt_ok_rate * 100) + '%'} | ${agg.false_barge_total} |`);
+  console.log('| n | ①stop-talk T1 | branch-post | ②answer T2 | ③resume T3 | STT-ok | false-barge |');
+  console.log('|---|---|---|---|---|---|---|');
+  console.log(`| ${agg.n} | ${cell(agg.t1_p50, agg.t1_p95, BANDS.t1_pause)} | ${agg.branch_post_rate == null ? '—' : Math.round(agg.branch_post_rate * 100) + '%'} | ${cell(agg.t2_p50, agg.t2_p95, BANDS.t2_reply)} | ${cell(agg.t3_p50, agg.t3_p95, BANDS.t3_resume)} | ${agg.stt_ok_rate == null ? '—' : Math.round(agg.stt_ok_rate * 100) + '%'} | ${agg.false_barge_total} |`);
+
+  if (agg.branch_post_rate !== null && agg.branch_post_rate < 1) {
+    console.log('\nFAIL: at least one listening/STT barge-in did not POST /api/tutor/branch-started.');
+    console.log('      The UI may show a QA turn while the server narrator remains in MAIN.');
+    process.exitCode = 1;
+  }
 
   if (agg.stt_ok_rate === 0) {
     console.log('\n⚠️  STT-ok 0% — the synthetic `say` question never transcribed through');
