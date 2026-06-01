@@ -21,6 +21,19 @@ RUN pnpm install --frozen-lockfile
 
 # Build.
 COPY . .
+
+# NEXT_PUBLIC_* env vars are INLINED into the bundle at BUILD time (webpack
+# DefinePlugin) — they are NOT read at runtime. So the Agora App ID the browser
+# needs must be present during `pnpm build`, or the client bakes an empty string
+# and /tutor renders "NEXT_PUBLIC_AGORA_APP_ID is not set". Render (and most PaaS)
+# pass the service's env vars to the Docker build as build args; declare them
+# here so the build picks them up. The server-only secrets (certificate,
+# GOOGLE_API_KEY) are read at runtime in API routes and need NOT be build args.
+ARG NEXT_PUBLIC_AGORA_APP_ID
+ARG NEXT_PUBLIC_AGENT_UID
+ENV NEXT_PUBLIC_AGORA_APP_ID=${NEXT_PUBLIC_AGORA_APP_ID}
+ENV NEXT_PUBLIC_AGENT_UID=${NEXT_PUBLIC_AGENT_UID}
+
 RUN pnpm build
 
 ENV NODE_ENV=production
