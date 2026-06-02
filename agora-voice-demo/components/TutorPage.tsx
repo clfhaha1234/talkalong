@@ -70,7 +70,7 @@ import {
 import { T, F_HEAD } from './tutor/theme';
 import type { Scene, ServerEvent, ProgressSnapshot } from './tutor/theme';
 import { applyNarrationText } from './tutor/scene-sync';
-import { appendTypedTurn } from './tutor/typed-qa-contract';
+import { appendTypedTurn, postTypedBranchStarted } from './tutor/typed-qa-contract';
 
 // End-of-Q&A silence windows — how long we wait after the agent settles before
 // treating the digression as over and POSTing /api/tutor/qa-ended.
@@ -165,6 +165,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // ── Agora session lifecycle ───────────────────────────────
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [rtmClient, setRtmClient] = useState<RTMClient | null>(null);
+  const voiceAiRef = useRef<Awaited<ReturnType<typeof AgoraVoiceAI.init>> | null>(null);
 
   // ── Phase 3 detector refs (not state to avoid re-renders) ─
   const sessionIdRef = useRef<string | null>(null);
@@ -212,6 +213,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // planner alongside the listener's real question, swelling 1 real Q&A turn
   // into 4-6 polluted turns.
   const branchStartedAtRef = useRef<number | null>(null);
+  // True once we have seen an agent transcript in the current branch. Agora can
+  // deliver answer text without a clean agentState='speaking' transition; if we
+  // only key the resume timer off state, the no-answer fallback can fire while
+  // the answer is still being spoken (live-found 2026-06-02).
+  const answerSeenRef = useRef(false);
   // Monotonic branch generation id. Incremented on every barge-in so late
   // events (a silence-timer armed in branch N, a stale /qa-ended) can be dropped
   // once branch N+1 has opened — principled replacement for ad-hoc timer
@@ -480,6 +486,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       branchStartedAtRef.current = startedAt;
       typedTurnsRef.current = [];
       lastLiveUserTurnRef.current = null;
+      answerSeenRef.current = false;
       qaTranscriptRef.current = [];
       setQaTranscript([]);
       setInBranch(true);
@@ -500,6 +507,36 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       })
         .then(() => {})
         .catch((err) => console.warn('[tutor] /branch-started fetch error', err));
+    },
+    [sessionInfo, seam],
+  );
+
+  const enterLocalBranch = useCallback(
+    (reason: 'typed', startedAt: number) => {
+      if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return null;
+      const gen = ++branchGenRef.current;
+      inBranchRef.current = true;
+      qaTurnCountRef.current = 0;
+      branchAnchorRef.current = activeSceneIndexRef.current;
+      branchStartedAtRef.current = startedAt;
+      typedTurnsRef.current = [];
+      lastLiveUserTurnRef.current = null;
+      answerSeenRef.current = false;
+      qaTranscriptRef.current = [];
+      setQaTranscript([]);
+      setInBranch(true);
+      agentAudioTrackRef.current?.setVolume(0);
+      seam('hush', 0);
+      postTypedBranchStarted({
+        sessionId: sessionIdRef.current,
+        branchId: gen,
+        // Typed QA must flush any in-flight narration audio before sendText;
+        // the helper's default is conservative for older tests, so pass the
+        // live option here.
+        interruptAudio: true,
+      });
+      seam('branch_post', `${gen}:${reason}`);
+      return gen;
     },
     [sessionInfo, seam],
   );
@@ -526,8 +563,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // interrupt cutting the reply; sequencing (interrupt → settle → send) fixes
       // both: the narration is gone AND the interrupt is done before the reply.
       if (!inBranchRef.current) {
-        const posted = beginVoiceBranch('typed', now, { interruptAudio: true });
-        if (posted) await posted.catch(() => {});
+        enterLocalBranch('typed', now);
         // session.interrupt() is fired (not awaited) inside beginBranch before the
         // ping responds, so give the flush a beat to complete before the reply.
         await new Promise((r) => setTimeout(r, 250));
@@ -539,8 +575,15 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         qaTranscriptRef.current = next;
         return next;
       });
-      // Send it to the agent — it replies with TTS + a transcript turn.
-      const ai = AgoraVoiceAI.getInstance();
+      // Send it to the agent — it replies with TTS + a transcript turn. The
+      // typed harness can submit within ~1s of the first segment, before
+      // AgoraVoiceAI.init has finished its RTM subscribe path; wait briefly
+      // instead of calling getInstance(), which throws when not initialized.
+      let ai = voiceAiRef.current;
+      for (let i = 0; !ai && i < 40; i += 1) {
+        await new Promise((r) => setTimeout(r, 200));
+        ai = voiceAiRef.current;
+      }
       seam('send_uid', String(agentUidRef.current));
       if (ai) {
         void ai
@@ -559,7 +602,44 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         seam('send_err', 'no AgoraVoiceAI instance');
       }
     },
-    [sessionInfo, beginVoiceBranch, seam],
+    [sessionInfo, enterLocalBranch, seam],
+  );
+
+  const scheduleQaEnded = useCallback(
+    (gen: number, settleMs: number) => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        // Drop a stale timer: a newer branch opened since this one was armed.
+        if (gen !== branchGenRef.current) {
+          silenceTimerRef.current = null;
+          return;
+        }
+        seam('qa_post', gen);
+        // Read the LIVE transcript (ref), NOT the closed-over qaTranscript from
+        // the render that armed this timer — see qaTranscriptRef rationale.
+        let snapshot = qaTranscriptRef.current.slice(-10);
+        if (!snapshot.some((turn) => turn.role === 'user') && lastLiveUserTurnRef.current) {
+          snapshot = [...snapshot, lastLiveUserTurnRef.current].sort((a, b) => a.ts - b.ts).slice(-10);
+          qaTranscriptRef.current = snapshot;
+        }
+        void fetch('/api/tutor/qa-ended', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionIdRef.current,
+            qa_history: snapshot,
+            branch_id: gen,
+          }),
+        }).catch((err) => console.warn('[tutor] /qa-ended fetch error', err));
+        inBranchRef.current = false;
+        // Close the branch window: subsequent narration text won't be added
+        // to qa_history until the listener interrupts again.
+        branchStartedAtRef.current = null;
+        answerSeenRef.current = false;
+        silenceTimerRef.current = null;
+      }, settleMs);
+    },
+    [seam],
   );
 
   // ── RTM client lifecycle ──────────────────────────────────
@@ -631,6 +711,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           }
           return;
         }
+        voiceAiRef.current = ai;
 
         ai.on(
           AgoraVoiceAIEvents.AGENT_STATE_CHANGED,
@@ -676,6 +757,14 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             // ONE bubble, not three. (Both live-found 2026-06-01.)
             const cleaned = coalesceConsecutiveTurns(dropLeadingAgentTurns(merged));
             setQaTranscript(cleaned);
+            if (inBranchRef.current && cleaned.some((turn) => turn.role === 'agent')) {
+              answerSeenRef.current = true;
+              // A real answer transcript is the authoritative "answer started"
+              // signal. Re-arm from the latest transcript chunk so the story
+              // does not resume over the tail of the spoken answer when Agora
+              // omits/shortens the agentState='speaking' phase.
+              scheduleQaEnded(branchGenRef.current, SILENCE_TIMEOUT_MS);
+            }
             // Feed the live agent transcript to the word-reveal so captions
             // track the actual voice (audio-synced) rather than a fixed timer.
             const agentNow = latestAgentText(items, localUid);
@@ -737,8 +826,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
 
     return () => {
       cancelled = true;
+      const ai = voiceAiRef.current;
+      voiceAiRef.current = null;
       try {
-        const ai = AgoraVoiceAI.getInstance();
         if (ai) {
           ai.unsubscribe();
           ai.destroy();
@@ -748,7 +838,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, joinSuccess, rtmClient, sessionInfo, beginVoiceBranch]);
+  }, [isReady, joinSuccess, rtmClient, sessionInfo, beginVoiceBranch, scheduleQaEnded]);
 
   // ── End-of-Q&A detector ───────────────────────────────────
   useEffect(() => {
@@ -787,37 +877,9 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // may still be composing → wait long enough for it to BEGIN (block 3
       // cancels this the instant the agent speaks). Only fires as the resume
       // fallback when no answer ever comes.
-      const settleMs = prev === 'speaking' ? SILENCE_TIMEOUT_MS : SILENCE_NO_ANSWER_MS;
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        // Drop a stale timer: a newer branch opened since this one was armed.
-        if (gen !== branchGenRef.current) {
-          silenceTimerRef.current = null;
-          return;
-        }
-        seam('qa_post', gen);
-        // Read the LIVE transcript (ref), NOT the closed-over qaTranscript from
-        // the render that armed this timer — see qaTranscriptRef rationale.
-        let snapshot = qaTranscriptRef.current.slice(-10);
-        if (!snapshot.some((turn) => turn.role === 'user') && lastLiveUserTurnRef.current) {
-          snapshot = [...snapshot, lastLiveUserTurnRef.current].sort((a, b) => a.ts - b.ts).slice(-10);
-          qaTranscriptRef.current = snapshot;
-        }
-        void fetch('/api/tutor/qa-ended', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionIdRef.current,
-            qa_history: snapshot,
-            branch_id: gen,
-          }),
-        }).catch((err) => console.warn('[tutor] /qa-ended fetch error', err));
-        inBranchRef.current = false;
-        // Close the branch window: subsequent narration text won't be added
-        // to qa_history until the listener interrupts again.
-        branchStartedAtRef.current = null;
-        silenceTimerRef.current = null;
-      }, settleMs);
+      const settleMs =
+        prev === 'speaking' || answerSeenRef.current ? SILENCE_TIMEOUT_MS : SILENCE_NO_ANSWER_MS;
+      scheduleQaEnded(gen, settleMs);
     }
 
     // 3. AGENT ANSWERING or USER FOLLOW-UP → cancel the resume countdown. The
@@ -835,7 +897,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     }
     // qaTranscript intentionally NOT a dep: the timer reads qaTranscriptRef for
     // the live value, so this effect needn't re-run on every transcript update.
-  }, [agentState, sessionInfo, activeSceneIndex, seam, beginVoiceBranch]);
+  }, [agentState, sessionInfo, activeSceneIndex, seam, beginVoiceBranch, scheduleQaEnded]);
 
   // ── teardown ──────────────────────────────────────────────
   const teardownSession = useCallback(() => {
@@ -846,6 +908,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     setLiveUserText(null);
     typedTurnsRef.current = [];
     lastLiveUserTurnRef.current = null;
+    answerSeenRef.current = false;
     inBranchRef.current = false;
     branchStartedAtRef.current = null;
     qaTurnCountRef.current = 0;

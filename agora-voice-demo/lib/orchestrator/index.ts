@@ -162,8 +162,7 @@ function buildAgent(config: OrchestratorConfig, name: string): Agent {
   })
     // English-only STT for all languages — see STT_LANGUAGE rationale.
     .withStt(new DeepgramSTT({ model: STT_MODEL, language: STT_LANGUAGE }))
-    // LLM: point the agent at Gemini's OpenAI-COMPATIBLE endpoint with our own
-    // GOOGLE_API_KEY rather than Agora's OpenAI *reseller* preset.
+    // LLM: Gemini Flash Lite through Google's OpenAI-compatible endpoint.
     //
     // WHY (live-found 2026-06-01): the reseller preset (`new OpenAI({ model })`
     // with no key) routes to api.openai.com with Agora-injected credentials that
@@ -174,6 +173,11 @@ function buildAgent(config: OrchestratorConfig, name: string): Agent {
     // only a live answer exercises the credential. GOOGLE_API_KEY is already
     // provisioned + verified on Render (lesson generation uses the same key +
     // endpoint), so this needs no new secret.
+    //
+    // NOTE: The SDK's Gemini vendor currently points Agora at
+    // https://generativelanguage.googleapis.com/v1beta/models and the live agent
+    // returns llm:505 (HTML 404). The OpenAI *wrapper* here is only a schema
+    // adapter for Gemini's OpenAI-compatible endpoint; it is not api.openai.com.
     .withLlm(
       new OpenAI({
         apiKey: process.env.GOOGLE_API_KEY ?? '',

@@ -7,6 +7,7 @@ export interface TypedQaTurn {
 interface PostTypedBranchStartedArgs {
   sessionId: string | null;
   branchId: number;
+  interruptAudio?: boolean;
   fetchImpl?: typeof fetch;
   seam?: (event: string, detail?: string | number) => void;
   warn?: (...args: unknown[]) => void;
@@ -20,6 +21,7 @@ interface PostTypedBranchStartedArgs {
 export function postTypedBranchStarted({
   sessionId,
   branchId,
+  interruptAudio = false,
   fetchImpl = fetch,
   seam,
   warn = console.warn,
@@ -32,7 +34,7 @@ export function postTypedBranchStarted({
     body: JSON.stringify({
       session_id: sessionId,
       branch_id: branchId,
-      interrupt_audio: false,
+      interrupt_audio: interruptAudio,
     }),
   }).catch((err) => warn('[tutor] /branch-started fetch error', err));
   return true;

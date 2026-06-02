@@ -9,6 +9,7 @@
 import { ScalingStage } from '@/components/tutor/ScalingStage';
 import { StoryScreen } from '@/components/tutor/StoryScreen';
 import type { Scene } from '@/components/tutor/theme';
+import { useState } from 'react';
 
 const SCENES: Scene[] = [
   {
@@ -40,7 +41,9 @@ const SCENES: Scene[] = [
   },
 ];
 
-const QA = {
+type QaFixture = Record<number, Array<{ q: string; a: string }>>;
+
+const QA: QaFixture = {
   0: [
     {
       q: 'How fast does light actually travel?',
@@ -76,8 +79,20 @@ const VARIANTS: Record<PreviewVariant, Record<string, unknown>> = {
 
 const noop = () => {};
 
+function previewAnswer(question: string): string {
+  const q = question.toLowerCase();
+  if (q.includes('clock') || q.includes('time')) {
+    return 'Albert noticed the clock seemed slower because motion changes how time is measured.';
+  }
+  if (q.includes('light')) {
+    return 'Light travels at the same speed for everyone, which is why Albert starts wondering about time.';
+  }
+  return 'Good question — this preview records the interrupt and shows where the tutor answer would appear.';
+}
+
 export function PreviewClient({ variant }: { variant: PreviewVariant }) {
   const v = VARIANTS[variant] ?? VARIANTS.reading;
+  const [previewQa, setPreviewQa] = useState(QA);
   const scenes =
     variant === 'broken-image'
       ? SCENES.map((scene, idx) =>
@@ -94,13 +109,21 @@ export function PreviewClient({ variant }: { variant: PreviewVariant }) {
           finished={v.finished as boolean}
           liveNarrationText={scenes[2].narration_text}
           liveUserText={v.liveUserText as string | null}
-          qaHistoryByScene={QA}
+          qaHistoryByScene={previewQa}
           micDenied={false}
           micMuted={v.micMuted as boolean}
           micLevel={v.micLevel as number}
           agentState={v.agentState as string}
           onToggleMic={noop}
-          onTextQuestion={noop}
+          onTextQuestion={(question) => {
+            setPreviewQa((prev) => {
+              const sceneQa = prev[2] ?? [];
+              return {
+                ...prev,
+                2: [...sceneQa, { q: question, a: previewAnswer(question) }],
+              };
+            });
+          }}
           onExit={noop}
         />
       </div>

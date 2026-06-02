@@ -16,6 +16,13 @@ import { describe, it, expect, vi } from 'vitest';
 
 interface Captured {
   stt?: { model?: string; language?: string };
+  llm?: {
+    apiKey?: string;
+    model?: string;
+    url?: string;
+    maxHistory?: number;
+    params?: Record<string, unknown>;
+  };
   turn?: {
     config?: {
       speech_threshold?: number;
@@ -44,7 +51,9 @@ vi.mock('agora-agent-server-sdk', async (importOriginal) => {
       constructor(_o: unknown) {}
     },
     OpenAI: class {
-      constructor(_o: unknown) {}
+      constructor(o: Captured['llm']) {
+        cap.llm = o;
+      }
     },
     Agent: class {
       constructor(_o: unknown) {}
@@ -92,6 +101,16 @@ describe('tutor agent STT config is aligned to the base / demo (anti-divergence)
     // STT: nova-3 / 'en' (NOT 'en-US')
     expect(cap.stt?.model).toBe('nova-3');
     expect(cap.stt?.language).toBe('en');
+
+    // LLM: Gemini endpoint (NOT Agora's OpenAI reseller / api.openai.com).
+    // The SDK's Gemini vendor 404s in this agent path today, so the OpenAI
+    // wrapper is used only as the schema adapter for Gemini's compatible API.
+    expect(cap.llm).toMatchObject({
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      model: 'gemini-3.1-flash-lite',
+      maxHistory: 6,
+    });
+    expect(cap.llm?.url).not.toContain('api.openai.com');
 
     // turn_detection: deterministic VAD end-of-speech (NOT 'semantic', which was
     // laggy), with prefix_padding so speech starts aren't clipped.

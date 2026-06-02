@@ -70,12 +70,12 @@ describe('field regressions caught from live/manual testing', () => {
     const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
     const src = readFileSync(tutorPagePath, 'utf8');
 
-    // Don't pin the interrupt option literal — it flipped false→true when we
-    // fixed the narration-smother bug (interrupt the narration BEFORE the reply
-    // so the answer gets a voice turn). The regression guarded here is that the
-    // typed path enters the same hush branch as voice, which the entry + hush
-    // assertions below cover.
-    expect(src).toContain("beginVoiceBranch('typed', now,");
+    // Typed QA now uses a fire-and-forget branch POST so a slow/late
+    // /branch-started request cannot block the user bubble or sendText.
+    // The regression guarded here is that typed still enters the same local
+    // hush branch as voice, then posts branch-started without awaiting it.
+    expect(src).toContain("enterLocalBranch('typed', now)");
+    expect(src).toContain('postTypedBranchStarted({');
     expect(src).toContain('agentAudioTrackRef.current?.setVolume(0)');
     expect(src).toContain("seam('hush', 0)");
   });
@@ -87,6 +87,17 @@ describe('field regressions caught from live/manual testing', () => {
     expect(src).toContain('QA_ERROR_FALLBACK');
     expect(src).toContain("seam('agent_error'");
     expect(src).toContain("role: 'agent' as const, text: QA_ERROR_FALLBACK");
+  });
+
+  it('2026-06-02 voice QA: agent transcript must cancel the no-answer resume timer', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    // Agora can deliver an answer transcript without a clean agentState=speaking
+    // phase. In that case the old no-answer timer resumed the story over the
+    // tail of the answer. Seeing agent text must re-arm the after-answer window.
+    expect(src).toContain('answerSeenRef.current = true');
+    expect(src).toContain('scheduleQaEnded(branchGenRef.current, SILENCE_TIMEOUT_MS)');
   });
 
   it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {

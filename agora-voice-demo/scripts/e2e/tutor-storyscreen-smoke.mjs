@@ -110,6 +110,11 @@ try {
   await textbox.waitFor({ timeout: 5000 });
   const tv = await withinViewport(textbox);
   check('keyboard mode: text input revealed + within viewport', tv.ok, tv.detail);
+  await textbox.fill('Why did the clock seem slower?');
+  await page.getByTitle('Ask').click();
+  await page.waitForSelector('text=/Why did the clock seem slower/i', { timeout: 5000 });
+  await page.waitForSelector('text=/motion changes how time is measured/i', { timeout: 5000 });
+  check('preview typed QA appends a user bubble + answer bubble', true);
   await page.getByTitle('Voice').click();
   check('voice mode restored', (await page.getByText(/just speak to interrupt/i).count()) >= 1);
 

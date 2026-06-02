@@ -30,6 +30,28 @@ describe('typed QA contract', () => {
     });
   });
 
+  it('can request audio interrupt without awaiting the branch-started POST', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
+
+    const posted = postTypedBranchStarted({
+      sessionId: 'sess-123',
+      branchId: 8,
+      interruptAudio: true,
+      fetchImpl,
+    });
+
+    expect(posted).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledWith('/api/tutor/branch-started', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: 'sess-123',
+        branch_id: 8,
+        interrupt_audio: true,
+      }),
+    });
+  });
+
   it('does not POST an unusable null session_id', () => {
     const fetchImpl = vi.fn();
 
@@ -62,7 +84,8 @@ describe('typed QA contract', () => {
     // Intent: the typed path enters the SAME branch as a voice barge-in. Don't
     // pin the interrupt option literal (it flipped false→true when we fixed the
     // narration-smother bug) — just assert the typed branch entry + turn append.
-    expect(src).toContain("beginVoiceBranch('typed', now,");
+    expect(src).toContain("enterLocalBranch('typed', now)");
+    expect(src).toContain('postTypedBranchStarted({');
     expect(src).toContain('appendTypedTurn(prev, typedTurn)');
   });
 });
