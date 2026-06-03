@@ -23,8 +23,14 @@ import { chromium } from 'playwright';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { evaluateQaAnswer } from './run-latency-lib.mjs';
 
-const BASE_URL = process.env.TUTOR_URL ?? 'http://localhost:3000/tutor';
+function tutorUrl() {
+  const raw = process.env.TUTOR_URL ?? process.env.BARGE_BASE_URL ?? 'http://localhost:3000';
+  return raw.endsWith('/tutor') ? raw : `${raw.replace(/\/$/, '')}/tutor`;
+}
+
+const BASE_URL = tutorUrl();
 const WAV = '/tmp/spike-mic/tutor-barge-q.wav';
 const LOG_DIR = join(process.cwd(), 'logs/sessions');
 const TOPIC = 'Tell a short 3-scene bedtime story about a library cat named Pemberley.';
@@ -136,6 +142,7 @@ async function main() {
   // Poll the DOM composer hint to log the live phase transitions (reading →
   // listening → thinking) as a secondary barge-in signal.
   const seenPhases = new Set();
+  let domAnswers = [];
   const pollEnd = Date.now() + OBSERVE_MS;
   while (Date.now() < pollEnd) {
     const hint = await page.locator('body').innerText().catch(() => '');
@@ -151,14 +158,45 @@ async function main() {
     }
     await page.waitForTimeout(1500);
   }
+  domAnswers = await page
+    .evaluate(() => {
+      const out = [];
+      for (const el of document.querySelectorAll('div')) {
+        const t = el.innerText || '';
+        if (/IN ANSWER TO YOU/i.test(t) && t.length < 600 && el.querySelectorAll('div').length < 4) {
+          out.push(t.replace(/IN ANSWER TO YOU/i, '').trim());
+        }
+      }
+      return [...new Set(out)].filter((text) => text.length > 0);
+    })
+    .catch(() => []);
   await browser.close();
   console.log(`   STT: user.transcription=${transcripts.user}, assistant.transcription=${transcripts.assistant}, states=[${[...new Set(transcripts.states)].join(',')}], phases=[${[...seenPhases].join(',')}]`);
+  if (domAnswers.length) {
+    console.log(`   DOM answer bubbles: ${domAnswers.map((a) => `"${a.slice(0, 120)}"`).join(' | ')}`);
+  }
 
   console.log('4. reading the server-side session log…');
   const logPath = newestLogAfter(t0);
   if (!logPath) {
-    console.log('❌ no session log written after run start — narration may not have begun (compose/agent failed).');
-    process.exit(1);
+    const answerVerdict = evaluateQaAnswer(domAnswers.join(' '), {
+      expected: 'pemberley',
+      kind: 'factual',
+    });
+    const bargeInFired = seenPhases.has('listening') || seenPhases.has('thinking');
+    const pass = bargeInFired && answerVerdict.ok;
+    console.log(
+      '   no local session log found; using DOM answer fallback (expected for remote Render runs).',
+    );
+    console.log(`\n=== TIER-3 TUTOR BARGE-IN VERDICT ===`);
+    console.log(`  log:                 (none local)`);
+    console.log(`  phases:              [${[...seenPhases].join(',')}]`);
+    console.log(`  agent answer:        "${domAnswers.join(' ').slice(0, 220) || '(none)'}"`);
+    console.log(`\n  barge-in phase seen: ${bargeInFired ? '✅' : '❌'}`);
+    console.log(`  answer bubble ok:    ${answerVerdict.ok ? '✅' : '❌'}`);
+    for (const f of answerVerdict.failures) console.log(`    - ${f}`);
+    console.log(`\n  ${pass ? '✅ PASS — remote barge-in answered from narrated context' : '❌ FAIL — see above'}`);
+    process.exit(pass ? 0 : 1);
   }
   const { segments, qa } = parseSessionLog(logPath);
   const catName = guessCatName(segments);
