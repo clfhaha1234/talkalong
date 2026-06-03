@@ -72,6 +72,16 @@ function looksLikeNarrationLeak(text: string, narrationTexts: string[] = []): bo
   });
 }
 
+function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []): string {
+  if (!narrationTexts.length) return text;
+  const parts = text.match(/[^.!?]+[.!?]+|\S[\s\S]*$/g) ?? [text];
+  let i = 0;
+  while (i < parts.length && looksLikeNarrationLeak(parts[i], narrationTexts)) {
+    i += 1;
+  }
+  return parts.slice(i).join(' ').replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Decide whether a single transcript item belongs to the user or the agent.
  * Authoritative signal is metadata.object (user.transcription vs
@@ -163,6 +173,11 @@ export function mapTranscriptItems(
       text: item.text,
       ts: item._time,
     }))
+    .map((t) =>
+      t.role === 'agent'
+        ? { ...t, text: stripLeadingNarrationLeak(t.text, opts.narrationTexts) }
+        : t,
+    )
     .filter((t) => t.text && t.text.trim().length > 0)
     // C3: narrator leakage AFTER branch start. On Render/live Agora, the
     // interrupted main-line say() can still finalize an assistant transcript

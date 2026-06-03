@@ -207,6 +207,108 @@ export function deriveTypedQaVerdict(seams, opts = {}) {
   };
 }
 
+export const ANSWER_TEASE_RE =
+  /haven'?t (learned|met|been told)|not learned|secret the story|keep listening|hasn'?t been (revealed|told)|just yet|find out|about to meet/i;
+
+export const ANSWER_FALLBACK_RE = /trouble answering right now/i;
+
+export const ANSWER_NARRATION_LEAK_RE = /padded softly|grassy hill|sat on a grassy hill|when the moon rises/i;
+
+/**
+ * Content-level QA verdict for the answer bubble. This is intentionally small
+ * and deterministic: the full live suite can use an LLM judge, but the daily
+ * smoke should catch the user-visible failures without another model call.
+ */
+export function evaluateQaAnswer(answer, opts = {}) {
+  const text = String(answer ?? '').trim();
+  const lower = text.toLowerCase();
+  const expected = String(opts.expected ?? '').trim().toLowerCase();
+  const kind = opts.kind ?? (expected ? 'factual' : 'any');
+  const rejectTease = opts.rejectTease ?? kind !== 'any';
+  const minChars = opts.minChars ?? 2;
+  const narrationLeakRe = opts.narrationLeakRe ?? ANSWER_NARRATION_LEAK_RE;
+  const failures = [];
+
+  if (text.length < minChars) failures.push('missing answer text');
+  if (ANSWER_FALLBACK_RE.test(text)) failures.push('answer is the error fallback');
+  if (narrationLeakRe.test(text) && (!expected || !lower.includes(expected))) {
+    failures.push('answer bubble looks like leaked narration');
+  }
+  if (expected && !lower.includes(expected)) {
+    failures.push(`answer did not contain expected token "${expected}"`);
+  }
+  if (rejectTease && ANSWER_TEASE_RE.test(text)) {
+    failures.push('answer teased/deflected when this case requires a direct response');
+  }
+  if (kind === 'opener') {
+    const welcomed =
+      /\b(yes|yeah|hello|hi|hear you|can hear|go ahead|ask|what would you like|how can i help)\b/i.test(text);
+    if (!welcomed) failures.push('opener/greeting was not warmly acknowledged');
+  }
+
+  return {
+    ok: failures.length === 0,
+    text,
+    expected,
+    kind,
+    teased: ANSWER_TEASE_RE.test(text),
+    fallback: ANSWER_FALLBACK_RE.test(text),
+    failures,
+  };
+}
+
+/**
+ * Seam-level resume contract: after the branch produces an agent reply, the
+ * client must not POST /qa-ended immediately. This catches the manual failure
+ * where the answer started, then the main story resumed over its tail because a
+ * stale no-answer timer fired before the transcript path re-armed the longer
+ * after-answer window.
+ */
+export function deriveQaResumeVerdict(seams, opts = {}) {
+  const minAfterReplyMs = opts.minAfterReplyMs ?? 2500;
+  const maxAfterReplyMs = opts.maxAfterReplyMs ?? 9000;
+  const branchStart =
+    seams.find((s) => s.ev === 'typed_txt' || s.ev === 'user_txt' || s.ev === 'branch_post') ?? null;
+  const failures = [];
+
+  if (!branchStart) {
+    return {
+      ok: false,
+      agent_reply_seen: false,
+      qa_post_seen: false,
+      qa_post_after_reply_ms: null,
+      failures: ['missing branch start seam'],
+    };
+  }
+
+  const agentReply = seams.find((s) => s.ev === 'agent_reply' && s.t >= branchStart.t) ?? null;
+  const qaPost = seams.find((s) => s.ev === 'qa_post' && s.t >= branchStart.t) ?? null;
+  const segment = seams.find((s) => s.ev === 'segment' && s.t >= branchStart.t) ?? null;
+
+  if (!agentReply) failures.push('missing agent_reply seam before resume');
+  if (!qaPost) failures.push('missing qa_post seam');
+  if (agentReply && qaPost) {
+    const delta = qaPost.t - agentReply.t;
+    if (delta < 0) failures.push(`qa_post happened before agent_reply (${delta}ms)`);
+    else if (delta < minAfterReplyMs) {
+      failures.push(`qa_post too soon after agent_reply (${delta}ms < ${minAfterReplyMs}ms)`);
+    } else if (delta > maxAfterReplyMs) {
+      failures.push(`qa_post too slow after agent_reply (${delta}ms > ${maxAfterReplyMs}ms)`);
+    }
+  }
+  if (agentReply && segment && segment.t < agentReply.t) {
+    failures.push('main narration segment resumed before agent reply');
+  }
+
+  return {
+    ok: failures.length === 0,
+    agent_reply_seen: Boolean(agentReply),
+    qa_post_seen: Boolean(qaPost),
+    qa_post_after_reply_ms: agentReply && qaPost ? qaPost.t - agentReply.t : null,
+    failures,
+  };
+}
+
 /** Nearest-rank percentile. Filters nulls. Empty → null. */
 export function pct(arr, p) {
   const xs = arr.filter((x) => x != null).sort((a, b) => a - b);

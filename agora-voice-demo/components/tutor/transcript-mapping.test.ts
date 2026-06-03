@@ -163,6 +163,33 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('strips a leading narration sentence but preserves the real QA answer after it', () => {
+    const narration =
+      'When the moon rises over the village, Pemberley the library cat stretches his paws and begins his nightly patrol.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: "What's the cat's name?", time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text:
+            'When the moon rises over the village, Pemberley the library cat stretches his paws and begins his nightly patrol. The little cat is named Barnaby.',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: [narration],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: "What's the cat's name?", ts: 30_100 },
+      { role: 'agent', text: 'The little cat is named Barnaby.', ts: 31_000 },
+    ]);
+  });
+
   it('keeps a real QA answer even when narration-text filtering is enabled', () => {
     const out = mapTranscriptItems(
       [

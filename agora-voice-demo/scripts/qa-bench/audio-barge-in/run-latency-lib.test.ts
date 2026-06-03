@@ -18,8 +18,10 @@ import {
   KNOWN_FIXED,
   band,
   deriveSeamLatencies,
+  deriveQaResumeVerdict,
   deriveTypedQaVerdict,
   deriveLatencies,
+  evaluateQaAnswer,
   pct,
   resumeBudget,
 } from './run-latency-lib.mjs';
@@ -124,6 +126,86 @@ describe('deriveTypedQaVerdict() — typed screenshot tripwire', () => {
     expect(result.ok).toBe(false);
     expect(result.branch_ok).toBe(false);
     expect(result.failures).toContain('typed question did not POST branch-started as typed');
+  });
+});
+
+describe('evaluateQaAnswer() — answer-shape regressions', () => {
+  it('passes a direct factual answer with the expected token', () => {
+    const result = evaluateQaAnswer('His name is Pemberley.', {
+      expected: 'pemberley',
+      kind: 'factual',
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('fails a factual answer that only teases/deflects', () => {
+    const result = evaluateQaAnswer('Oh, you are just about to meet him — keep listening!', {
+      expected: 'pemberley',
+      kind: 'factual',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('answer did not contain expected token "pemberley"');
+    expect(result.failures).toContain('answer teased/deflected when this case requires a direct response');
+  });
+
+  it('passes a warm opener response for a greeting-only interrupt', () => {
+    const result = evaluateQaAnswer('Yes, little one — what would you like to know?', {
+      kind: 'opener',
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('fails a greeting that is treated like a story secret', () => {
+    const result = evaluateQaAnswer('That is a secret in the story. Keep listening!', {
+      kind: 'opener',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('answer teased/deflected when this case requires a direct response');
+    expect(result.failures).toContain('opener/greeting was not warmly acknowledged');
+  });
+});
+
+describe('deriveQaResumeVerdict() — answer tail must not be cut by stale qa_post', () => {
+  it('passes when qa_post waits after agent_reply', () => {
+    const result = deriveQaResumeVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'Hello?' },
+      { t: 1001, ev: 'branch_post', detail: '1:typed' },
+      { t: 2400, ev: 'agent_reply', detail: 'Yes, what would you like to know?' },
+      { t: 6400, ev: 'qa_post', detail: '1' },
+      { t: 7000, ev: 'segment', detail: 's2' },
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.qa_post_after_reply_ms).toBe(4000);
+  });
+
+  it('fails the live bug: qa_post fires almost immediately after the answer transcript', () => {
+    const result = deriveQaResumeVerdict([
+      { t: 1000, ev: 'user_txt', detail: 'Hello? Can you hear me?' },
+      { t: 1002, ev: 'branch_post', detail: '1' },
+      { t: 7961, ev: 'agent_reply', detail: 'Yes, what would you like to know?' },
+      { t: 8315, ev: 'qa_post', detail: '1' },
+      { t: 9000, ev: 'segment', detail: 's2' },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('qa_post too soon after agent_reply (354ms < 2500ms)');
+  });
+
+  it('fails when the main segment resumes before any agent reply seam', () => {
+    const result = deriveQaResumeVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'hi' },
+      { t: 1001, ev: 'branch_post', detail: '1:typed' },
+      { t: 1900, ev: 'qa_post', detail: '1' },
+      { t: 2200, ev: 'segment', detail: 's2' },
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('missing agent_reply seam before resume');
   });
 });
 

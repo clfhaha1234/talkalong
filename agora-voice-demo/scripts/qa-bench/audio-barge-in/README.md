@@ -64,6 +64,23 @@ BARGE_BASE_URL=https://your-render-url pnpm test:e2e:typed
 
 That script submits a typed question while narration is running and fails unless the seam stream shows `typed_txt -> hush 0 -> branch_post :typed` immediately, then verifies the answer renders as an `IN ANSWER TO YOU` bubble without narration leakage. It is the cheap daily smoke for the bug class usually found by "I just typed hi and it ignored me".
 
+For the manual-regression matrix, run:
+
+```bash
+BARGE_BASE_URL=https://your-render-url pnpm test:e2e:typed:matrix
+TYPED_MATRIX_TRIALS=3 BARGE_BASE_URL=https://your-render-url pnpm test:e2e:typed:matrix
+```
+
+The matrix replays the recent field failures as separate contracts:
+
+| case | why it exists | hard gates |
+|---|---|---|
+| `early-opener` | "Hello? Can you hear me?" was sometimes treated like no useful QA | immediate hush + typed branch, warm opener answer, no tease/fallback, delayed resume |
+| `early-fact-branch` | very early factual questions can be unrevealed but must not be silently ignored | immediate branch, some answer/deferral, no fallback, delayed resume |
+| `late-fact-answer` | once context has been narrated, the tutor must answer directly | immediate branch, answer contains `pemberley`, no tease/fallback, delayed resume |
+
+`verify-typed-qa.mjs` also checks the seam-level resume contract: after `agent_reply`, `/api/tutor/qa-ended` must not fire immediately. This catches the "answer starts, then the main story resumes over its tail" race that a simple "got an answer bubble" check misses.
+
 The seam latency harness measures three latencies a listener actually feels from ground-truth app events, not copy scraped from the DOM:
 
 | metric | gap measured | "feels like" |

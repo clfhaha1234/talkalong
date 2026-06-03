@@ -11,7 +11,7 @@
 
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { deriveTypedQaVerdict } from './run-latency-lib.mjs';
+import { deriveQaResumeVerdict, deriveTypedQaVerdict, evaluateQaAnswer } from './run-latency-lib.mjs';
 
 const BASE = process.env.BARGE_BASE_URL || 'http://localhost:3000';
 const TOPIC = process.env.TOPIC || 'Tell a short 3-scene bedtime story about a library cat named Pemberley.';
@@ -20,6 +20,9 @@ const QUESTION = process.env.QUESTION || 'What is the name of the cat?';
 // 'pemberley' for the cat-name question; override (or set to '' to skip) when the
 // QUESTION isn't a naming one (e.g. a "why" question has no single required word).
 const EXPECT = (process.env.EXPECT ?? 'pemberley').toLowerCase();
+const ANSWER_KIND = process.env.ANSWER_KIND || (EXPECT ? 'factual' : 'any');
+const ALLOW_TEASE = process.env.ALLOW_TEASE === '1';
+const MIN_QA_POST_AFTER_REPLY_MS = Number(process.env.MIN_QA_POST_AFTER_REPLY_MS || 2500);
 const COMPOSE_TIMEOUT_MS = Number(process.env.COMPOSE_TIMEOUT_MS || 200000);
 const OUT = '/tmp/spike-mic/typed-qa';
 
@@ -83,10 +86,14 @@ async function main() {
     }
     console.log(`typed question: "${QUESTION}" — waiting for the answer…`);
     await page.waitForTimeout(500);
-    const instantVerdict = deriveTypedQaVerdict(seams.filter((s) => typeof s !== 'string'));
+    const parsedSeams = () => seams.filter((s) => typeof s !== 'string');
+    const instantVerdict = deriveTypedQaVerdict(parsedSeams());
     await page.waitForTimeout(16000);
     await page.screenshot({ path: `${OUT}/typed-qa.png` }).catch(() => {});
-    const finalVerdict = deriveTypedQaVerdict(seams.filter((s) => typeof s !== 'string'));
+    const finalVerdict = deriveTypedQaVerdict(parsedSeams());
+    const resumeVerdict = deriveQaResumeVerdict(parsedSeams(), {
+      minAfterReplyMs: MIN_QA_POST_AFTER_REPLY_MS,
+    });
 
     // Pull the answer text: the teacher bubble(s) flagged "IN ANSWER TO YOU".
     const answers = await page.evaluate(() => {
@@ -105,36 +112,33 @@ async function main() {
     console.log('\n=== seams (tail) ===');
     seams.slice(-12).forEach((s) => console.log('  ' + (typeof s === 'string' ? s : s.raw)));
 
-    const named = !EXPECT || answers.some((a) => a.toLowerCase().includes(EXPECT));
-    // The agent-error fallback ("…having trouble answering right now…") is NOT an
-    // answer — if every bubble is the fallback, the agent didn't actually reply.
-    const isFallback =
-      answers.length > 0 && answers.every((a) => /trouble answering right now/i.test(a));
-    // A real narration LEAK = the QA bubble shows story prose INSTEAD of an
-    // answer (the C3 bug). Markers must be narration-ONLY: dropped "guardian of"
-    // — that's the cat's ROLE ("the guardian of the library is called Pemberley")
-    // and appears in a correct in-character answer, so it false-flagged a genuine
-    // reply. And a bubble that correctly names the cat is BY DEFINITION an answer,
-    // not narration-instead-of-answer, so naming overrides the heuristic.
-    const NARRATION_ONLY = /padded softly|grassy hill/i;
-    const leak = !named && answers.some((a) => NARRATION_ONLY.test(a));
+    const answerText = answers.join(' ');
+    const answerVerdict = evaluateQaAnswer(answerText, {
+      expected: EXPECT,
+      kind: ANSWER_KIND,
+      rejectTease: !ALLOW_TEASE,
+    });
     const agentErrors = seams
       .filter((s) => typeof s !== 'string' && s.ev === 'agent_error')
       .map((s) => s.detail);
     console.log('\n=== TYPED-QA VERDICT ===');
     console.log(`  instant hush: ${instantVerdict.hush_ok ? '✅' : '❌'} ${instantVerdict.hush_ms ?? '—'}ms`);
     console.log(`  instant typed branch: ${instantVerdict.branch_ok ? '✅' : '❌'} ${instantVerdict.branch_ms ?? '—'}ms`);
+    console.log(
+      `  qa resume delay: ${resumeVerdict.ok ? '✅' : '❌'} ${resumeVerdict.qa_post_after_reply_ms ?? '—'}ms after agent_reply`,
+    );
     if (agentErrors.length) console.log(`  agent errors: ${agentErrors.join(', ')}`);
     for (const f of instantVerdict.failures) console.log(`    - ${f}`);
+    for (const f of resumeVerdict.failures) console.log(`    - ${f}`);
     console.log(`  got an IN-ANSWER bubble: ${answers.length > 0 ? '✅' : '❌'}`);
-    console.log(`  answer contains "${EXPECT || '(any)'}": ${named ? '✅' : '❓'}`);
-    console.log(`  not the error-fallback: ${isFallback ? '❌ FALLBACK' : '✅'}`);
-    console.log(`  answer is NOT a narration leak: ${leak ? '❌ LEAK' : '✅'}`);
+    console.log(`  answer kind "${ANSWER_KIND}": ${answerVerdict.ok ? '✅' : '❌'}`);
+    console.log(`  answer contains "${EXPECT || '(any)'}": ${!EXPECT || answerVerdict.text.toLowerCase().includes(EXPECT) ? '✅' : '❓'}`);
+    for (const f of answerVerdict.failures) console.log(`    - ${f}`);
     // Honest gate: the bubble must exist, NOT be the error-fallback (which masked
     // the llm:505 bug), contain the expected token if one is set, and not be a
     // narration leak.
     const pass =
-      instantVerdict.ok && finalVerdict.ok && answers.length > 0 && named && !isFallback && !leak;
+      instantVerdict.ok && finalVerdict.ok && resumeVerdict.ok && answers.length > 0 && answerVerdict.ok;
     console.log(`  ${pass ? '✅ PASS — agent answered, rendered as a clean QA answer' : '❌ FAIL — no clean answer'}`);
     console.log(`  screenshot: ${OUT}/typed-qa.png`);
     process.exit(pass ? 0 : 1);
