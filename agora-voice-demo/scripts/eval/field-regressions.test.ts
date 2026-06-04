@@ -100,6 +100,26 @@ describe('field regressions caught from live/manual testing', () => {
     expect(src).toContain('scheduleQaEnded(branchGenRef.current, SILENCE_TIMEOUT_MS)');
   });
 
+  it('2026-06-03 repeated QA: each branch updates its own visible history slot', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    // A same-session second/third interrupt used to produce agent_reply seams
+    // but no new IN-ANSWER bubble because qaHistoryByScene was overwritten with
+    // the current transcript instead of updating a branch-specific slot.
+    expect(src).toContain('branchHistoryKeyRef');
+    expect(src).toContain('_branchKey');
+    expect(src).toContain('withoutCurrentBranch');
+  });
+
+  it('2026-06-03 repeated QA: late branch_started SSE must not resurrect a closed branch', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    expect(src).toContain("case 'branch_started'");
+    expect(src).toContain('!inBranchRef.current && branchStartedAtRef.current === null');
+  });
+
   it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {
     const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
     const src = readFileSync(tutorPagePath, 'utf8');

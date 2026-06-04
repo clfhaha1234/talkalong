@@ -109,6 +109,7 @@ interface SessionInfo {
 interface QaEntry {
   q: string;
   a: string;
+  _branchKey?: string;
 }
 
 interface TutorPageProps {
@@ -203,6 +204,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   // bridge segment for the next scene by the time RTM gives us the
   // committed transcript.
   const branchAnchorRef = useRef<number>(0);
+  const branchHistoryKeyRef = useRef<string | null>(null);
   // Wall-clock ms when the current BRANCH started (speaking → listening).
   // Used as the floor for filtering transcript items into qaTranscript so
   // narrator-side agent transcripts delivered BEFORE the listener interrupted
@@ -294,10 +296,22 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     if (pendingQ !== null) {
       pairs.push({ q: pendingQ, a: '' });
     }
-    setQaHistoryByScene((prev) => ({
-      ...prev,
-      [branchAnchorRef.current]: pairs.slice(-4),
-    }));
+    setQaHistoryByScene((prev) => {
+      const anchor = branchAnchorRef.current;
+      const branchKey = branchHistoryKeyRef.current ?? `branch-${branchGenRef.current}`;
+      const existing = prev[anchor] ?? [];
+      const withoutCurrentBranch = existing.filter(
+        (entry) => !entry._branchKey?.startsWith(`${branchKey}:`),
+      );
+      const currentBranchPairs = pairs.map((pair, index) => ({
+        ...pair,
+        _branchKey: `${branchKey}:${index}`,
+      }));
+      return {
+        ...prev,
+        [anchor]: [...withoutCurrentBranch, ...currentBranchPairs].slice(-8),
+      };
+    });
   }, [qaTranscript]);
 
   // ── StrictMode guard ──────────────────────────────────────
@@ -483,6 +497,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
       branchAnchorRef.current = activeSceneIndexRef.current;
+      branchHistoryKeyRef.current = `b${gen}`;
       branchStartedAtRef.current = startedAt;
       typedTurnsRef.current = [];
       lastLiveUserTurnRef.current = null;
@@ -518,6 +533,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
       branchAnchorRef.current = activeSceneIndexRef.current;
+      branchHistoryKeyRef.current = `b${gen}`;
       branchStartedAtRef.current = startedAt;
       typedTurnsRef.current = [];
       lastLiveUserTurnRef.current = null;
@@ -911,6 +927,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     answerSeenRef.current = false;
     inBranchRef.current = false;
     branchStartedAtRef.current = null;
+    branchHistoryKeyRef.current = null;
     qaTurnCountRef.current = 0;
     setInBranch(false);
     if (silenceTimerRef.current) {
@@ -1097,6 +1114,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
           return;
 
         case 'branch_started':
+          // Client-side branch entry is immediate and authoritative. The SSE is
+          // only confirmation; if an old branch_started arrives after the
+          // client already closed that branch, do not resurrect inBranchRef and
+          // block later interrupts.
+          if (!inBranchRef.current && branchStartedAtRef.current === null) {
+            return;
+          }
           setInBranch(true);
           inBranchRef.current = true;
           branchAnchorRef.current = activeSceneIndex;
