@@ -9,10 +9,11 @@
 // replacement, pointer rewind, and the UI event stream — from the planner's LLM
 // quality, which the qa-bench eval covers separately.
 
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import type { ProgressEvent } from './types';
 
 const sayCalls: Array<{ text: string; opts: { priority?: string; interruptable?: boolean } }> = [];
+let sayPause: Promise<void> | null = null;
 
 vi.mock('agora-agent-server-sdk', async (importOriginal) => {
   const orig = await importOriginal<typeof import('agora-agent-server-sdk')>();
@@ -35,6 +36,7 @@ vi.mock('agora-agent-server-sdk', async (importOriginal) => {
           stop: async () => {},
           say: async (text: string, opts: { priority?: string; interruptable?: boolean }) => {
             sayCalls.push({ text, opts });
+            if (sayPause) await sayPause;
           },
           interrupt: async () => {},
           update: async () => {},
@@ -90,6 +92,10 @@ const scenes: Scene[] = [
 ];
 
 describe('handleQaEnded — Chinese language-switch resume wiring', () => {
+  afterEach(() => {
+    sayPause = null;
+  });
+
   it('plays a Chinese bridge via INTERRUPT and rewrites the paused segment to Chinese', async () => {
     sayCalls.length = 0;
     const handle = await startTutorSessionFromScenes({
@@ -142,6 +148,41 @@ describe('handleQaEnded — Chinese language-switch resume wiring', () => {
     // 5. BRANCH was exited cleanly and the bridge completion was announced.
     expect(events.some((e) => e.type === 'bridge_completed')).toBe(true);
     expect(handle.progress.outerState()).toBe('MAIN');
+  });
+
+  it('does not let an old resume close a newer branch that interrupts the bridge', async () => {
+    sayCalls.length = 0;
+    let releaseBridge!: () => void;
+    sayPause = new Promise<void>((resolve) => {
+      releaseBridge = resolve;
+    });
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    const events: ProgressEvent[] = [];
+    handle.progress.subscribe((e) => events.push(e));
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    const oldResume = handle.handleQaEnded({
+      branch_id: 1,
+      qa_history: [
+        { role: 'user', text: 'Can you hear me?', ts: 1 },
+        { role: 'agent', text: 'Yes, little one.', ts: 2 },
+      ],
+    });
+
+    while (!events.some((e) => e.type === 'bridge_started')) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    await handle.beginBranch(2, { interruptAudio: true });
+    releaseBridge();
+    await oldResume;
+
+    expect(events.some((e) => e.type === 'active_scene_changed')).toBe(false);
+    expect(events.some((e) => e.type === 'bridge_completed')).toBe(false);
+    expect(handle.progress.outerState()).toBe('BRANCH');
   });
 
   it('rejects a qa-ended ping that arrives outside MAIN/BRANCH (e.g. IDLE)', async () => {

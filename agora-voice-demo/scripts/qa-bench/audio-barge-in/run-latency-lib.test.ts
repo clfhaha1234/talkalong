@@ -139,6 +139,15 @@ describe('evaluateQaAnswer() — answer-shape regressions', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('passes a reversed direct factual answer with the expected token', () => {
+    const result = evaluateQaAnswer("Pemberley is the cat's name.", {
+      expected: 'pemberley',
+      kind: 'factual',
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
   it('fails story prose that merely contains the expected fact token', () => {
     const result = evaluateQaAnswer(
       'The library is quiet, and even the shadows seem to hold their breath as Pemberley wakes. Let us see what secrets she finds.',
@@ -164,6 +173,19 @@ describe('evaluateQaAnswer() — answer-shape regressions', () => {
 
     expect(result.ok).toBe(false);
     expect(result.failures).toContain('factual answer mentions expected token without directly answering');
+  });
+
+  it('fails a factual answer that buries the direct answer behind story prose', () => {
+    const result = evaluateQaAnswer(
+      "Pemberley is listening to the stories waiting in the shadows. She stretches her whiskers and prepares to explore the shelves once more. The cat's name is Pemberley.",
+      {
+        expected: 'pemberley',
+        kind: 'factual',
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('answer bubble has too much story prose before the direct answer');
   });
 
   it('fails a factual answer that only teases/deflects', () => {
@@ -208,6 +230,19 @@ describe('deriveQaResumeVerdict() — answer tail must not be cut by stale qa_po
 
     expect(result.ok).toBe(true);
     expect(result.qa_post_after_reply_ms).toBe(4000);
+  });
+
+  it('allows a slower Gemini resume planner without treating it as a QA regression', () => {
+    const result = deriveQaResumeVerdict([
+      { t: 1000, ev: 'typed_txt', detail: 'Hello?' },
+      { t: 1001, ev: 'branch_post', detail: '1:typed' },
+      { t: 2400, ev: 'agent_reply', detail: 'Yes, what would you like to know?' },
+      { t: 11900, ev: 'qa_post', detail: '1' },
+      { t: 12400, ev: 'segment', detail: 's2' },
+    ]);
+
+    expect(result.ok).toBe(true);
+    expect(result.qa_post_after_reply_ms).toBe(9500);
   });
 
   it('fails the live bug: qa_post fires almost immediately after the answer transcript', () => {

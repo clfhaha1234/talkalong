@@ -560,7 +560,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         interruptAudio: true,
       });
       seam(posted ? 'branch_post' : 'branch_err', `${gen}:${reason}`);
-      return gen;
+      return posted ? gen : null;
     },
     [sessionInfo, seam],
   );
@@ -589,10 +589,11 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // Even if we're already in a branch, a rapid follow-up must interrupt the
       // current answer/bridge before sending new text, or the sendText can be
       // swallowed behind the still-playing TTS.
-      await enterLocalBranch('typed', now);
+      const branchGen = await enterLocalBranch('typed', now);
+      if (branchGen === null) return;
       // The server now awaits session.interrupt(); leave a small buffer for
       // Agora's transcript stream to settle before the reply starts.
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 600));
       // Record the typed question so it shows in the feed + pairs with the answer.
       typedTurnsRef.current.push(typedTurn);
       setQaTranscript((prev) => {
@@ -781,6 +782,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             // "answer"), then coalesce the chunked agent transcript so one reply is
             // ONE bubble, not three. (Both live-found 2026-06-01.)
             const cleaned = coalesceConsecutiveTurns(dropLeadingAgentTurns(merged));
+            qaTranscriptRef.current = cleaned;
             setQaTranscript(cleaned);
             if (inBranchRef.current && cleaned.some((turn) => turn.role === 'agent')) {
               answerSeenRef.current = true;
@@ -1168,7 +1170,26 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         }
 
         case 'bridge_started':
+          seam('bridge', 'started');
+          // The answer is done once the resume bridge starts. Keep the bridge
+          // out of the QA transcript; otherwise it can be coalesced into the
+          // "IN ANSWER TO YOU" bubble and look like the tutor answered with
+          // story prose before/after the actual answer.
+          if (inBranchRef.current || branchStartedAtRef.current !== null) {
+            setInBranch(false);
+            inBranchRef.current = false;
+            branchStartedAtRef.current = null;
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
+          }
+          return;
+
         case 'bridge_completed':
+          seam('bridge', 'completed');
+          return;
+
         case 'comprehension_changed':
           // Informational. Nothing visual to do.
           return;

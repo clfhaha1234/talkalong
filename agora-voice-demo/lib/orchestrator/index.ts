@@ -305,7 +305,13 @@ async function buildTutorHandle(args: {
   const basePersona = config.persona_prompt ?? personaForLanguage(lang);
   let latestContextSegments: Segment[] = [];
   const qaModeSystemMessage = (): string =>
-    `${buildStorytellerSystemMessage(basePersona, latestContextSegments)}\n\n----\nCURRENT MODE: the listener has interrupted. Answer ONLY the listener's latest question in ONE sentence, then stop. Do not narrate the story, do not bridge back, do not continue the scene, and do not reuse bridge/resume wording. If the question asks for a known fact from the reached story context, start with the direct answer.`;
+    `${buildStorytellerSystemMessage(basePersona, latestContextSegments)}\n\n----\nCURRENT MODE: the listener has interrupted. Answer ONLY the listener's latest question in ONE sentence, then stop.
+
+Hard rules for this interrupted-answer mode:
+- Your FIRST WORDS must answer the question directly. Do not warm up first.
+- Do NOT narrate the story, continue the scene, bridge back, summarize where we were, or reuse any previous bridge/resume wording.
+- Never begin with atmosphere or presence phrases like "I am here", "I am listening", "With the moonlight...", "The library...", or "Pemberley continues...".
+- If the listener asks a known name/fact from the reached story context, answer in the shape "The ___ is ___." or "The ___'s name is ___." as the first clause.`;
   const syncContext = (narratedSoFar: Segment[]): void => {
     latestContextSegments = narratedSoFar;
     // ONE merged system message via the shared builder — NOT two. The bench
@@ -514,6 +520,16 @@ async function buildTutorHandle(args: {
     // narrator's say()). INTERRUPT priority flushes the paused segment's tail +
     // any pre-BRANCH APPENDs so the bridge starts clean.
     await session.say(plan.bridge_text, { priority: 'INTERRUPT', interruptable: true });
+    // The listener can interrupt the resume bridge itself. In that case
+    // beginBranch() advances currentBranchId while this old qa-ended is still
+    // awaiting session.say(); do not let the old resume close/overwrite the new
+    // branch after the bridge is interrupted.
+    if (branch_id != null && branch_id < currentBranchId) {
+      console.log(
+        `[orchestrator] dropping stale qa-ended after bridge branch_id=${branch_id} < current=${currentBranchId}`,
+      );
+      return;
+    }
 
     // 2. Apply the planner's replacement_segments into ProgressState so the
     //    narrator loop, when it wakes from waitForMain(), picks up the

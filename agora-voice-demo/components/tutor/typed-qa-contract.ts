@@ -37,7 +37,13 @@ export function postTypedBranchStarted({
       interrupt_audio: interruptAudio,
     }),
   })
-    .then(() => true)
+    .then((res) => {
+      if ('ok' in res && !res.ok) {
+        warn('[tutor] /branch-started fetch non-ok', 'status' in res ? res.status : 'unknown');
+        return false;
+      }
+      return true;
+    })
     .catch((err) => {
       warn('[tutor] /branch-started fetch error', err);
       return false;

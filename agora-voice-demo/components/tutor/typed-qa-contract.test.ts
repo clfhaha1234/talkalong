@@ -52,6 +52,21 @@ describe('typed QA contract', () => {
     });
   });
 
+  it('returns false when branch-started responds non-ok', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    const warn = vi.fn();
+
+    const posted = await postTypedBranchStarted({
+      sessionId: 'missing-session',
+      branchId: 9,
+      fetchImpl,
+      warn,
+    });
+
+    expect(posted).toBe(false);
+    expect(warn).toHaveBeenCalledWith('[tutor] /branch-started fetch non-ok', 404);
+  });
+
   it('does not POST an unusable null session_id', async () => {
     const fetchImpl = vi.fn();
 

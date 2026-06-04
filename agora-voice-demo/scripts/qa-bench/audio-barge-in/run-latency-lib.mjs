@@ -218,7 +218,9 @@ export const ANSWER_STORY_PROSE_RE =
   /^(the library is quiet|one quiet|young albert|he wondered|as he|as she|when the|with the moonlight|the little explorer|let us see|pemberley wakes)\b/i;
 
 export const ANSWER_DIRECT_CUE_RE =
-  /\b(name is|named|called|is known as|it means|that means|yes\b|i can hear|the answer is)\b/i;
+  /\b(name is|named|called|is known as|is (?:the|his|her|their) .{0,40}name|it means|that means|yes\b|i can hear|the answer is)\b/i;
+
+const DIRECT_CUE_PREFIX_LIMIT = 80;
 
 /**
  * Content-level QA verdict for the answer bubble. This is intentionally small
@@ -239,6 +241,10 @@ export function evaluateQaAnswer(answer, opts = {}) {
   if (ANSWER_FALLBACK_RE.test(text)) failures.push('answer is the error fallback');
   if (narrationLeakRe.test(text) && (!expected || !lower.includes(expected))) {
     failures.push('answer bubble looks like leaked narration');
+  }
+  const directCue = text.search(ANSWER_DIRECT_CUE_RE);
+  if (directCue > DIRECT_CUE_PREFIX_LIMIT) {
+    failures.push('answer bubble has too much story prose before the direct answer');
   }
   if (ANSWER_STORY_PROSE_RE.test(text) && !ANSWER_DIRECT_CUE_RE.test(text)) {
     failures.push('answer bubble looks like story prose, not a QA answer');
@@ -283,7 +289,7 @@ export function evaluateQaAnswer(answer, opts = {}) {
  */
 export function deriveQaResumeVerdict(seams, opts = {}) {
   const minAfterReplyMs = opts.minAfterReplyMs ?? 2500;
-  const maxAfterReplyMs = opts.maxAfterReplyMs ?? 9000;
+  const maxAfterReplyMs = opts.maxAfterReplyMs ?? 12000;
   const branchStart =
     seams.find((s) => s.ev === 'typed_txt' || s.ev === 'user_txt' || s.ev === 'branch_post') ?? null;
   const failures = [];
