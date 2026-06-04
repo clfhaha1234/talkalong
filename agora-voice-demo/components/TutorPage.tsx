@@ -295,23 +295,25 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
     if (pendingQ !== null) {
       pairs.push({ q: pendingQ, a: '' });
     }
+    const anchor = branchAnchorRef.current;
+    const branchKey = branchHistoryKeyRef.current ?? `branch-${branchGenRef.current}`;
+    const currentBranchPairs = pairs.map((pair, index) => ({
+      ...pair,
+      _branchKey: `${branchKey}:${index}`,
+    }));
+    const lastPair = currentBranchPairs[currentBranchPairs.length - 1];
+    if (lastPair) seam('qa_pairs', `${anchor}:${currentBranchPairs.length}:${lastPair.a ? 'a' : 'q'}`);
     setQaHistoryByScene((prev) => {
-      const anchor = branchAnchorRef.current;
-      const branchKey = branchHistoryKeyRef.current ?? `branch-${branchGenRef.current}`;
       const existing = prev[anchor] ?? [];
       const withoutCurrentBranch = existing.filter(
         (entry) => !entry._branchKey?.startsWith(`${branchKey}:`),
       );
-      const currentBranchPairs = pairs.map((pair, index) => ({
-        ...pair,
-        _branchKey: `${branchKey}:${index}`,
-      }));
       return {
         ...prev,
         [anchor]: [...withoutCurrentBranch, ...currentBranchPairs].slice(-8),
       };
     });
-  }, [qaTranscript]);
+  }, [qaTranscript, seam]);
 
   // ── StrictMode guard ──────────────────────────────────────
   const [isReady, setIsReady] = useState(false);

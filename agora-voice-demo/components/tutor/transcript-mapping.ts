@@ -72,6 +72,17 @@ function looksLikeNarrationLeak(text: string, narrationTexts: string[] = []): bo
   });
 }
 
+function hasAnswerCue(text: string): boolean {
+  return /\b(yes,\s*little one|yes\b|i can hear you|what would you like|his name is|her name is|the cat(?:'s|’s)? name is|pemberley is|is named)\b/i.test(text);
+}
+
+function looksLikeStoryProseLeak(text: string): boolean {
+  if (hasAnswerCue(text)) return false;
+  const norm = normalizeText(text);
+  if (norm.length < 60) return false;
+  return /^(when|young|as|he|she|pemberley|one quiet evening|once|near|in the)/i.test(text.trim());
+}
+
 function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []): string {
   if (!narrationTexts.length) return text;
   const parts = text.match(/[^.!?]+[.!?]+|\S[\s\S]*$/g) ?? [text];
@@ -195,7 +206,8 @@ export function mapTranscriptItems(
     .filter(
       (t) =>
         t.role !== 'agent' ||
-        !looksLikeNarrationLeak(t.text, opts.narrationTexts),
+        (!looksLikeNarrationLeak(t.text, opts.narrationTexts) &&
+          !looksLikeStoryProseLeak(t.text)),
     );
 
   return committed.slice(-keep);

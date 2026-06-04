@@ -217,6 +217,30 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('drops obvious story prose leakage even when it does not exactly match narrationTexts', () => {
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'Hello? Can you hear me?', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text:
+            'When the moon rises over the tall library shelves,Pemberley the cat wakes from her nap. Her paws pad softly across the polished wooden floors,',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: ['The generated scene text can differ slightly from this leaked transcript.'],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: 'Hello? Can you hear me?', ts: 30_100 },
+    ]);
+  });
+
   it('keeps a real QA answer even when narration-text filtering is enabled', () => {
     const out = mapTranscriptItems(
       [

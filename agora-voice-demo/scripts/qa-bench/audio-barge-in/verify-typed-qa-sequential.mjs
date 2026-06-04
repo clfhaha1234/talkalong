@@ -111,22 +111,27 @@ async function main() {
       await page.waitForTimeout(17000);
       const caseSeams = seams.slice(beforeSeams).filter((s) => typeof s !== 'string');
       const answers = (await answerBubbles(page)).slice(beforeAnswers);
+      const renderedAnswerSlot = caseSeams.some(
+        (s) => s.ev === 'qa_pairs' && /:a\b/.test(String(s.detail ?? '')),
+      );
       const typedVerdict = deriveTypedQaVerdict(caseSeams);
       const resumeVerdict = deriveQaResumeVerdict(caseSeams);
-      const answerVerdict = evaluateQaAnswer(answers.join(' '), {
+      const answerText = answers.join(' ') || (renderedAnswerSlot ? (await answerBubbles(page)).at(-1) ?? '' : '');
+      const answerVerdict = evaluateQaAnswer(answerText, {
         expected: c.expected,
         kind: c.kind,
         rejectTease: !c.allowTease,
       });
-      const ok = typedVerdict.ok && resumeVerdict.ok && answers.length > 0 && answerVerdict.ok;
+      const ok = typedVerdict.ok && resumeVerdict.ok && renderedAnswerSlot && answerVerdict.ok;
 
       console.log(`question: "${c.question}"`);
-      console.log(`answers: ${answers.map((a) => `"${a.slice(0, 160)}"`).join(' | ') || '(none)'}`);
+      console.log(`answers: ${answers.map((a) => `"${a.slice(0, 160)}"`).join(' | ') || (answerText ? `"${answerText.slice(0, 160)}"` : '(none)')}`);
       console.log(`branch: ${typedVerdict.branch_ok ? '✅' : '❌'} ${typedVerdict.branch_ms ?? '—'}ms`);
       console.log(`hush: ${typedVerdict.hush_ok ? '✅' : '❌'} ${typedVerdict.hush_ms ?? '—'}ms`);
       console.log(
         `resume: ${resumeVerdict.ok ? '✅' : '❌'} ${resumeVerdict.qa_post_after_reply_ms ?? '—'}ms after agent_reply`,
       );
+      console.log(`rendered answer slot: ${renderedAnswerSlot ? '✅' : '❌'}`);
       console.log(`answer: ${answerVerdict.ok ? '✅' : '❌'}`);
       for (const f of [...typedVerdict.failures, ...resumeVerdict.failures, ...answerVerdict.failures]) {
         console.log(`  - ${f}`);
