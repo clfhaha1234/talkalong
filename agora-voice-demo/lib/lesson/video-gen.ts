@@ -113,6 +113,13 @@ export async function generateSceneVideo(
     return { error: `source image not found: ${srcImage}` };
   }
 
+  const preprocessScript = join(parentDir, 'src', 'preprocess.ts');
+  if (!existsSync(preprocessScript)) {
+    return {
+      error: `video renderer unavailable: ${preprocessScript} not found`,
+    };
+  }
+
   mkdirSync(videosDir, { recursive: true });
 
   // Preprocess + render scratch lives under the PARENT project's public/ so

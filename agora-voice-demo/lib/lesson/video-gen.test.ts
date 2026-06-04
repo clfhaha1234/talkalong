@@ -61,6 +61,21 @@ describe('generateSceneVideo', () => {
     }
   });
 
+  it('fails fast when the Remotion parent project is not present in the deployment', async () => {
+    const imageDir = join(appRoot, 'public', 'lesson-cache');
+    mkdirSync(imageDir, { recursive: true });
+    writeFileSync(join(imageDir, 'cafebabefeed1234.jpg'), 'fake-jpg-bytes');
+
+    const res = await generateSceneVideo('/lesson-cache/cafebabefeed1234.jpg', {
+      appRoot,
+      parentProjectDir: join(appRoot, 'missing-parent'),
+    });
+    expect('error' in res).toBe(true);
+    if ('error' in res) {
+      expect(res.error).toMatch(/video renderer unavailable/);
+    }
+  });
+
   it('errors on an unparseable image url', async () => {
     const res = await generateSceneVideo('/', { appRoot });
     expect('error' in res).toBe(true);
