@@ -11,8 +11,9 @@
 //
 // Caching mirrors image-gen: the cache key IS the image's content hash (the
 // {hash}.jpg filename), so the same illustration never re-renders. Output
-// lands at public/lesson-cache/videos/{hash}.mp4, served at
-// /lesson-cache/videos/{hash}.mp4 with zero extra wiring.
+// lands at {LESSON_CACHE_DIR}/videos/{hash}.mp4 (or public/lesson-cache/videos
+// locally) and is served through /api/lesson-video/{hash}. `next start` does not
+// serve runtime-written public/ files on Render, so a route is required.
 //
 // Always fails soft: on any error (preprocess/render crash, timeout, missing
 // source) we return { error } and the caller keeps showing the static image.
@@ -26,7 +27,7 @@ const execFileAsync = promisify(execFile);
 
 export interface VideoGenResult {
   hash: string;
-  /** Browser URL path, e.g. /lesson-cache/videos/abc123.mp4 */
+  /** Browser URL path, e.g. /api/lesson-video/abc123 */
   url: string;
   file_path: string;
   cached: boolean;
@@ -48,17 +49,29 @@ export interface VideoGenOptions {
 
 const DEFAULT_BUDGET_MS = 120_000;
 
-/** Derive the {hash}.jpg cache key from an image URL like /lesson-cache/abc123.jpg */
+function cacheRoot(appRoot: string): string {
+  return process.env.LESSON_CACHE_DIR ?? join(appRoot, 'public', 'lesson-cache');
+}
+
+/** Derive the image content hash from /api/lesson-image/abc123 or /lesson-cache/abc123.jpg. */
 function hashFromImageUrl(imageUrl: string): string {
-  const base = imageUrl.split('/').pop() ?? '';
+  const pathname = imageUrl.startsWith('http')
+    ? new URL(imageUrl).pathname
+    : imageUrl;
+  const base = pathname.split('/').pop() ?? '';
   return base.replace(/\.[a-z0-9]+$/i, '');
 }
 
-/** Map an image URL to its on-disk path under public/. */
-function imageFilePath(appRoot: string, imageUrl: string): string {
-  // imageUrl is an absolute URL path beginning with '/'; strip the leading
-  // slash and join under public/.
-  const rel = imageUrl.replace(/^\/+/, '');
+/** Map a generated image URL to its on-disk cache path. */
+function imageFilePath(appRoot: string, imageUrl: string, hash: string): string {
+  const pathname = imageUrl.startsWith('http')
+    ? new URL(imageUrl).pathname
+    : imageUrl;
+  if (pathname.startsWith('/api/lesson-image/')) {
+    return join(cacheRoot(appRoot), `${hash}.jpg`);
+  }
+  // Back-compat for older callers/tests that still pass the static dev path.
+  const rel = pathname.replace(/^\/+/, '');
   return join(appRoot, 'public', rel);
 }
 
@@ -72,7 +85,7 @@ function seedFromHash(hash: string): number {
  * Render ONE scene's illustration into an animated mp4. Cache-keyed by the
  * image's content hash. Returns the existing clip instantly on a cache hit.
  *
- * @param imageUrl  the scene's image_url (e.g. /lesson-cache/{hash}.jpg)
+ * @param imageUrl  the scene's image_url (e.g. /api/lesson-image/{hash})
  */
 export async function generateSceneVideo(
   imageUrl: string,
@@ -86,16 +99,16 @@ export async function generateSceneVideo(
   const hash = hashFromImageUrl(imageUrl);
   if (!hash) return { error: `cannot derive hash from imageUrl=${imageUrl}` };
 
-  const videosDir = join(appRoot, 'public', 'lesson-cache', 'videos');
+  const videosDir = join(cacheRoot(appRoot), 'videos');
   const outMp4 = join(videosDir, `${hash}.mp4`);
-  const url = `/lesson-cache/videos/${hash}.mp4`;
+  const url = `/api/lesson-video/${hash}`;
 
   // Cache HIT.
   if (existsSync(outMp4)) {
     return { hash, url, file_path: outMp4, cached: true, latency_ms: 0 };
   }
 
-  const srcImage = imageFilePath(appRoot, imageUrl);
+  const srcImage = imageFilePath(appRoot, imageUrl, hash);
   if (!existsSync(srcImage)) {
     return { error: `source image not found: ${srcImage}` };
   }
