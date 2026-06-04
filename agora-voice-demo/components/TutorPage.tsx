@@ -611,22 +611,49 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         ai = voiceAiRef.current;
       }
       seam('send_uid', String(agentUidRef.current));
-      if (ai) {
-        void ai
-          .sendText(agentUidRef.current, {
-            messageType: ChatMessageType.TEXT,
-            priority: ChatMessagePriority.INTERRUPTED,
-            responseInterruptable: true,
-            text: `[Answer mode: answer only the QUESTION below in one short sentence. Your first words must be the direct answer. Do not narrate, bridge, summarize, or reuse story prose.]\nQUESTION: ${q}`,
-          })
-          .then(() => seam('sent_ok'))
-          .catch((err) => {
-            seam('send_err', String(err?.message ?? err).slice(0, 50));
-            console.warn('[tutor] sendText failed', err);
-          });
-      } else {
-        seam('send_err', 'no AgoraVoiceAI instance');
-      }
+      // A typed question must reach the agent OR the listener is told — it must
+      // NEVER silently vanish. Live-found 2026-06-04: on repeated same-session
+      // interrupts `sendText` intermittently rejects with Agora `-10025`, and the
+      // old fire-and-forget `.catch` just logged it → the question disappeared and
+      // the story read on ("无视我的话" on the 2nd/3rd ask). First principles:
+      // retry the transient failure, and if it still won't send, surface a
+      // visible, retry-able notice instead of dropping it.
+      const payload = {
+        messageType: ChatMessageType.TEXT,
+        priority: ChatMessagePriority.INTERRUPTED,
+        responseInterruptable: true,
+        text: `[Answer mode: answer only the QUESTION below in one short sentence. Your first words must be the direct answer. Do not narrate, bridge, summarize, or reuse story prose.]\nQUESTION: ${q}`,
+      } as const;
+      const trySend = async (): Promise<boolean> => {
+        if (!ai) return false;
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          try {
+            await ai.sendText(agentUidRef.current, payload);
+            seam('sent_ok', attempt > 1 ? `retry${attempt}` : undefined);
+            return true;
+          } catch (err) {
+            seam('send_err', `${attempt}:${String((err as Error)?.message ?? err).slice(0, 40)}`);
+            console.warn(`[tutor] sendText attempt ${attempt} failed`, err);
+            if (attempt < 3) await new Promise((r) => setTimeout(r, 300 * attempt));
+          }
+        }
+        return false;
+      };
+      void trySend().then((ok) => {
+        if (ok) return;
+        seam('send_err_final', '1');
+        // The question never reached the agent — render a warm, retry-able notice
+        // (paired with the question) so the listener knows to ask again rather
+        // than the story silently rolling on over them.
+        const notice = {
+          role: 'agent' as const,
+          text: "Sorry, little one — I didn't quite catch that. Could you ask me once more?",
+          ts: Date.now(),
+        };
+        const next = [...qaTranscriptRef.current, notice];
+        qaTranscriptRef.current = next;
+        setQaTranscript(next);
+      });
     },
     [sessionInfo, enterLocalBranch, seam],
   );
