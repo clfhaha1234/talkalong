@@ -2,8 +2,10 @@
 //
 // The single-case matrix starts a fresh lesson per case, so it cannot catch a
 // stale branch/SSE state that only appears after multiple Q&A cycles in one
-// session. This script asks several questions in the SAME story and requires
-// each one to open a fresh typed branch and receive a visible answer.
+// session. This script asks several questions in the SAME story. By default it
+// uses the realistic rhythm "ask → answer → resume narration for at least one
+// segment → ask again", and requires each question to open a fresh typed branch
+// and receive a visible answer.
 //
 //   BARGE_BASE_URL=https://talkalong-tutor.onrender.com pnpm test:e2e:typed:sequential
 
@@ -15,6 +17,8 @@ const BASE = process.env.BARGE_BASE_URL || 'http://localhost:3000';
 const TOPIC =
   process.env.TOPIC || 'Tell a short 5-scene bedtime story about a library cat named Pemberley.';
 const COMPOSE_TIMEOUT_MS = Number(process.env.COMPOSE_TIMEOUT_MS || 200000);
+const WAIT_FOR_NEXT_SEGMENT = process.env.WAIT_FOR_NEXT_SEGMENT !== '0';
+const ROUND_TIMEOUT_MS = Number(process.env.ROUND_TIMEOUT_MS || 45000);
 const OUT = '/tmp/spike-mic/typed-qa-sequential';
 
 const CASES = [
@@ -63,6 +67,20 @@ async function answerBubbles(page) {
   });
 }
 
+async function waitForNewSegment(page, seams, fromIndex, label) {
+  if (!WAIT_FOR_NEXT_SEGMENT) return true;
+  const deadline = Date.now() + ROUND_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (seams.slice(fromIndex).some((s) => typeof s !== 'string' && s.ev === 'segment')) {
+      console.log(`round gap before ${label}: ✅ saw resumed narration segment`);
+      return true;
+    }
+    await page.waitForTimeout(500);
+  }
+  console.log(`round gap before ${label}: ❌ no resumed narration segment within ${ROUND_TIMEOUT_MS}ms`);
+  return false;
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({ headless: true });
@@ -93,8 +111,17 @@ async function main() {
     await tb.waitFor({ state: 'visible', timeout: 5000 });
 
     const results = [];
-    for (const c of CASES) {
+    let resumeFromSeam = 0;
+    for (let caseIndex = 0; caseIndex < CASES.length; caseIndex += 1) {
+      const c = CASES[caseIndex];
       console.log(`\n========== sequential typed: ${c.id} ==========`);
+      if (caseIndex > 0) {
+        const sawRound = await waitForNewSegment(page, seams, resumeFromSeam, c.id);
+        if (!sawRound) {
+          results.push({ id: c.id, ok: false });
+          continue;
+        }
+      }
       await page.waitForTimeout(c.waitMs);
       const beforeSeams = seams.length;
       const beforeAnswers = (await answerBubbles(page)).length;
@@ -137,6 +164,7 @@ async function main() {
         console.log(`  - ${f}`);
       }
       results.push({ id: c.id, ok });
+      resumeFromSeam = seams.length;
     }
 
     await page.screenshot({ path: `${OUT}/typed-qa-sequential.png` }).catch(() => {});
