@@ -134,6 +134,25 @@ describe('planResume — validation + repair', () => {
     const { plan } = await planResume(baseInput, { llm, budget_ms: 5000 });
     expect(plan.resume_strategy).toBe('skip');
   });
+
+  it('replaces bridge text that restates the just-answered fact', async () => {
+    const llm = vi.fn(async () =>
+      JSON.stringify({
+        bridge_text:
+          "With the cat's name now clear in the moonlight, Pemberley continues her quiet patrol through the aisles.",
+        resume_strategy: 'skip',
+        replacement_segments: [
+          {
+            id: 's4',
+            text: 'In Bern, far from any windmill, Albert sat at a wooden desk by day and dreamed by lamp light each evening.',
+          },
+        ],
+        active_scene_id: 's4',
+      }),
+    );
+    const { plan } = await planResume(baseInput, { llm, budget_ms: 5000 });
+    expect(plan.bridge_text).not.toMatch(/name now clear|mystery .*settled/i);
+  });
 });
 
 describe('planResume — fallback', () => {

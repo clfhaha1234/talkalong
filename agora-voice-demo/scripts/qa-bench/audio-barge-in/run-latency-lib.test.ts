@@ -188,6 +188,16 @@ describe('evaluateQaAnswer() — answer-shape regressions', () => {
     expect(result.failures).toContain('answer bubble has too much story prose before the direct answer');
   });
 
+  it('fails even a short atmospheric preface before a direct factual answer', () => {
+    const result = evaluateQaAnswer("The library is quiet, The cat's name is Pemberley.", {
+      expected: 'pemberley',
+      kind: 'factual',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('answer bubble has too much story prose before the direct answer');
+  });
+
   it('fails a factual answer that only teases/deflects', () => {
     const result = evaluateQaAnswer('Oh, you are just about to meet him — keep listening!', {
       expected: 'pemberley',

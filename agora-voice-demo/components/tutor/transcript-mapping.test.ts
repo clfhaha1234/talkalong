@@ -350,6 +350,26 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('strips the hidden typed answer-mode instruction from echoed user text', () => {
+    const out = mapTranscriptItems(
+      [
+        item({
+          uid: LOCAL_UID,
+          text:
+            "[Answer mode: answer only the QUESTION below in one short sentence. Your first words must be the direct answer. Do not narrate, bridge, summarize, or reuse story prose.]\nQUESTION: What is the cat's name?",
+          time: 30_100,
+          object: MessageType.USER_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+      },
+    );
+
+    expect(out).toEqual([{ role: 'user', text: "What is the cat's name?", ts: 30_100 }]);
+  });
+
   it('respects keep (most recent N)', () => {
     const items = Array.from({ length: 25 }, (_, i) =>
       item({ uid: LOCAL_UID, text: `q${i}`, time: 10_000 + i, object: MessageType.USER_TRANSCRIPTION }),
@@ -528,6 +548,18 @@ describe('coalesceConsecutiveTurns — one reply is ONE bubble', () => {
     ];
     expect(coalesceConsecutiveTurns(turns)).toEqual([
       { role: 'agent', text: 'His name is Pemberley.', ts: 2 },
+    ]);
+  });
+
+  it('strips a short narration tail that is coalesced before a direct answer', () => {
+    const turns = [
+      { role: 'user' as const, text: "What is the cat's name?", ts: 100 },
+      { role: 'agent' as const, text: 'The moonlight shifts, casting long,', ts: 200 },
+      { role: 'agent' as const, text: "The cat's name is Pemberley.", ts: 300 },
+    ];
+    expect(coalesceConsecutiveTurns(turns)).toEqual([
+      { role: 'user', text: "What is the cat's name?", ts: 100 },
+      { role: 'agent', text: "The cat's name is Pemberley.", ts: 300 },
     ]);
   });
 

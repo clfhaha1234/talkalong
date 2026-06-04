@@ -220,7 +220,7 @@ export const ANSWER_STORY_PROSE_RE =
 export const ANSWER_DIRECT_CUE_RE =
   /\b(name is|named|called|is known as|is (?:the|his|her|their) .{0,40}name|it means|that means|yes\b|i can hear|the answer is)\b/i;
 
-const DIRECT_CUE_PREFIX_LIMIT = 80;
+const DIRECT_CUE_PREFIX_LIMIT = 16;
 
 /**
  * Content-level QA verdict for the answer bubble. This is intentionally small

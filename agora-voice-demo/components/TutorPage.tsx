@@ -617,7 +617,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
             messageType: ChatMessageType.TEXT,
             priority: ChatMessagePriority.INTERRUPTED,
             responseInterruptable: true,
-            text: q,
+            text: `[Answer mode: answer only the QUESTION below in one short sentence. Your first words must be the direct answer. Do not narrate, bridge, summarize, or reuse story prose.]\nQUESTION: ${q}`,
           })
           .then(() => seam('sent_ok'))
           .catch((err) => {

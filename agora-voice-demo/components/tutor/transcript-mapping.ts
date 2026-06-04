@@ -76,11 +76,24 @@ function hasAnswerCue(text: string): boolean {
   return /\b(yes,\s*little one|yes\b|i can hear you|what would you like|his name is|her name is|the cat(?:'s|’s)? name is|pemberley is|is named)\b/i.test(text);
 }
 
+function stripLeadingNonAnswerPrefix(text: string): string {
+  const answerStart = text.search(
+    /\b(yes,\s*little one|yes\b|i can hear you|what would you like|his name is|her name is|the cat(?:'s|’s)? name is|pemberley is|is named)\b/i,
+  );
+  return answerStart > 16 ? text.slice(answerStart).trim() : text;
+}
+
 function looksLikeStoryProseLeak(text: string): boolean {
   if (hasAnswerCue(text)) return false;
   const norm = normalizeText(text);
   if (norm.length < 60) return false;
   return /^(when|young|as|he|she|pemberley|one quiet evening|once|near|in the|the moon|with the moonlight|the library|let us see)/i.test(text.trim());
+}
+
+function stripTypedAnswerModeInstruction(text: string): string {
+  const markedQuestion = text.match(/^\s*\[Answer mode:[\s\S]*?\]\s*QUESTION:\s*([\s\S]*?)\s*$/i);
+  if (markedQuestion) return markedQuestion[1].trim();
+  return text.replace(/\s*\[Answer mode:[\s\S]*?\]\s*$/i, '').trim();
 }
 
 function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []): string {
@@ -95,11 +108,7 @@ function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []):
   // "narration tail. Yes, little one..." and the tail is not a clean sentence
   // match against the current scene text. If a clear answer/opener starts later
   // in the same transcript, keep only that answer.
-  const answerStart = stripped.search(
-    /\b(yes,\s*little one|yes\b|i can hear you|what would you like|his name is|her name is|the cat(?:'s|’s)? name is|pemberley is)\b/i,
-  );
-  if (answerStart > 8) return stripped.slice(answerStart).trim();
-  return stripped;
+  return stripLeadingNonAnswerPrefix(stripped);
 }
 
 /**
@@ -203,7 +212,7 @@ export function mapTranscriptItems(
         return null;
       }
 
-      return { role, text, ts };
+      return { role, text: role === 'user' ? stripTypedAnswerModeInstruction(text) : text, ts };
     })
     .filter((t): t is QaTranscriptTurn => t !== null)
     .filter((t) => t.text && t.text.trim().length > 0)
@@ -293,7 +302,7 @@ export function coalesceConsecutiveTurns(
     const last = out[out.length - 1];
     const text = t.text.trim();
     if (!last || last.role !== t.role) {
-      out.push({ role: t.role, text, ts: t.ts });
+      out.push({ role: t.role, text: t.role === 'agent' ? stripLeadingNonAnswerPrefix(text) : text, ts: t.ts });
       continue;
     }
     const prev = last.text;
@@ -304,6 +313,7 @@ export function coalesceConsecutiveTurns(
     } else {
       last.text = `${prev} ${text}`;
     }
+    if (last.role === 'agent') last.text = stripLeadingNonAnswerPrefix(last.text);
     last.ts = Math.max(last.ts, t.ts);
   }
   return out;

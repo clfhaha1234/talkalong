@@ -86,7 +86,7 @@ const SYSTEM = `You are a storybook tutor's "resume planner". After a child list
 You output ONE JSON object. No prose, no markdown, no fences. Shape:
 
 {
-  "bridge_text": "string — 1-2 sentences (60-180 chars). Acknowledge the Q&A in passing AS THE NARRATOR (not as 'great question!'), then re-anchor on where we were. In character — warm storyteller voice. No 'okay', 'sure', 'let me', 'let's'.",
+  "bridge_text": "string — 1-2 sentences (60-180 chars). Re-anchor on where the story was paused AS THE NARRATOR. In character — warm storyteller voice. No 'okay', 'sure', 'let me', 'let's'.",
   "resume_strategy": "restart" | "continue" | "skip",
   "replacement_segments": [
     { "id": "string", "text": "string — 2-4 sentences of new narration" }
@@ -109,6 +109,7 @@ Voice rules for replacement_segments[].text and bridge_text:
 - Speak AS the storybook narrator. Same warm, age 8-12 voice as the original story.
 - Never preface with "Okay", "Sure", "Let me", "Let's", "So", "Alright", "Welcome".
 - No bullet points, no lists, no meta-commentary about the lesson.
+- bridge_text must NOT restate, summarize, or celebrate the Q&A answer. Do not say things like "with that clear", "now that we know", "with the name settled", "with the mystery solved", or repeat a factual answer from qa_history. The answer already happened; the bridge only returns to story action.
 - If the listener's last message in qa_history requested a language switch (e.g. "用中文讲故事"), mirror that language in bridge_text and in every replacement_segments[].text. Keep the canon — characters, plot beats, scene ids — identical; only the language changes. Otherwise, default to the language of the original story.
 - Plain spoken prose. About 200-360 characters per replacement segment (count characters in the chosen language).
 - Never narrate the story's later outcome or resolution before the telling reaches it. If a next scene you were given holds the climax or ending, resume TOWARD it without stating how it turns out — preserve the suspense the paused moment still holds.
@@ -212,6 +213,19 @@ function validatePlanAgainstInput(plan: ResumePlan, input: ResumePlanInput): Res
   return { ...plan, replacement_segments: cleaned };
 }
 
+function sanitizeBridgeText(plan: ResumePlan): ResumePlan {
+  const bridge = plan.bridge_text;
+  const repeatsQaAnswer =
+    /\b(with|now that|now)\b.{0,80}\b(name|answer|mystery|secret)\b.{0,80}\b(clear|settled|solved|known|revealed)\b/i.test(
+      bridge,
+    ) ||
+    /\b(with|now that|now)\b.{0,80}\b(clear|settled|solved|known|revealed)\b.{0,80}\b(name|answer|mystery|secret)\b/i.test(
+      bridge,
+    );
+  if (!repeatsQaAnswer) return plan;
+  return { ...plan, bridge_text: pickBridge() };
+}
+
 function fallbackPlan(input: ResumePlanInput): ResumePlan {
   const pctSpoken = clamp01(input.paused_scene_progress);
   // Mostly played → skip; otherwise restart so listener doesn't lose the thread.
@@ -252,7 +266,7 @@ export async function planResume(
     const raw = await Promise.race([opts.llm(buildPrompt(input)), watchdog]);
     const parsed = parsePlanJson(raw);
     const validated = validatePlanAgainstInput(parsed, input);
-    return { plan: validated, source: 'llm', latency_ms: Date.now() - t0 };
+    return { plan: sanitizeBridgeText(validated), source: 'llm', latency_ms: Date.now() - t0 };
   } catch {
     return { plan: fallbackPlan(input), source: 'fallback', latency_ms: Date.now() - t0 };
   }

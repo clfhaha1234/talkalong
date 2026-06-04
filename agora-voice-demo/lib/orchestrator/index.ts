@@ -183,7 +183,11 @@ function buildAgent(config: OrchestratorConfig, name: string): Agent {
         apiKey: process.env.GOOGLE_API_KEY ?? '',
         url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
         model: process.env.GEMINI_TUTOR_MODEL ?? 'gemini-3.1-flash-lite',
-        maxHistory: 6,
+        // Keep only the freshest turn context for QA. Story facts are already
+        // injected via system context; a longer rolling history lets prior
+        // bridge/resume narration bleed into later answers ("I am here...
+        // let us follow Pemberley..." before the actual answer).
+        maxHistory: 2,
       }),
     )
     .withTts(
@@ -304,14 +308,25 @@ async function buildTutorHandle(args: {
   const lang = config.language ?? DEFAULT_LANGUAGE;
   const basePersona = config.persona_prompt ?? personaForLanguage(lang);
   let latestContextSegments: Segment[] = [];
-  const qaModeSystemMessage = (): string =>
-    `${buildStorytellerSystemMessage(basePersona, latestContextSegments)}\n\n----\nCURRENT MODE: the listener has interrupted. Answer ONLY the listener's latest question in ONE sentence, then stop.
+  const qaModeSystemMessage = (): string => {
+    const storySoFar = latestContextSegments.length
+      ? latestContextSegments.map((s, i) => `Scene ${i + 1}: ${s.text}`).join('\n')
+      : '(No story facts have been narrated yet.)';
+    return `CURRENT MODE: the listener has interrupted.
+You are a warm storybook tutor speaking ${lang.name}. The listener has interrupted the reading.
+
+Story facts narrated so far. You may answer from these facts, but do not reveal or invent anything beyond them:
+${storySoFar}
+
+Answer ONLY the listener's latest question in ONE sentence, then stop.
 
 Hard rules for this interrupted-answer mode:
 - Your FIRST WORDS must answer the question directly. Do not warm up first.
+- Ignore previous assistant bridge/resume/narration wording; use only the story facts listed in this system message and the listener's latest question.
 - Do NOT narrate the story, continue the scene, bridge back, summarize where we were, or reuse any previous bridge/resume wording.
 - Never begin with atmosphere or presence phrases like "I am here", "I am listening", "With the moonlight...", "The library...", or "Pemberley continues...".
 - If the listener asks a known name/fact from the reached story context, answer in the shape "The ___ is ___." or "The ___'s name is ___." as the first clause.`;
+  };
   const syncContext = (narratedSoFar: Segment[]): void => {
     latestContextSegments = narratedSoFar;
     // ONE merged system message via the shared builder — NOT two. The bench
