@@ -83,11 +83,47 @@ function stripLeadingNonAnswerPrefix(text: string): string {
   return answerStart > 16 ? text.slice(answerStart).trim() : text;
 }
 
-function looksLikeStoryProseLeak(text: string): boolean {
+// Generic, story-AGNOSTIC narrative openers. Third-person past-tense story prose
+// overwhelmingly starts with one of these; a direct QA answer almost never does.
+// Deliberately NO story-specific words (the old list hardcoded "pemberley / the
+// moon / the library / with the moonlight / one quiet evening" — it only matched
+// the Pemberley fixture and silently failed for every other topic a user types).
+const NARRATIVE_OPENER =
+  /^(when|while|as|once|then|suddenly|soon|later|meanwhile|young|old|he |she |they |it was|there was|there once|in the|on the|near the|deep in|high above|far away|long ago)\b/i;
+
+function wordTrigrams(s: string): string[] {
+  const w = normalizeText(s).split(' ').filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i + 2 < w.length; i += 1) out.push(`${w[i]} ${w[i + 1]} ${w[i + 2]}`);
+  return out;
+}
+
+// Fraction of `text`'s 3-word sequences that also appear in any narration scene.
+// A real answer won't reproduce the scene's phrasing; leaked narration does —
+// this catches name/setting-specific leaks (e.g. "Pemberley was no ordinary
+// cat…") WITHOUT hardcoding the story's proper nouns.
+function narrationTrigramOverlap(text: string, narrationTexts: string[]): number {
+  const tris = wordTrigrams(text);
+  if (tris.length < 3) return 0;
+  let best = 0;
+  for (const n of narrationTexts) {
+    const ns = new Set(wordTrigrams(n));
+    if (ns.size === 0) continue;
+    const shared = tris.filter((t) => ns.has(t)).length / tris.length;
+    if (shared > best) best = shared;
+  }
+  return best;
+}
+
+function looksLikeStoryProseLeak(text: string, narrationTexts: string[] = []): boolean {
   if (hasAnswerCue(text)) return false;
   const norm = normalizeText(text);
   if (norm.length < 60) return false;
-  return /^(when|young|as|he|she|pemberley|one quiet evening|once|near|in the|the moon|with the moonlight|the library|let us see)/i.test(text.trim());
+  // (a) generic narrative opener — works for any story topic; or
+  if (NARRATIVE_OPENER.test(text.trim())) return true;
+  // (b) reproduces the actual scene's phrasing — catches name/setting leaks that
+  //     don't start with a generic opener, without any per-story token list.
+  return narrationTrigramOverlap(text, narrationTexts) >= 0.4;
 }
 
 function stripTypedAnswerModeInstruction(text: string): string {
@@ -224,7 +260,7 @@ export function mapTranscriptItems(
       (t) =>
         t.role !== 'agent' ||
         (!looksLikeNarrationLeak(t.text, opts.narrationTexts) &&
-          !looksLikeStoryProseLeak(t.text)),
+          !looksLikeStoryProseLeak(t.text, opts.narrationTexts)),
     );
 
   return committed.slice(-keep);

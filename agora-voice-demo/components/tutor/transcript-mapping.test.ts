@@ -322,6 +322,45 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('GENERALIZES: drops prose leak for a NON-Pemberley story via a generic narrative opener', () => {
+    // A space story — none of the old hardcoded tokens (pemberley/moon/library)
+    // apply. A generic narrative opener ("When ...") must still catch the leak.
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'Can you hear me?', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text: 'When Captain Vega fired the thrusters, the little rover lurched forward across the red Martian dust toward the crater rim.',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      { localUid: LOCAL_UID, branchStartedAt: 30_000, narrationTexts: ['An unrelated scene sentence.'] },
+    );
+    expect(out).toEqual([{ role: 'user', text: 'Can you hear me?', ts: 30_100 }]);
+  });
+
+  it('GENERALIZES: drops a name-initial leak via narration overlap (no hardcoded name)', () => {
+    // Narration starts with the character's NAME (no generic opener). The old
+    // code needed "pemberley" hardcoded; now overlap with the real narration
+    // catches it for ANY name.
+    const narration =
+      'Zephyr the dragon curled around the glowing crystal, his emerald scales shimmering in the cavern light.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'Hi there', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text: 'Zephyr the dragon curled around the glowing crystal, his emerald scales shimmering',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      { localUid: LOCAL_UID, branchStartedAt: 30_000, narrationTexts: [narration] },
+    );
+    expect(out).toEqual([{ role: 'user', text: 'Hi there', ts: 30_100 }]);
+  });
+
   it('keeps a real QA answer even when narration-text filtering is enabled', () => {
     const out = mapTranscriptItems(
       [
