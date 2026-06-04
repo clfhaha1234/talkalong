@@ -528,23 +528,30 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
   );
 
   const enterLocalBranch = useCallback(
-    (reason: 'typed', startedAt: number) => {
-      if (!sessionInfo || !sessionIdRef.current || inBranchRef.current) return null;
+    async (reason: 'typed', startedAt: number) => {
+      if (!sessionInfo || !sessionIdRef.current) return null;
+      const wasAlreadyInBranch = inBranchRef.current;
       const gen = ++branchGenRef.current;
       inBranchRef.current = true;
       qaTurnCountRef.current = 0;
       branchAnchorRef.current = activeSceneIndexRef.current;
       branchHistoryKeyRef.current = `b${gen}`;
       branchStartedAtRef.current = startedAt;
-      typedTurnsRef.current = [];
+      if (!wasAlreadyInBranch) typedTurnsRef.current = [];
       lastLiveUserTurnRef.current = null;
       answerSeenRef.current = false;
-      qaTranscriptRef.current = [];
-      setQaTranscript([]);
+      if (!wasAlreadyInBranch) {
+        qaTranscriptRef.current = [];
+        setQaTranscript([]);
+      }
       setInBranch(true);
       agentAudioTrackRef.current?.setVolume(0);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       seam('hush', 0);
-      postTypedBranchStarted({
+      const posted = await postTypedBranchStarted({
         sessionId: sessionIdRef.current,
         branchId: gen,
         // Typed QA must flush any in-flight narration audio before sendText;
@@ -552,7 +559,7 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
         // live option here.
         interruptAudio: true,
       });
-      seam('branch_post', `${gen}:${reason}`);
+      seam(posted ? 'branch_post' : 'branch_err', `${gen}:${reason}`);
       return gen;
     },
     [sessionInfo, seam],
@@ -579,12 +586,13 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // earlier interruptAudio:false was an over-correction for a CONCURRENT
       // interrupt cutting the reply; sequencing (interrupt → settle → send) fixes
       // both: the narration is gone AND the interrupt is done before the reply.
-      if (!inBranchRef.current) {
-        enterLocalBranch('typed', now);
-        // session.interrupt() is fired (not awaited) inside beginBranch before the
-        // ping responds, so give the flush a beat to complete before the reply.
-        await new Promise((r) => setTimeout(r, 250));
-      }
+      // Even if we're already in a branch, a rapid follow-up must interrupt the
+      // current answer/bridge before sending new text, or the sendText can be
+      // swallowed behind the still-playing TTS.
+      await enterLocalBranch('typed', now);
+      // The server now awaits session.interrupt(); leave a small buffer for
+      // Agora's transcript stream to settle before the reply starts.
+      await new Promise((r) => setTimeout(r, 150));
       // Record the typed question so it shows in the feed + pairs with the answer.
       typedTurnsRef.current.push(typedTurn);
       setQaTranscript((prev) => {

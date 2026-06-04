@@ -9,7 +9,7 @@ describe('typed QA contract', () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
     const seam = vi.fn();
 
-    const posted = postTypedBranchStarted({
+    const posted = await postTypedBranchStarted({
       sessionId: 'sess-123',
       branchId: 7,
       fetchImpl,
@@ -30,10 +30,10 @@ describe('typed QA contract', () => {
     });
   });
 
-  it('can request audio interrupt without awaiting the branch-started POST', async () => {
+  it('can request audio interrupt and await the branch-started POST', async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
 
-    const posted = postTypedBranchStarted({
+    const posted = await postTypedBranchStarted({
       sessionId: 'sess-123',
       branchId: 8,
       interruptAudio: true,
@@ -52,7 +52,7 @@ describe('typed QA contract', () => {
     });
   });
 
-  it('does not POST an unusable null session_id', () => {
+  it('does not POST an unusable null session_id', async () => {
     const fetchImpl = vi.fn();
 
     const posted = postTypedBranchStarted({
@@ -61,7 +61,7 @@ describe('typed QA contract', () => {
       fetchImpl,
     });
 
-    expect(posted).toBe(false);
+    await expect(posted).resolves.toBe(false);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -85,6 +85,7 @@ describe('typed QA contract', () => {
     // pin the interrupt option literal (it flipped false→true when we fixed the
     // narration-smother bug) — just assert the typed branch entry + turn append.
     expect(src).toContain("enterLocalBranch('typed', now)");
+    expect(src).toContain("await enterLocalBranch('typed', now)");
     expect(src).toContain('postTypedBranchStarted({');
     expect(src).toContain('appendTypedTurn(prev, typedTurn)');
   });

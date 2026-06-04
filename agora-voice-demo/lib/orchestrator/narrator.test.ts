@@ -67,12 +67,12 @@ describe('narrator (pointer-driven, APPEND-only)', () => {
     expect(completedIds).toEqual(['s1', 's2']);
   });
 
-  it('onSegmentNarrated fires after each segment with accumulating narrated-so-far (context-sync)', async () => {
-    // This is the hook index.ts uses to push "story so far" into the agent's
+  it('onSegmentNarrated fires as each segment starts with accumulating reached-so-far (context-sync)', async () => {
+    // This is the hook index.ts uses to push "story reached so far" into the agent's
     // LLM system context via session.update() — the robust fix for the
-    // "what's the cat's name?" bug. It must (a) fire once per completed
-    // segment, (b) carry ALL segments narrated so far (not just the latest),
-    // so a barge-in at scene N can answer facts from scenes 1..N.
+    // "what's the cat's name?" bug. It must fire as soon as the listener
+    // reaches a segment, not only after it completes, so a rapid barge-in during
+    // scene N can answer facts from scene N.
     const segs = [seg('s1', 'Barnaby the cat'), seg('s2', 'found a book'), seg('s3', 'chased stars')];
     const ps = new ProgressState('sess', segs);
     const snapshots: string[][] = [];
@@ -81,6 +81,62 @@ describe('narrator (pointer-driven, APPEND-only)', () => {
       onSegmentNarrated: (narrated) => snapshots.push(narrated.map((s) => s.id)),
     });
     expect(snapshots).toEqual([['s1'], ['s1', 's2'], ['s1', 's2', 's3']]);
+  });
+
+  it('syncs the current segment context before a mid-segment BRANCH preempts it', async () => {
+    let resolveSleep!: () => void;
+    const slowSleep = vi.fn(() => new Promise<void>((r) => { resolveSleep = r; }));
+    const segs = [seg('s1', 'Pemberley the cat wakes under the moon.'), seg('s2', 'found a book')];
+    const ps = new ProgressState('sess', segs);
+    const snapshots: string[][] = [];
+    const runP = runNarration(fakeSession(), ps, {
+      sleep: slowSleep,
+      onSegmentNarrated: (narrated) => snapshots.push(narrated.map((s) => s.id)),
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    ps.enterBranch();
+    await Promise.resolve();
+
+    expect(snapshots).toEqual([['s1']]);
+
+    ps.setNextIndex(1);
+    ps.exitBranch();
+    resolveSleep();
+    slowSleep.mockImplementation(() => Promise.resolve());
+    await runP;
+  });
+
+  it('keeps prior facts when a planner rewrite reuses the same segment id', async () => {
+    let resolveSleep!: () => void;
+    const slowSleep = vi.fn(() => new Promise<void>((r) => { resolveSleep = r; }));
+    const segs = [seg('s1', 'Pemberley the cat wakes under the moon.'), seg('s2', 'found a book')];
+    const ps = new ProgressState('sess', segs);
+    const snapshots: string[] = [];
+    const runP = runNarration(fakeSession(), ps, {
+      sleep: slowSleep,
+      onSegmentNarrated: (narrated) => snapshots.push(narrated.map((s) => s.text).join('\n---\n')),
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    ps.enterBranch();
+    await Promise.resolve();
+
+    ps.replaceSegments(['s1'], [
+      { ...segs[0], text: 'Her paws pad softly across the polished wooden floors.' },
+    ]);
+    ps.setNextIndex(0);
+    ps.exitBranch();
+    resolveSleep();
+    slowSleep.mockImplementation(() => Promise.resolve());
+    await runP;
+
+    expect(snapshots.at(-1)).toContain('Pemberley the cat wakes');
+    expect(snapshots.at(-1)).toContain('Her paws pad softly');
   });
 
   it('fires narration_complete after all segments', async () => {

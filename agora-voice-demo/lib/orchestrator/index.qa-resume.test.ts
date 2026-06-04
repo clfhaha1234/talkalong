@@ -303,7 +303,7 @@ describe('handleQaEnded — branch_id stale-guard (rapid re-barge / out-of-order
     handle.progress.enterMain();
     handle.progress.startSegment(handle.progress.segments[0]);
 
-    handle.beginBranch(2); // a NEW barge-in (generation 2) is now the current branch
+    await handle.beginBranch(2); // a NEW barge-in (generation 2) is now the current branch
     // A LATE qa-ended from the OLD branch (generation 1) arrives out of order.
     await handle.handleQaEnded({
       qa_history: [{ role: 'user', text: 'stale question from the old branch', ts: 1 }],
@@ -312,6 +312,49 @@ describe('handleQaEnded — branch_id stale-guard (rapid re-barge / out-of-order
 
     // Dropped before planning: no planner, nothing spoken, still in the new branch.
     expect(planResume).not.toHaveBeenCalled();
+    expect(sayCalls.length).toBe(0);
+    expect(handle.progress.outerState()).toBe('BRANCH');
+  });
+
+  it('drops a qa-ended that becomes stale while the resume planner is running', async () => {
+    sayCalls.length = 0;
+    (planResume as unknown as { mockClear: () => void }).mockClear();
+    let releasePlanner!: () => void;
+    (planResume as unknown as { mockImplementationOnce: (impl: unknown) => void }).mockImplementationOnce(
+      async (input: { paused_scene: { id: string } }) => {
+        await new Promise<void>((resolve) => {
+          releasePlanner = resolve;
+        });
+        return {
+          plan: {
+            bridge_text: 'This stale bridge must never be spoken.',
+            resume_strategy: 'continue',
+            replacement_segments: [{ id: input.paused_scene.id, text: 'stale replacement' }],
+            active_scene_id: input.paused_scene.id,
+          },
+          source: 'llm',
+          latency_ms: 5,
+        };
+      },
+    );
+    const handle = await startTutorSessionFromScenes({
+      scenes,
+      config: { agora_app_id: 'a', agora_app_certificate: 'b' },
+    });
+    handle.progress.enterMain();
+    handle.progress.startSegment(handle.progress.segments[0]);
+
+    await handle.beginBranch(1);
+    const staleQaEnded = handle.handleQaEnded({
+      qa_history: [{ role: 'user', text: 'old question', ts: 1 }],
+      branch_id: 1,
+    });
+    await Promise.resolve();
+    await handle.beginBranch(2);
+    releasePlanner();
+    await staleQaEnded;
+
+    expect(planResume).toHaveBeenCalled();
     expect(sayCalls.length).toBe(0);
     expect(handle.progress.outerState()).toBe('BRANCH');
   });
@@ -326,7 +369,7 @@ describe('handleQaEnded — branch_id stale-guard (rapid re-barge / out-of-order
     handle.progress.enterMain();
     handle.progress.startSegment(handle.progress.segments[0]);
 
-    handle.beginBranch(3);
+    await handle.beginBranch(3);
     await handle.handleQaEnded({
       qa_history: [{ role: 'user', text: '能不能用中文继续？', ts: 1 }],
       branch_id: 3,

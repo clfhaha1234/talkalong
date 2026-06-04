@@ -214,6 +214,12 @@ export const ANSWER_FALLBACK_RE = /trouble answering right now/i;
 
 export const ANSWER_NARRATION_LEAK_RE = /padded softly|grassy hill|sat on a grassy hill|when the moon rises/i;
 
+export const ANSWER_STORY_PROSE_RE =
+  /^(the library is quiet|one quiet|young albert|he wondered|as he|as she|when the|with the moonlight|the little explorer|let us see|pemberley wakes)\b/i;
+
+export const ANSWER_DIRECT_CUE_RE =
+  /\b(name is|named|called|is known as|it means|that means|yes\b|i can hear|the answer is)\b/i;
+
 /**
  * Content-level QA verdict for the answer bubble. This is intentionally small
  * and deterministic: the full live suite can use an LLM judge, but the daily
@@ -234,8 +240,19 @@ export function evaluateQaAnswer(answer, opts = {}) {
   if (narrationLeakRe.test(text) && (!expected || !lower.includes(expected))) {
     failures.push('answer bubble looks like leaked narration');
   }
+  if (ANSWER_STORY_PROSE_RE.test(text) && !ANSWER_DIRECT_CUE_RE.test(text)) {
+    failures.push('answer bubble looks like story prose, not a QA answer');
+  }
   if (expected && !lower.includes(expected)) {
     failures.push(`answer did not contain expected token "${expected}"`);
+  }
+  if (
+    expected &&
+    kind === 'factual' &&
+    lower.replace(/[“”"'.!?;:,—–-]/g, '').trim() !== expected &&
+    !ANSWER_DIRECT_CUE_RE.test(text)
+  ) {
+    failures.push('factual answer mentions expected token without directly answering');
   }
   if (rejectTease && ANSWER_TEASE_RE.test(text)) {
     failures.push('answer teased/deflected when this case requires a direct response');

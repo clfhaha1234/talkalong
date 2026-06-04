@@ -34,9 +34,9 @@ const CASES = [
     id: 'early-fact',
     waitMs: 1500,
     question: 'What is the name of the cat?',
-    expected: '',
-    kind: 'any',
-    allowTease: true,
+    expected: 'pemberley',
+    kind: 'factual',
+    allowTease: false,
   },
   {
     id: 'late-fact',
@@ -135,20 +135,34 @@ async function main() {
         await tb.press('Enter');
       }
 
-      await page.waitForTimeout(17000);
-      const caseSeams = seams.slice(beforeSeams).filter((s) => typeof s !== 'string');
-      const answers = (await answerBubbles(page)).slice(beforeAnswers);
-      const renderedAnswerSlot = caseSeams.some(
-        (s) => s.ev === 'qa_pairs' && /:a\b/.test(String(s.detail ?? '')),
-      );
-      const typedVerdict = deriveTypedQaVerdict(caseSeams);
-      const resumeVerdict = deriveQaResumeVerdict(caseSeams);
-      const answerText = answers.join(' ') || (renderedAnswerSlot ? (await answerBubbles(page)).at(-1) ?? '' : '');
-      const answerVerdict = evaluateQaAnswer(answerText, {
-        expected: c.expected,
-        kind: c.kind,
-        rejectTease: !c.allowTease,
-      });
+      let caseSeams = [];
+      let answers = [];
+      let renderedAnswerSlot = false;
+      let typedVerdict = { ok: false, failures: ['verdict not computed'] };
+      let resumeVerdict = { ok: false, failures: ['verdict not computed'] };
+      let answerText = '';
+      let answerVerdict = { ok: false, failures: ['verdict not computed'] };
+      const deadline = Date.now() + ROUND_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        await page.waitForTimeout(1000);
+        caseSeams = seams.slice(beforeSeams).filter((s) => typeof s !== 'string');
+        answers = (await answerBubbles(page)).slice(beforeAnswers);
+        renderedAnswerSlot = caseSeams.some(
+          (s) => s.ev === 'qa_pairs' && /:a\b/.test(String(s.detail ?? '')),
+        );
+        typedVerdict = deriveTypedQaVerdict(caseSeams, {
+          maxAnswerMs: 12000,
+          maxBranchMs: 1200,
+        });
+        resumeVerdict = deriveQaResumeVerdict(caseSeams);
+        answerText = answers.join(' ') || (renderedAnswerSlot ? (await answerBubbles(page)).at(-1) ?? '' : '');
+        answerVerdict = evaluateQaAnswer(answerText, {
+          expected: c.expected,
+          kind: c.kind,
+          rejectTease: !c.allowTease,
+        });
+        if (typedVerdict.ok && resumeVerdict.ok && renderedAnswerSlot && answerVerdict.ok) break;
+      }
       const ok = typedVerdict.ok && resumeVerdict.ok && renderedAnswerSlot && answerVerdict.ok;
 
       console.log(`question: "${c.question}"`);

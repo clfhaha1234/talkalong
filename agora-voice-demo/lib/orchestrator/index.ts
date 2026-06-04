@@ -87,7 +87,7 @@ export interface RunTutorHandle {
    * moment the listener opens their mouth — and they speak into silence, which
    * also lets STT hear them cleanly. Idempotent.
    */
-  beginBranch: (branchId?: number, opts?: { interruptAudio?: boolean }) => void;
+  beginBranch: (branchId?: number, opts?: { interruptAudio?: boolean }) => Promise<void>;
   /** Called by /api/tutor/qa-ended when the browser detects the user's Q&A digression has ended.
    *  `branch_id` is the client's monotonic barge-in generation; a qa-ended older
    *  than the latest barge-in is dropped (rapid re-barge / out-of-order guard). */
@@ -303,7 +303,11 @@ async function buildTutorHandle(args: {
   // and never break narration.
   const lang = config.language ?? DEFAULT_LANGUAGE;
   const basePersona = config.persona_prompt ?? personaForLanguage(lang);
+  let latestContextSegments: Segment[] = [];
+  const qaModeSystemMessage = (): string =>
+    `${buildStorytellerSystemMessage(basePersona, latestContextSegments)}\n\n----\nCURRENT MODE: the listener has interrupted. Answer ONLY the listener's latest question in ONE sentence, then stop. Do not narrate the story, do not bridge back, do not continue the scene, and do not reuse bridge/resume wording. If the question asks for a known fact from the reached story context, start with the direct answer.`;
   const syncContext = (narratedSoFar: Segment[]): void => {
+    latestContextSegments = narratedSoFar;
     // ONE merged system message via the shared builder — NOT two. The bench
     // proved separate [persona, story] messages silently drop the persona (only
     // the last system message is honored), so the agent would compute off-topic
@@ -355,7 +359,7 @@ async function buildTutorHandle(args: {
   // drop a stale /qa-ended that a newer barge-in has already superseded.
   let currentBranchId = 0;
 
-  const beginBranch: RunTutorHandle['beginBranch'] = (branchId, opts) => {
+  const beginBranch: RunTutorHandle['beginBranch'] = async (branchId, opts) => {
     if (branchId != null && branchId > currentBranchId) currentBranchId = branchId;
     // Fires the instant the browser sees agent speaking→listening (the listener
     // started talking). Pause the narrator NOW — don't wait for the silence-
@@ -370,7 +374,20 @@ async function buildTutorHandle(args: {
       /* never let a barge-in signal throw */
     }
     if (opts?.interruptAudio !== false) {
-      void session.interrupt().catch(() => {});
+      await Promise.all([
+        session
+          .update({ llm: { system_messages: [{ role: 'system', content: qaModeSystemMessage() }] } })
+          .catch((err) =>
+            console.warn('[orchestrator] QA-mode session.update failed:', (err as Error).message),
+          ),
+        session.interrupt().catch(() => {}),
+      ]);
+    } else {
+      await session
+        .update({ llm: { system_messages: [{ role: 'system', content: qaModeSystemMessage() }] } })
+        .catch((err) =>
+          console.warn('[orchestrator] QA-mode session.update failed:', (err as Error).message),
+        );
     }
   };
 
@@ -472,6 +489,17 @@ async function buildTutorHandle(args: {
       },
       { llm, budget_ms: 4500 },
     );
+
+    // A rapid follow-up can start a newer branch while this older qa-ended is
+    // still waiting on the resume planner. Re-check the generation before
+    // speaking the bridge or exiting BRANCH, otherwise the stale resume clobbers
+    // the fresh question and it looks like the tutor ignored it.
+    if (branch_id != null && branch_id < currentBranchId) {
+      console.log(
+        `[orchestrator] dropping stale qa-ended after planning branch_id=${branch_id} < current=${currentBranchId}`,
+      );
+      return;
+    }
 
     // 1. Bridge plays immediately via INTERRUPT — clears whatever Agora has
     //    buffered (the tail of the paused segment audio + any APPENDs we

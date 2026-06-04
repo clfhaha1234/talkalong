@@ -37,13 +37,12 @@ export interface RunNarrationOptions {
   /** Injected sleep for tests. Defaults to setTimeout-based sleep. */
   sleep?: (ms: number) => Promise<void>;
   /**
-   * Called (fire-and-forget) after each segment finishes narrating, with the
-   * list of segments narrated so far (in order). The orchestrator uses this to
-   * sync the agent's LLM system-context to "what's been read so far" via
-   * session.update() — so a listener's barge-in question about an
-   * already-narrated fact (e.g. "what's the cat's name?") is answerable, while
-   * not-yet-narrated scenes stay out of context (no spoilers). Never throws
-   * into the narration loop — the orchestrator wraps it.
+   * Called (fire-and-forget) when each segment starts, with the list of
+   * segments started so far (in order). The orchestrator uses this to sync the
+   * agent's LLM system-context to "what the listener has reached" via
+   * session.update() — so a barge-in during the first seconds of a segment can
+   * still answer facts from that current segment. Future segments stay out of
+   * context (no spoilers). Never throws into the narration loop.
    */
   onSegmentNarrated?: (narratedSoFar: Segment[]) => void;
 }
@@ -54,8 +53,29 @@ export async function runNarration(
   opts: RunNarrationOptions = {},
 ): Promise<void> {
   const sleep = opts.sleep ?? defaultSleep;
-  // Accumulates the segments narrated so far (in order) for context-sync.
+  // Accumulates the segments the listener has reached (in order) for
+  // context-sync. Includes the current in-flight segment as soon as it starts,
+  // because barge-in can happen before the segment finishes.
   const narrated: Segment[] = [];
+  const syncContext = (seg: Segment): void => {
+    const idx = narrated.findIndex((s) => s.id === seg.id);
+    if (idx >= 0) {
+      const prev = narrated[idx];
+      narrated[idx] =
+        prev.text === seg.text || prev.text.includes(seg.text)
+          ? prev
+          : { ...seg, text: `${prev.text}\n${seg.text}` };
+    } else {
+      narrated.push(seg);
+    }
+    if (opts.onSegmentNarrated) {
+      try {
+        opts.onSegmentNarrated([...narrated]);
+      } catch {
+        // never break narration on a context-sync failure
+      }
+    }
+  };
   progress.enterMain();
   while (!opts.shouldCancel?.()) {
     if (progress.outerState() === 'BRANCH') {
@@ -66,6 +86,7 @@ export async function runNarration(
     if (!seg) break;
 
     progress.startSegment(seg);
+    syncContext(seg);
     try {
       // interruptable: true is THE flag that makes barge-in feel like raw Agora
       // 1:1 chat. Without it, Agora treats a say()-injected broadcast as a
@@ -101,19 +122,6 @@ export async function runNarration(
     progress.completeSegment(seg.id);
     progress.advanceMain();
 
-    // Sync the agent's LLM context to "narrated so far" (fire-and-forget; the
-    // callback is wrapped so it can never throw into this loop). This is what
-    // lets a barge-in question about an already-read fact be answered without
-    // exposing un-narrated scenes. We accumulate locally (dedup by id, since a
-    // planner restart can re-narrate the same segment id).
-    if (!narrated.some((s) => s.id === seg.id)) narrated.push(seg);
-    if (opts.onSegmentNarrated) {
-      try {
-        opts.onSegmentNarrated([...narrated]);
-      } catch {
-        // never break narration on a context-sync failure
-      }
-    }
   }
   // Hold the session open one final beat so the last segment's audio drains
   // out of Agora's queue before the orchestrator calls session.stop().

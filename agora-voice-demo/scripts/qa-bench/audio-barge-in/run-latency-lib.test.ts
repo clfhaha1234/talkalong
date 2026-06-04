@@ -139,6 +139,33 @@ describe('evaluateQaAnswer() — answer-shape regressions', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('fails story prose that merely contains the expected fact token', () => {
+    const result = evaluateQaAnswer(
+      'The library is quiet, and even the shadows seem to hold their breath as Pemberley wakes. Let us see what secrets she finds.',
+      {
+        expected: 'pemberley',
+        kind: 'factual',
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('answer bubble looks like story prose, not a QA answer');
+    expect(result.failures).toContain('factual answer mentions expected token without directly answering');
+  });
+
+  it('fails a factual answer that name-drops the token without answering', () => {
+    const result = evaluateQaAnswer(
+      'I am right here with you, listening closely. Let us see what secrets Pemberley finds.',
+      {
+        expected: 'pemberley',
+        kind: 'factual',
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toContain('factual answer mentions expected token without directly answering');
+  });
+
   it('fails a factual answer that only teases/deflects', () => {
     const result = evaluateQaAnswer('Oh, you are just about to meet him — keep listening!', {
       expected: 'pemberley',

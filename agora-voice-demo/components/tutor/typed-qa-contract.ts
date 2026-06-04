@@ -25,10 +25,10 @@ export function postTypedBranchStarted({
   fetchImpl = fetch,
   seam,
   warn = console.warn,
-}: PostTypedBranchStartedArgs): boolean {
-  if (!sessionId) return false;
+}: PostTypedBranchStartedArgs): Promise<boolean> {
+  if (!sessionId) return Promise.resolve(false);
   seam?.('branch_post', branchId);
-  void fetchImpl('/api/tutor/branch-started', {
+  return fetchImpl('/api/tutor/branch-started', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -36,8 +36,12 @@ export function postTypedBranchStarted({
       branch_id: branchId,
       interrupt_audio: interruptAudio,
     }),
-  }).catch((err) => warn('[tutor] /branch-started fetch error', err));
-  return true;
+  })
+    .then(() => true)
+    .catch((err) => {
+      warn('[tutor] /branch-started fetch error', err);
+      return false;
+    });
 }
 
 export function appendTypedTurn(

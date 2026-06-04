@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!handle) return NextResponse.json({ error: 'session not found' }, { status: 404 });
 
   try {
-    handle.beginBranch(body.branch_id, { interruptAudio: body.interrupt_audio !== false });
+    await handle.beginBranch(body.branch_id, { interruptAudio: body.interrupt_audio !== false });
   } catch (err) {
     console.warn('[branch-started] beginBranch threw:', err);
   }

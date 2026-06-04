@@ -190,6 +190,62 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('salvages an answer appended to a stale narration item', () => {
+    const branchAt = 30_000;
+    const narration =
+      'Pemberley was no ordinary cat; he was the proud guardian of the Great Oak Library.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: "What's the cat's name?", time: branchAt, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text:
+            'Pemberley was no ordinary cat; he was the proud guardian of the Great Oak Library. The cat’s name is Pemberley.',
+          // Agora can keep appending the fresh branch answer to the transcript
+          // item that began as old narration, so _time predates this branch.
+          time: 12_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: branchAt,
+        narrationTexts: [narration],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: "What's the cat's name?", ts: branchAt },
+      { role: 'agent', text: 'The cat’s name is Pemberley.', ts: branchAt + 1 },
+    ]);
+  });
+
+  it('keeps dropping stale agent items when stripping finds only narration', () => {
+    const branchAt = 30_000;
+    const narration =
+      'Pemberley was no ordinary cat; he was the proud guardian of the Great Oak Library.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: "What's the cat's name?", time: branchAt, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text: narration,
+          time: 12_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: branchAt,
+        narrationTexts: [narration],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: "What's the cat's name?", ts: branchAt },
+    ]);
+  });
+
   it('strips a leading narration tail when an opener answer starts later in the same transcript', () => {
     const narration =
       'Pemberley was no ordinary cat; he was the proud guardian of the Great Oak Library.';
@@ -214,6 +270,31 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     expect(out).toEqual([
       { role: 'user', text: 'Hello? Can you hear me?', ts: 30_100 },
       { role: 'agent', text: 'Yes,little one — what would you like to know?', ts: 31_000 },
+    ]);
+  });
+
+  it('strips bridge-like story prose before a direct factual answer', () => {
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: "What's the cat's name?", time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text:
+            'The quiet library holds many mysteries,and I am listening right along with you. Let us see what Pemberley discovers as she continues her moonlight prowl. The cat’s name is Pemberley.',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: ['When the moon rises over the tall library shelves, Pemberley the cat wakes from her nap.'],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: "What's the cat's name?", ts: 30_100 },
+      { role: 'agent', text: 'The cat’s name is Pemberley.', ts: 31_000 },
     ]);
   });
 

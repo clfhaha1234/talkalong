@@ -80,7 +80,7 @@ function looksLikeStoryProseLeak(text: string): boolean {
   if (hasAnswerCue(text)) return false;
   const norm = normalizeText(text);
   if (norm.length < 60) return false;
-  return /^(when|young|as|he|she|pemberley|one quiet evening|once|near|in the)/i.test(text.trim());
+  return /^(when|young|as|he|she|pemberley|one quiet evening|once|near|in the|the moon|with the moonlight|the library|let us see)/i.test(text.trim());
 }
 
 function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []): string {
@@ -179,25 +179,33 @@ export function mapTranscriptItems(
   const committed = items
     // Only finalised turns — IN_PROGRESS items are partial and would churn.
     .filter((item) => item.status !== TurnStatus.IN_PROGRESS)
-    // C2: drop anything outside the active branch window (narration tail).
-    .filter((item) => {
-      if (branchStart === null) return false; // no active branch → nothing is Q&A
-      if (typeof item._time === 'number' && item._time < branchStart - grace) {
-        return false;
+    .map((item): QaTranscriptTurn | null => {
+      if (branchStart === null) return null; // no active branch → nothing is Q&A
+      const role = attributeRole(item, opts.localUid);
+      const stale =
+        typeof item._time === 'number' && item._time < branchStart - grace;
+
+      // C2: drop old narration tails, but do not throw away an entire stale
+      // assistant item if Agora appended the fresh QA answer onto that old item.
+      // In that shape the item._time is the narration start, not the answer
+      // start, so first strip the leading narration and keep the remaining
+      // answer. Re-anchor its ts to the branch so it sorts after the question.
+      if (stale && role !== 'agent') return null;
+
+      let text = item.text;
+      let ts = item._time;
+      if (role === 'agent') {
+        const stripped = stripLeadingNarrationLeak(text, opts.narrationTexts);
+        if (stale && stripped === text) return null;
+        text = stripped;
+        if (stale) ts = branchStart + 1;
+      } else if (stale) {
+        return null;
       }
-      return true;
+
+      return { role, text, ts };
     })
-    // C1: attribute role by metadata.object, not uid heuristics.
-    .map((item) => ({
-      role: attributeRole(item, opts.localUid),
-      text: item.text,
-      ts: item._time,
-    }))
-    .map((t) =>
-      t.role === 'agent'
-        ? { ...t, text: stripLeadingNarrationLeak(t.text, opts.narrationTexts) }
-        : t,
-    )
+    .filter((t): t is QaTranscriptTurn => t !== null)
     .filter((t) => t.text && t.text.trim().length > 0)
     // C3: narrator leakage AFTER branch start. On Render/live Agora, the
     // interrupted main-line say() can still finalize an assistant transcript

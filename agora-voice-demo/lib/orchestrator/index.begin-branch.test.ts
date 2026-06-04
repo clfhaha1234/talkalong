@@ -17,6 +17,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 const interruptCalls: number[] = [];
 const sayCalls: Array<{ text: string; opts: { priority?: string } }> = [];
+const updateCalls: unknown[] = [];
 
 vi.mock('agora-agent-server-sdk', async (importOriginal) => {
   const orig = await importOriginal<typeof import('agora-agent-server-sdk')>();
@@ -29,7 +30,9 @@ vi.mock('agora-agent-server-sdk', async (importOriginal) => {
     interrupt: async () => {
       interruptCalls.push(sayCalls.length);
     },
-    update: async () => {},
+    update: async (payload: unknown) => {
+      updateCalls.push(payload);
+    },
     getHistory: async () => ({ contents: [] }),
     getTurns: async () => ({ turns: [] }),
     raw: {},
@@ -80,6 +83,7 @@ describe('beginBranch — instant pause on barge-in', () => {
   it('flips MAIN→BRANCH and calls session.interrupt() immediately', async () => {
     interruptCalls.length = 0;
     sayCalls.length = 0;
+    updateCalls.length = 0;
 
     const handle = await startTutorSessionFromScenes({
       scenes,
@@ -100,12 +104,13 @@ describe('beginBranch — instant pause on barge-in', () => {
     const interruptsBefore = interruptCalls.length;
 
     // === the barge-in signal ===
-    handle.beginBranch();
+    await handle.beginBranch();
 
     // (1) spine paused: the narrator's next tick sees BRANCH and stops queuing.
     expect(handle.progress.snapshot().outer_state).toBe('BRANCH');
     // (2) in-flight/buffered TTS flushed.
     expect(interruptCalls.length).toBe(interruptsBefore + 1);
+    expect(JSON.stringify(updateCalls.at(-1))).toContain('CURRENT MODE: the listener has interrupted');
 
     // The narrator must PARK, not finish: with 3 scenes, a non-paused narrator
     // would keep queuing toward 3 say() calls. Give it room to (wrongly) advance.
@@ -121,6 +126,7 @@ describe('beginBranch — instant pause on barge-in', () => {
   it('is idempotent and never throws (double-fire / already in BRANCH)', async () => {
     interruptCalls.length = 0;
     sayCalls.length = 0;
+    updateCalls.length = 0;
 
     const handle = await startTutorSessionFromScenes({
       scenes,
@@ -131,12 +137,12 @@ describe('beginBranch — instant pause on barge-in', () => {
       () => handle.progress.snapshot().outer_state === 'MAIN' && sayCalls.length >= 1,
     );
 
-    handle.beginBranch();
+    await handle.beginBranch();
     expect(handle.progress.snapshot().outer_state).toBe('BRANCH');
 
     // Second fire (browser re-pings, or qa-ended races): no throw, stays BRANCH,
     // interrupt is best-effort re-issued.
-    expect(() => handle.beginBranch()).not.toThrow();
+    await expect(handle.beginBranch()).resolves.toBeUndefined();
     expect(handle.progress.snapshot().outer_state).toBe('BRANCH');
     expect(interruptCalls.length).toBe(2);
 
@@ -147,6 +153,7 @@ describe('beginBranch — instant pause on barge-in', () => {
   it('can pause the narrator without issuing a server-side audio interrupt (typed questions)', async () => {
     interruptCalls.length = 0;
     sayCalls.length = 0;
+    updateCalls.length = 0;
 
     const handle = await startTutorSessionFromScenes({
       scenes,
@@ -157,10 +164,11 @@ describe('beginBranch — instant pause on barge-in', () => {
       () => handle.progress.snapshot().outer_state === 'MAIN' && sayCalls.length >= 1,
     );
 
-    handle.beginBranch(1, { interruptAudio: false });
+    await handle.beginBranch(1, { interruptAudio: false });
 
     expect(handle.progress.snapshot().outer_state).toBe('BRANCH');
     expect(interruptCalls.length).toBe(0);
+    expect(JSON.stringify(updateCalls.at(-1))).toContain('CURRENT MODE: the listener has interrupted');
 
     const sayCountAtBranch = sayCalls.length;
     await wait(150);

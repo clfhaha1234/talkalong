@@ -23,6 +23,7 @@
     "test:e2e:typed": "node scripts/qa-bench/audio-barge-in/verify-typed-qa.mjs",
     "test:e2e:typed:matrix": "node scripts/qa-bench/audio-barge-in/verify-typed-qa-matrix.mjs",
     "test:e2e:typed:sequential": "node scripts/qa-bench/audio-barge-in/verify-typed-qa-sequential.mjs",
+    "test:e2e:typed:rapid": "WAIT_FOR_NEXT_SEGMENT=0 node scripts/qa-bench/audio-barge-in/verify-typed-qa-sequential.mjs",
     "test:e2e:live": "node scripts/qa-bench/audio-barge-in/tutor-barge-in-e2e.mjs",
     "test:e2e:suite": "node scripts/qa-bench/audio-barge-in/tutor-eval-suite.mjs",
     "test:e2e:lang": "node scripts/qa-bench/audio-barge-in/tutor-lang-switch-e2e.mjs",
