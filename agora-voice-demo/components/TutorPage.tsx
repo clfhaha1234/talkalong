@@ -83,15 +83,14 @@ import { appendTypedTurn, postTypedBranchStarted } from './tutor/typed-qa-contra
 //     window cancels the resume (block 3) and re-arms it after. The composer
 //     still shows "Listening — just speak to interrupt" the whole time, so the
 //     listener knows the floor is theirs.
-//   - AGENT WENT QUIET WITHOUT SPEAKING YET (thinking/listening → quiet): the
-//     answer may still be COMPOSING — gpt-4o-mini's first token can take 1-2.5s,
-//     so a fast resume here cuts the answer off BEFORE it starts. That was the
-//     "无视我的QA" bug (typed-QA seam: thinking→silent→qa_post@800ms→resume, no
-//     answer rendered, live-found 2026-06-01). Wait long enough for the answer
-//     to BEGIN; the instant the agent enters 'speaking' the timer is cancelled
-//     (block 3) and re-armed with the after-answer grace once it finishes. If no
-//     speech ever comes (a true false / back-channel barge) this is the fallback.
+//   - USER ASKED BUT AGENT WENT QUIET WITHOUT SPEAKING YET: wait longer for the
+//     answer to BEGIN; repeated same-session interrupts can leave the agent in a
+//     thinking/silent gap for >3s. Closing the branch here makes the app look
+//     like it ignored the later question.
+//   - NO USER QUESTION EVER ARRIVED: short fallback for false/back-channel
+//     barges, so we don't strand the story paused.
 const SILENCE_TIMEOUT_MS = 4000;
+const SILENCE_PENDING_ANSWER_MS = 7000;
 const SILENCE_NO_ANSWER_MS = 3000;
 const QA_ERROR_FALLBACK =
   "I heard you, but I'm having trouble answering right now. Let me keep us with the story.";
@@ -893,8 +892,15 @@ function TutorPageInner({ agoraAppId }: TutorPageProps) {
       // may still be composing → wait long enough for it to BEGIN (block 3
       // cancels this the instant the agent speaks). Only fires as the resume
       // fallback when no answer ever comes.
+      const hasUserTurn =
+        qaTranscriptRef.current.some((turn) => turn.role === 'user') ||
+        lastLiveUserTurnRef.current !== null;
       const settleMs =
-        prev === 'speaking' || answerSeenRef.current ? SILENCE_TIMEOUT_MS : SILENCE_NO_ANSWER_MS;
+        prev === 'speaking' || answerSeenRef.current
+          ? SILENCE_TIMEOUT_MS
+          : hasUserTurn
+            ? SILENCE_PENDING_ANSWER_MS
+            : SILENCE_NO_ANSWER_MS;
       scheduleQaEnded(gen, settleMs);
     }
 

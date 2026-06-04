@@ -190,6 +190,33 @@ describe('mapTranscriptItems — branch window (C2)', () => {
     ]);
   });
 
+  it('strips a leading narration tail when an opener answer starts later in the same transcript', () => {
+    const narration =
+      'Pemberley was no ordinary cat; he was the proud guardian of the Great Oak Library.';
+    const out = mapTranscriptItems(
+      [
+        item({ uid: LOCAL_UID, text: 'Hello? Can you hear me?', time: 30_100, object: MessageType.USER_TRANSCRIPTION }),
+        item({
+          uid: '0',
+          text:
+            'Pemberley was no ordinary cat;he was the proud guardian of the Great Oak Library. Yes,little one — what would you like to know?',
+          time: 31_000,
+          object: MessageType.AGENT_TRANSCRIPTION,
+        }),
+      ],
+      {
+        localUid: LOCAL_UID,
+        branchStartedAt: 30_000,
+        narrationTexts: [narration],
+      },
+    );
+
+    expect(out).toEqual([
+      { role: 'user', text: 'Hello? Can you hear me?', ts: 30_100 },
+      { role: 'agent', text: 'Yes,little one — what would you like to know?', ts: 31_000 },
+    ]);
+  });
+
   it('keeps a real QA answer even when narration-text filtering is enabled', () => {
     const out = mapTranscriptItems(
       [

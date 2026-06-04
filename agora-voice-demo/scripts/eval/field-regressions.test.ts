@@ -120,6 +120,18 @@ describe('field regressions caught from live/manual testing', () => {
     expect(src).toContain('!inBranchRef.current && branchStartedAtRef.current === null');
   });
 
+  it('2026-06-03 repeated QA: real user questions get a longer pending-answer window', () => {
+    const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
+    const src = readFileSync(tutorPagePath, 'utf8');
+
+    // Later same-session interrupts sometimes leave the agent quiet for >3s
+    // before a reply. If a user turn exists, do not use the short false-barge
+    // timeout or /qa-ended will post a one-turn history and the answer vanishes.
+    expect(src).toContain('SILENCE_PENDING_ANSWER_MS');
+    expect(src).toContain('hasUserTurn');
+    expect(src).toContain('? SILENCE_PENDING_ANSWER_MS');
+  });
+
   it('2026-06-01 voice screenshot: live user transcript must also open a branch', () => {
     const tutorPagePath = new URL('../../components/TutorPage.tsx', import.meta.url);
     const src = readFileSync(tutorPagePath, 'utf8');

@@ -79,7 +79,16 @@ function stripLeadingNarrationLeak(text: string, narrationTexts: string[] = []):
   while (i < parts.length && looksLikeNarrationLeak(parts[i], narrationTexts)) {
     i += 1;
   }
-  return parts.slice(i).join(' ').replace(/\s+/g, ' ').trim();
+  const stripped = parts.slice(i).join(' ').replace(/\s+/g, ' ').trim();
+  // Sometimes Agora finalizes one assistant transcript as
+  // "narration tail. Yes, little one..." and the tail is not a clean sentence
+  // match against the current scene text. If a clear answer/opener starts later
+  // in the same transcript, keep only that answer.
+  const answerStart = stripped.search(
+    /\b(yes,\s*little one|yes\b|i can hear you|what would you like|his name is|her name is|the cat(?:'s|’s)? name is|pemberley is)\b/i,
+  );
+  if (answerStart > 8) return stripped.slice(answerStart).trim();
+  return stripped;
 }
 
 /**
