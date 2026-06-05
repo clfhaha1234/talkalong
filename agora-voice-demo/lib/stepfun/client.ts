@@ -68,6 +68,54 @@ export async function stepChat(messages: ChatMessage[], opts: ChatOptions = {}):
   return data.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
+/** Streaming chat completion → yields content deltas as they arrive (SSE).
+ *  Lets us pipe the answer into streaming TTS token-by-token instead of waiting
+ *  for the whole answer. step-3.7-flash at effort:'low' emits no reasoning
+ *  tokens, so content streams immediately. */
+export async function* stepChatStream(
+  messages: ChatMessage[],
+  opts: ChatOptions = {},
+): AsyncGenerator<string, void, unknown> {
+  const res = await fetch(`${BASE}/chat/completions`, {
+    method: 'POST',
+    headers: authHeaders(),
+    signal: opts.signal,
+    body: JSON.stringify({
+      model: opts.model ?? 'step-3.7-flash',
+      messages,
+      reasoning_effort: opts.reasoningEffort ?? 'low',
+      max_tokens: opts.maxTokens ?? 2048,
+      stream: true,
+      ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
+    }),
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`stepChatStream ${res.status}: ${(await res.text().catch(() => '')).slice(0, 300)}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    // SSE frames are separated by blank lines; each `data:` line is one chunk.
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') return;
+      try {
+        const j = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> };
+        const piece = j.choices?.[0]?.delta?.content;
+        if (piece) yield piece;
+      } catch { /* partial/heartbeat line — ignore */ }
+    }
+  }
+}
+
 export interface ImageOptions {
   model?: string;
   /** One of StepFun's allowed sizes (height×width). Landscape storybook default. */

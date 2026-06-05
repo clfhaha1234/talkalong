@@ -23,6 +23,10 @@ const nextConfig = {
   // node_modules into every serverless function — the /api/lesson/start lambda
   // hit 571MB (>300MB Vercel limit). Pin tracing to this app dir, and drop
   // heavy deps that are only used by dev/eval scripts, never at request time.
+  // `ws` (StepFun realtime TTS WebSocket in /api/stepfun/voice-qa-stream) must
+  // stay external — bundling it breaks its native socket-upgrade internals, so
+  // the connection opens but frames never parse and no audio comes back.
+  serverExternalPackages: ['ws'],
   outputFileTracingRoot: rootDir,
   outputFileTracingExcludes: {
     '*': [
