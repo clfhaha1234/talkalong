@@ -127,7 +127,9 @@ export default function StepFunPage() {
         imagesReady,
         totalScenes: elapsed >= 1500 ? totalScenes : 0,
         allImagesReady: imagesReady >= totalScenes,
-        videosReady: elapsed >= 15500 ? 1 : 0,
+        // Keep the last loading step open until the real lesson response lands.
+        // Otherwise the UI can say "ready" while the API is still working.
+        videosReady: 0,
       });
     }, 250);
     return () => window.clearInterval(timer);

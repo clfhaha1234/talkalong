@@ -152,9 +152,8 @@ export default function VoiceBargeIn({
     }, delayMs);
   }, [resumeNarration]);
 
-  // The spoken-QA turn: stream the answer audio (plays the first words ~1.5s
-  // sooner than waiting for the whole mp3), then leave a brief follow-up window
-  // before resuming narration.
+  // The spoken-QA turn: receive the answer stream, play the complete answer
+  // audio, then leave a brief follow-up window before resuming narration.
   const handleUtterance = useCallback(async (blob: Blob) => {
     setPhase('thinking');
     setStatus('thinking…');

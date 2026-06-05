@@ -1,9 +1,10 @@
 'use client';
 
 // Client half of the streaming spoken-QA turn. POSTs the recorded question to
-// /api/stepfun/voice-qa-stream and plays the answer audio AS IT ARRIVES (via
-// MediaSource) so the child hears the first words ~1.5s sooner than waiting for
-// the whole mp3. Falls back to buffer-then-play where MSE can't do audio/mpeg.
+// /api/stepfun/voice-qa-stream, receives streamed metadata/audio chunks, then
+// plays one complete answer MP3. The progressive MediaSource path stays behind a
+// flag because chunked MP3 playback can fire `ended` early in browsers, which
+// makes the tutor resume narration before the QA answer has actually finished.
 //
 // The caller passes the <audio> element it already owns (so it can pause it for
 // a barge-in mid-answer, exactly like the non-streaming path did).
@@ -31,6 +32,7 @@ export interface StreamAnswerResult {
 }
 
 const MP3_MIME = 'audio/mpeg';
+const ENABLE_PROGRESSIVE_MP3 = false;
 const canMSE = () =>
   typeof MediaSource !== 'undefined' && typeof MediaSource.isTypeSupported === 'function' && MediaSource.isTypeSupported(MP3_MIME);
 
@@ -48,8 +50,9 @@ export async function streamAnswer(
   const res = await fetch('/api/stepfun/voice-qa-stream', { method: 'POST', body: fd, signal });
   if (!res.ok || !res.body) throw new Error(`voice-qa-stream HTTP ${res.status}`);
 
-  // MediaSource progressive-playback plumbing (mp3 fast path).
-  const useMSE = canMSE();
+  // MediaSource progressive-playback plumbing (currently disabled for QA
+  // correctness; see file header).
+  const useMSE = ENABLE_PROGRESSIVE_MP3 && canMSE();
   const fallbackChunks: Uint8Array[] = [];
   let question = '';
   let answer = '';

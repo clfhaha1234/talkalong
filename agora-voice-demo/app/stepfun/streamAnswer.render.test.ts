@@ -69,6 +69,30 @@ describe('streamAnswer', () => {
     expect(onEnded).toHaveBeenCalledTimes(1);
   });
 
+  it('buffers the complete answer even when MediaSource is available', async () => {
+    const FakeMediaSource = vi.fn();
+    (FakeMediaSource as unknown as { isTypeSupported: (mime: string) => boolean }).isTypeSupported = vi.fn(() => true);
+    vi.stubGlobal('MediaSource', FakeMediaSource);
+    mockStreamResponse(
+      { t: 'meta', question: 'Can you switch languages?' },
+      { t: 'audio', audio: btoa('fake-mp3-a'), status: 'unfinished' },
+      { t: 'answer', answer: '当然可以，我们接下来用中文讲。' },
+      { t: 'audio', audio: btoa('fake-mp3-b'), status: 'finished' },
+      { t: 'done' },
+    );
+    const audio = audioEl();
+
+    const result = await streamAnswer(
+      new Blob(['question audio'], { type: 'audio/webm' }),
+      'The story is about Pemberley.',
+      audio,
+    );
+
+    expect(FakeMediaSource).not.toHaveBeenCalled();
+    expect(audio.play).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ answer: '当然可以，我们接下来用中文讲。', played: true });
+  });
+
   it('treats narration echo as backChannel without playing audio', async () => {
     mockStreamResponse({ t: 'backChannel', echo: true }, { t: 'done' });
     const audio = audioEl();
