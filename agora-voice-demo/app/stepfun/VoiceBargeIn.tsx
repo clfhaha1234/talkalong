@@ -31,6 +31,7 @@ const SPEECH_MS = 180; // sustained voice to count as a real barge-in
 const SILENCE_MS = 900; // sustained quiet = end of the question
 const MIN_UTTERANCE_MS = 400; // ignore blips shorter than this
 const FOLLOW_UP_WINDOW_MS = 4000; // mirrors /tutor's after-answer grace
+const QA_AUDIO_GUARD_RETRY_MS = 500;
 
 export default function VoiceBargeIn({
   scenes,
@@ -81,6 +82,11 @@ export default function VoiceBargeIn({
   // the same moment the after-answer resume timer fires.
   scenesRef.current = scenes;
 
+  const isAnswerAudioPlaying = useCallback(() => {
+    const a = answerRef.current;
+    return !!a && !a.paused && !a.ended;
+  }, []);
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
   useEffect(() => {
@@ -130,14 +136,25 @@ export default function VoiceBargeIn({
       clearTimeout(resumeTimerRef.current);
       resumeTimerRef.current = null;
     }
-    const interrupted = interruptedNarrationRef.current;
-    interruptedNarrationRef.current = null;
-    if (interrupted) {
-      playNarration(interrupted.idx, interrupted.currentTime);
-    } else {
-      playNarration(sceneIdxRef.current);
-    }
-  }, [playNarration]);
+    const doResume = () => {
+      resumeTimerRef.current = null;
+      const interrupted = interruptedNarrationRef.current;
+      interruptedNarrationRef.current = null;
+      if (interrupted) {
+        playNarration(interrupted.idx, interrupted.currentTime);
+      } else {
+        playNarration(sceneIdxRef.current);
+      }
+    };
+    const waitForAnswerThenResume = () => {
+      if (isAnswerAudioPlaying()) {
+        resumeTimerRef.current = setTimeout(waitForAnswerThenResume, QA_AUDIO_GUARD_RETRY_MS);
+        return;
+      }
+      doResume();
+    };
+    waitForAnswerThenResume();
+  }, [isAnswerAudioPlaying, playNarration]);
 
   const scheduleFollowUpResume = useCallback((delayMs = FOLLOW_UP_WINDOW_MS) => {
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
