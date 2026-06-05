@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: STEPFUN_QA_SYSTEM },
         { role: 'user', content: stepfunQaUserMessage(question, storySoFar) },
       ],
-      { reasoningEffort: 'low', maxTokens: 2048 },
+      // 2048, NOT 512: step-3.7-flash (reasoning model) returns EMPTY content
+      // ~50% of the time at 512 (measured) with no latency upside — effort:'low'
+      // generates ~110 tokens regardless, so the cap only bounds the worst case.
+      { reasoningEffort: 'low', maxTokens: 2048, temperature: 0 },
     );
 
     // 3) TTS — speak the answer.
