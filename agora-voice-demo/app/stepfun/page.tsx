@@ -13,6 +13,7 @@ import { ScalingStage } from '@/components/tutor/ScalingStage';
 import { StoryScreen } from '@/components/tutor/StoryScreen';
 import { T, F_BODY, type Scene as TutorScene } from '@/components/tutor/theme';
 import VoiceBargeIn, { type VoiceScene } from './VoiceBargeIn';
+import { applyRescriptUpdates } from './rescriptUpdates';
 
 interface StepFunScene {
   id: string;
@@ -225,14 +226,7 @@ export default function StepFunPage() {
       });
       const data = await res.json();
       if (rescriptRunRef.current !== runId || !data.changed || !Array.isArray(data.scenes)) return;
-      setScenes((prev) =>
-        prev.map((s) => {
-          const upd = data.scenes.find((x: { id: string }) => x.id === s.id);
-          return upd
-            ? { ...s, narration: upd.narration, audioDataUrl: upd.audioDataUrl || s.audioDataUrl }
-            : s;
-        }),
-      );
+      setScenes((prev) => applyRescriptUpdates(prev, data.scenes) ?? prev);
     } catch { /* keep the original upcoming scenes */ }
   }, [scenes]);
 

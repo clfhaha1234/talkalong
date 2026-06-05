@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
         };
       }),
     );
+    if (voiced.some((s) => !s.audioDataUrl)) {
+      return NextResponse.json({ changed: false, scenes: [], error: 'rescript_tts_failed' });
+    }
     return NextResponse.json({ changed: true, scenes: voiced });
   } catch (e) {
     return NextResponse.json(

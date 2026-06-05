@@ -67,6 +67,8 @@ export default function VoiceBargeIn({
   const rafRef = useRef<number | null>(null);
   const phaseRef = useRef<Phase>('off');
   const sceneIdxRef = useRef(0);
+  const scenesRef = useRef<VoiceScene[]>(scenes);
+  const sceneAudioRef = useRef<Map<string, string>>(new Map());
   // VAD timers
   const speechStartRef = useRef<number>(0);
   const silenceStartRef = useRef<number>(0);
@@ -76,12 +78,31 @@ export default function VoiceBargeIn({
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
+  useEffect(() => {
+    const previousAudio = sceneAudioRef.current;
+    const nextAudio = new Map(scenes.map((s) => [s.id, s.audioDataUrl]));
+    scenesRef.current = scenes;
+    sceneAudioRef.current = nextAudio;
+
+    const current = scenes[sceneIdxRef.current];
+    if (!current || phaseRef.current !== 'narrating') return;
+    const prevSrc = previousAudio.get(current.id);
+    if (!prevSrc || prevSrc === current.audioDataUrl || !current.audioDataUrl) return;
+
+    const audio = narrationRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.src = current.audioDataUrl;
+    audio.currentTime = 0;
+    void audio.play().catch(() => {});
+  }, [scenes]);
   useEffect(() => { onPhaseChange?.(phase, status); }, [onPhaseChange, phase, status]);
   useEffect(() => { onSceneChange?.(sceneIdx); }, [onSceneChange, sceneIdx]);
   useEffect(() => { onMicError?.(micError); }, [onMicError, micError]);
 
   const playNarration = useCallback((idx: number, resumeAt?: number) => {
-    const sc = scenes[idx];
+    const currentScenes = scenesRef.current;
+    const sc = currentScenes[idx];
     if (!sc) { setPhase('paused'); setStatus('— the end —'); return; }
     setSceneIdx(idx);
     if (!narrationRef.current) narrationRef.current = new Audio();
@@ -95,9 +116,9 @@ export default function VoiceBargeIn({
       if (phaseRef.current === 'narrating') playNarration(idx + 1);
     };
     setPhase('narrating');
-    setStatus(`narrating scene ${idx + 1}/${scenes.length}`);
+    setStatus(`narrating scene ${idx + 1}/${currentScenes.length}`);
     void a.play().catch(() => {});
-  }, [scenes]);
+  }, []);
 
   const resumeNarration = useCallback(() => {
     if (resumeTimerRef.current) {
