@@ -76,6 +76,11 @@ export default function VoiceBargeIn({
   const interruptedNarrationRef = useRef<{ idx: number; currentTime: number } | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Keep imperative audio callbacks/timers on the newest scene list even before
+  // React effects run. This matters when rescripted narration lands at nearly
+  // the same moment the after-answer resume timer fires.
+  scenesRef.current = scenes;
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
   useEffect(() => {

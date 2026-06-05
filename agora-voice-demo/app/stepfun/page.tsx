@@ -209,12 +209,15 @@ export default function StepFunPage() {
 
   // After a QA, ask the rescript route whether the child's request should change
   // the REST of the story (language/tone/pace). If so, swap in the rewritten
-  // narration + audio for the not-yet-played scenes so the next plate follows
-  // the request — the /stepfun analogue of /tutor's live narration adapting.
+  // narration + audio for the paused scene and what follows so the next spoken
+  // line follows the request — the /stepfun analogue of /tutor's live narration
+  // adapting. Including the current scene is important for language switches:
+  // otherwise subtitles can flip to the rewritten language while the hidden
+  // audio element keeps playing the old pre-generated narration.
   const rescriptRunRef = useRef(0);
   const maybeRescript = useCallback(async (question: string, answer: string, currentIndex: number) => {
     const remaining = scenes
-      .slice(currentIndex + 1)
+      .slice(currentIndex)
       .map((s) => ({ id: s.id, narration: s.narration }));
     if (!question.trim() || remaining.length === 0) return;
     const runId = ++rescriptRunRef.current;
