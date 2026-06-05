@@ -51,3 +51,14 @@ export function looksLikeNarrationEcho(transcript: string, storySoFar: string): 
   const overlap = words.filter((w) => storyWords.has(w)).length / words.length;
   return overlap >= 0.85;
 }
+
+/** Mic check / greeting turn: acknowledge, then keep listening instead of
+ * resuming the story. These are not content questions. */
+export function looksLikeMicCheck(transcript: string): boolean {
+  const t = normalizeForEcho(transcript);
+  if (!t) return false;
+  const words = t.split(' ').filter(Boolean);
+  if (words.length <= 4 && words.every((w) => ['hello', 'hi', 'hey', 'test', 'testing'].includes(w))) return true;
+  if (/^(hello|hi|hey|testing|test|can you hear me|do you hear me|are you there)$/.test(t)) return true;
+  return /\b(can|do)\s+you\s+hear\s+me\b/.test(t) || /\bare\s+you\s+there\b/.test(t);
+}

@@ -6,14 +6,14 @@
 // SSE events (each `data: <json>\n\n`):
 //   {t:'meta', question}             — the transcript, as soon as ASR returns
 //   {t:'backChannel', echo?}         — false barge-in / narration echo → just resume
-//   {t:'answer', answer}             — the full answer text (after the LLM finishes)
+//   {t:'answer', answer, hold?}       — the full answer text; hold keeps QA open
 //   {t:'audio', audio, status}       — a base64 mp3 chunk ('unfinished'|'finished')
 //   {t:'error', message}
 //   {t:'done'}                       — stream complete
 import { NextRequest } from 'next/server';
 import { stepASR, stepChatStream } from '@/lib/stepfun/client';
 import { openTtsStream, type TtsStream } from '@/lib/stepfun/wsTts';
-import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage, looksLikeNarrationEcho } from '@/lib/stepfun/persona';
+import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage, looksLikeMicCheck, looksLikeNarrationEcho } from '@/lib/stepfun/persona';
 import { shouldUseGeminiQaBrain, streamQa } from '@/lib/stepfun/qaBrain';
 
 export const runtime = 'nodejs';
@@ -82,6 +82,14 @@ export async function POST(req: NextRequest) {
           onDone: () => end(),
           onError: (message) => { send({ t: 'error', message }); end(); },
         });
+
+        if (looksLikeMicCheck(question)) {
+          const answer = 'I can hear you, my dear. What would you like to ask?';
+          send({ t: 'answer', answer, hold: true });
+          tts.pushText(answer);
+          tts.finish();
+          return;
+        }
 
         // 3) LLM stream → pipe each delta straight into TTS.
         let answer = '';

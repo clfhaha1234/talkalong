@@ -15,6 +15,8 @@ export interface StreamAnswerCallbacks {
   onBackChannel?: (echo: boolean) => void;
   /** first audio is buffered and playback is starting. */
   onPlaybackStart?: () => void;
+  /** This answer should leave the tutor waiting for a follow-up, not resume. */
+  onHold?: () => void;
   /** the answer audio finished playing on its own (not interrupted). */
   onEnded?: () => void;
   onError?: (msg: string) => void;
@@ -24,6 +26,7 @@ export interface StreamAnswerResult {
   question: string;
   answer: string;
   backChannel: boolean;
+  hold: boolean;
   played: boolean;
 }
 
@@ -51,6 +54,7 @@ export async function streamAnswer(
   let question = '';
   let answer = '';
   let backChannel = false;
+  let hold = false;
   let played = false;
   let startedPlayback = false;
 
@@ -116,12 +120,17 @@ export async function streamAnswer(
         const frame = buf.slice(0, i); buf = buf.slice(i + 2);
         const line = frame.split('\n').find((l) => l.startsWith('data:'));
         if (!line) continue;
-        let ev: { t?: string; question?: string; answer?: string; echo?: boolean; audio?: string; status?: string; message?: string };
+        let ev: { t?: string; question?: string; answer?: string; hold?: boolean; echo?: boolean; audio?: string; status?: string; message?: string };
         try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
         switch (ev.t) {
           case 'meta': question = ev.question ?? ''; cb.onQuestion?.(question); break;
           case 'backChannel': backChannel = true; cb.onBackChannel?.(!!ev.echo); break;
-          case 'answer': answer = ev.answer ?? ''; cb.onAnswer?.(answer); break;
+          case 'answer':
+            answer = ev.answer ?? '';
+            hold = !!ev.hold;
+            if (hold) cb.onHold?.();
+            cb.onAnswer?.(answer);
+            break;
           case 'audio': if (ev.audio) feedChunk(base64ToBytes(ev.audio)); break;
           case 'error': cb.onError?.(ev.message ?? 'stream error'); break;
           case 'done': break;
@@ -132,7 +141,7 @@ export async function streamAnswer(
     inputEnded = true;
   }
 
-  if (backChannel) return { question, answer, backChannel, played: false };
+  if (backChannel) return { question, answer, backChannel, hold: false, played: false };
 
   if (useMSE) {
     maybeEndStream(); // signal end-of-input so the <audio> will fire 'ended'
@@ -148,7 +157,7 @@ export async function streamAnswer(
 
   // Resolve as soon as the answer is received + playback has started; the caller
   // resumes narration from cb.onEnded (or immediately if nothing played).
-  return { question, answer, backChannel, played };
+  return { question, answer, backChannel, hold, played };
 }
 
 function base64ToBytes(b64: string): Uint8Array {

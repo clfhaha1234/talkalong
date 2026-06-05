@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { looksLikeNarrationEcho } from './persona';
+import { looksLikeMicCheck, looksLikeNarrationEcho } from './persona';
 
 const STORY =
   'When the moon rose over the library, Pemberley the cat began her quiet nightly patrol between the tall shelves.';
@@ -25,5 +25,19 @@ describe('looksLikeNarrationEcho — false-barge / echo guard', () => {
 
   it('returns false when there is no story yet', () => {
     expect(looksLikeNarrationEcho('Pemberley the cat began her patrol', '')).toBe(false);
+  });
+});
+
+describe('looksLikeMicCheck', () => {
+  it('recognizes greeting and mic-check turns that should wait for a follow-up', () => {
+    expect(looksLikeMicCheck('Can you hear me?')).toBe(true);
+    expect(looksLikeMicCheck('hello')).toBe(true);
+    expect(looksLikeMicCheck('Hello. Hello. Hello.')).toBe(true);
+    expect(looksLikeMicCheck('Are you there?')).toBe(true);
+  });
+
+  it('does not classify story questions as mic checks', () => {
+    expect(looksLikeMicCheck("What is the cat's name?")).toBe(false);
+    expect(looksLikeMicCheck('How does the story end?')).toBe(false);
   });
 });

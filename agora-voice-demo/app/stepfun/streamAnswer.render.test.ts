@@ -88,6 +88,31 @@ describe('streamAnswer', () => {
     expect(result).toMatchObject({ backChannel: true, played: false });
   });
 
+  it('keeps mic-check turns open for a follow-up instead of resuming narration', async () => {
+    mockStreamResponse(
+      { t: 'meta', question: 'Can you hear me?' },
+      { t: 'answer', answer: 'I can hear you, my dear. What would you like to ask?', hold: true },
+      { t: 'audio', audio: btoa('fake-mp3'), status: 'finished' },
+      { t: 'done' },
+    );
+    const audio = audioEl();
+    const onHold = vi.fn();
+    const onEnded = vi.fn();
+
+    const result = await streamAnswer(
+      new Blob(['question audio'], { type: 'audio/webm' }),
+      'Pemberley prowled the moonlit library.',
+      audio,
+      { onHold, onEnded },
+    );
+
+    expect(onHold).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ hold: true, backChannel: false, played: true });
+
+    audio.onended?.(new Event('ended'));
+    expect(onEnded).toHaveBeenCalledTimes(1);
+  });
+
   it('surfaces stream errors to the caller callback', async () => {
     mockStreamResponse({ t: 'error', message: 'tts ws closed' }, { t: 'done' });
     const audio = audioEl();

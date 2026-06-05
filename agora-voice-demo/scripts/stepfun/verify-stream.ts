@@ -3,6 +3,7 @@
 // tutor-critical contract:
 //   - real question: ASR meta -> answer text -> streamed audio chunks -> done
 //   - narration echo: backChannel -> done, no answer/audio
+//   - mic check: short acknowledgement + hold=true, so the UI keeps listening
 //
 // This intentionally mirrors the tutor barge-in benchmark posture: printing
 // latencies is not enough; regressions must fail the process.
@@ -23,6 +24,7 @@ interface StreamProbeResult {
   question: string;
   answer: string;
   backChannel: boolean;
+  hold: boolean;
   echo: boolean;
   errors: string[];
   done: boolean;
@@ -62,6 +64,7 @@ async function run(label: string, questionText: string, story: string): Promise<
   let question = '';
   let answer = '';
   let backChannel = false;
+  let hold = false;
   let echo = false;
   let doneEvent = false;
   const errors: string[] = [];
@@ -78,7 +81,7 @@ async function run(label: string, questionText: string, story: string): Promise<
       const ev = JSON.parse(line.slice(5).trim());
       if (ev.t === 'meta') { metaAt = ms(); question = ev.question; }
       else if (ev.t === 'backChannel') { backChannel = true; echo = !!ev.echo; }
-      else if (ev.t === 'answer') { answerAt = ms(); answer = ev.answer; }
+      else if (ev.t === 'answer') { answerAt = ms(); answer = ev.answer; hold = !!ev.hold; }
       else if (ev.t === 'audio') { if (firstAudioAt === null) firstAudioAt = ms(); chunks++; audioBytes += Buffer.from(ev.audio, 'base64').length; }
       else if (ev.t === 'error') errors.push(String(ev.message ?? 'stream error'));
       else if (ev.t === 'done') { doneEvent = true; totalAt = ms(); }
@@ -90,6 +93,7 @@ async function run(label: string, questionText: string, story: string): Promise<
     question,
     answer,
     backChannel,
+    hold,
     echo,
     errors,
     done: doneEvent,
@@ -125,6 +129,17 @@ function assertEchoBackChannel(r: StreamProbeResult) {
   if (r.answer || r.chunks || r.audioBytes) fail(r.label, 'echo path should not answer or stream audio');
 }
 
+function assertMicCheck(r: StreamProbeResult) {
+  if (r.errors.length) fail(r.label, `unexpected error events: ${r.errors.join('; ')}`);
+  if (!r.done) fail(r.label, 'missing done event');
+  if (r.backChannel) fail(r.label, 'mic check should answer briefly, not backChannel');
+  if (!r.metaAt || !r.question) fail(r.label, 'missing ASR meta question');
+  if (!r.answerAt || !r.answer) fail(r.label, 'missing mic-check answer text');
+  if (!r.hold) fail(r.label, 'mic-check answer must set hold=true so narration does not auto-resume');
+  if (!/hear|ask|question/i.test(r.answer)) fail(r.label, `mic-check answer looks wrong: "${r.answer}"`);
+  if (!r.firstAudioAt || r.chunks < 1 || r.audioBytes < 1000) fail(r.label, 'missing streamed audio chunks');
+}
+
 function printResult(r: StreamProbeResult) {
   console.log(`${r.label}:`);
   if (r.backChannel) {
@@ -133,7 +148,7 @@ function printResult(r: StreamProbeResult) {
   }
   console.log(`  meta(question)@ ${r.metaAt}ms  "${r.question}"`);
   console.log(`  FIRST AUDIO  @ ${r.firstAudioAt}ms   <-- time-to-first-sound`);
-  console.log(`  answer       @ ${r.answerAt}ms  "${r.answer}"`);
+  console.log(`  answer       @ ${r.answerAt}ms  hold=${r.hold}  "${r.answer}"`);
   console.log(`  total stream @ ${r.totalAt}ms  (${r.chunks} chunks, ${r.audioBytes}B)`);
 }
 
@@ -145,4 +160,8 @@ function printResult(r: StreamProbeResult) {
   const echo = await run('Q-echo (narration)', 'Pemberley the cat began her quiet nightly patrol', STORY);
   printResult(echo);
   assertEchoBackChannel(echo);
+  console.log('');
+  const mic = await run('Q-mic-check (hold)', 'Can you hear me?', STORY);
+  printResult(mic);
+  assertMicCheck(mic);
 })().catch((e) => { console.error(e); process.exit(1); });

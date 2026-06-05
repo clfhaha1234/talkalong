@@ -6,11 +6,12 @@
 // for barge-in turns. Set STEPFUN_QA_LLM=stepfun to force the old all-StepFun
 // brain path for comparison.
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputScreen } from '@/components/tutor/InputScreen';
+import { LoadingScreen, type LoadingState } from '@/components/tutor/LoadingScreen';
 import { ScalingStage } from '@/components/tutor/ScalingStage';
 import { StoryScreen } from '@/components/tutor/StoryScreen';
-import { T, F_HEAD, F_BODY, type Scene as TutorScene } from '@/components/tutor/theme';
+import { T, F_BODY, type Scene as TutorScene } from '@/components/tutor/theme';
 import VoiceBargeIn, { type VoiceScene } from './VoiceBargeIn';
 
 interface StepFunScene {
@@ -29,6 +30,15 @@ type Stage = 'input' | 'loading' | 'story';
 type VoicePhase = 'off' | 'narrating' | 'listening' | 'thinking' | 'answering' | 'paused';
 
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi'];
+
+const initialLoadingState: LoadingState = {
+  scriptDrafted: false,
+  scenesComposed: false,
+  imagesReady: 0,
+  totalScenes: 0,
+  allImagesReady: false,
+  videosReady: 0,
+};
 
 function toTutorScene(scene: StepFunScene, index: number): TutorScene {
   return {
@@ -65,6 +75,7 @@ export default function StepFunPage() {
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('off');
   const [micError, setMicError] = useState<string | null>(null);
   const [liveUserText, setLiveUserText] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState<LoadingState>(initialLoadingState);
 
   const typedAudioRef = useRef<HTMLAudioElement | null>(null);
   const interruptedTypedAudioRef = useRef<{ src: string; currentTime: number } | null>(null);
@@ -75,6 +86,25 @@ export default function StepFunPage() {
     () => scenes.map((s) => ({ id: s.id, narration: s.narration, audioDataUrl: s.audioDataUrl })),
     [scenes],
   );
+
+  useEffect(() => {
+    if (stage !== 'loading') return undefined;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - started;
+      const totalScenes = 3;
+      const imagesReady = Math.min(totalScenes, Math.max(0, Math.floor((elapsed - 2500) / 3500) + 1));
+      setLoadingState({
+        scriptDrafted: elapsed >= 700,
+        scenesComposed: elapsed >= 1500,
+        imagesReady,
+        totalScenes: elapsed >= 1500 ? totalScenes : 0,
+        allImagesReady: imagesReady >= totalScenes,
+        videosReady: elapsed >= 15500 ? 1 : 0,
+      });
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [stage]);
 
   const stopTypedAudio = useCallback(() => {
     const a = typedAudioRef.current;
@@ -108,6 +138,7 @@ export default function StepFunPage() {
     const payload = input.trim() || topic;
     setTopic(payload);
     setStage('loading');
+    setLoadingState(initialLoadingState);
     setError(null);
     setScenes([]);
     setQaHistoryByScene({});
@@ -247,21 +278,9 @@ export default function StepFunPage() {
 
   if (stage === 'loading') {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'grid',
-          placeItems: 'center',
-          background: T.paper,
-          color: T.ink,
-          fontFamily: F_HEAD,
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 54, fontStyle: 'italic', fontWeight: 500, margin: 0 }}>Preparing tonight's lesson</h1>
-          <p style={{ color: T.inkSoft, fontSize: 20, fontStyle: 'italic' }}>Drafting, sketching, and warming up the voice...</p>
-        </div>
-      </div>
+      <ScalingStage>
+        <LoadingScreen state={loadingState} />
+      </ScalingStage>
     );
   }
 

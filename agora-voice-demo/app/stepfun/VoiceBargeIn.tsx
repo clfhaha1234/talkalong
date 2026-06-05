@@ -106,6 +106,13 @@ export default function VoiceBargeIn({
     }
   }, [playNarration]);
 
+  const holdForFollowUp = useCallback(() => {
+    speechStartRef.current = 0;
+    silenceStartRef.current = 0;
+    setPhase('listening');
+    setStatus('listening…');
+  }, []);
+
   // The spoken-QA turn: stream the answer audio (plays the first words ~1.5s
   // sooner than waiting for the whole mp3), then resume narration when it ends.
   const handleUtterance = useCallback(async (blob: Blob) => {
@@ -117,6 +124,7 @@ export default function VoiceBargeIn({
       .join(' ');
     if (!answerRef.current) answerRef.current = new Audio();
     try {
+      let holdTurn = false;
       const r = await streamAnswer(blob, storySoFar, answerRef.current, {
         onQuestion: (q) => {
           const question = q || '(…)';
@@ -132,15 +140,17 @@ export default function VoiceBargeIn({
         }),
         onBackChannel: () => { setStatus('…go on'); resumeNarration(); },
         onPlaybackStart: () => { setPhase('answering'); setStatus('answering…'); },
-        onEnded: resumeNarration,
+        onHold: () => { holdTurn = true; },
+        onEnded: () => { if (holdTurn) holdForFollowUp(); else resumeNarration(); },
       });
       // Nothing played (back-channel handled above, or empty) → make sure we resume.
-      if (!r.backChannel && !r.played) resumeNarration();
+      if (r.hold && !r.played) holdForFollowUp();
+      else if (!r.backChannel && !r.played) resumeNarration();
     } catch (e) {
       setStatus(`(qa error: ${e instanceof Error ? e.message : 'failed'})`);
       resumeNarration();
     }
-  }, [scenes, resumeNarration]);
+  }, [scenes, holdForFollowUp, resumeNarration]);
 
   const startRecording = useCallback(() => {
     if (!streamRef.current) return;
@@ -178,7 +188,8 @@ export default function VoiceBargeIn({
     const now = Date.now();
     const ph = phaseRef.current;
 
-    if (ph === 'narrating' || ph === 'paused' || ph === 'answering') {
+    const waitingForSpeech = ph === 'narrating' || ph === 'paused' || ph === 'answering' || (ph === 'listening' && !recRef.current);
+    if (waitingForSpeech) {
       // Listen for a barge-in.
       if (rms > SPEECH_RMS) {
         if (!speechStartRef.current) speechStartRef.current = now;
