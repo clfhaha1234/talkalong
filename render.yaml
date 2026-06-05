@@ -1,7 +1,7 @@
 # Render.com blueprint for the talkalong /tutor app.
-# The Next app lives in agora-voice-demo/; this builds it via that directory's
-# Dockerfile (persistent web service — see agora-voice-demo/DEPLOY.md for why a
-# persistent host, not Vercel serverless).
+# The web app lives in agora-voice-demo/, and the Remotion renderer lives in the
+# repo root. Build from the root context so the production image can render
+# scene videos instead of falling back to still illustrations.
 #
 # Set the secret env vars (NEXT_PUBLIC_AGORA_APP_ID, NEXT_AGORA_APP_CERTIFICATE,
 # GOOGLE_API_KEY) in the Render dashboard — they're marked sync:false so the
@@ -13,8 +13,8 @@ services:
     repo: https://github.com/clfhaha1234/talkalong
     branch: main
     dockerfilePath: ./agora-voice-demo/Dockerfile
-    dockerContext: ./agora-voice-demo
-    plan: starter # 0.5 CPU / 512MB — bump if narration sessions are heavy
+    dockerContext: ./
+    plan: starter # 0.5 CPU / 512MB — bump if Remotion rendering is too tight
     healthCheckPath: /tutor
     autoDeploy: true
     envVars:

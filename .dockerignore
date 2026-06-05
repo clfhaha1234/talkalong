@@ -1,0 +1,27 @@
+.git
+.github
+.claude
+.playwright-mcp
+
+node_modules
+agora-voice-demo/node_modules
+agora-voice-demo/.next
+agora-voice-demo/out
+agora-voice-demo/coverage
+agora-voice-demo/logs
+
+# Runtime/generated media can be huge and is regenerated or stored on the host.
+public/lesson-cache
+agora-voice-demo/public/lesson-cache
+out
+
+*.log
+.DS_Store
+
+# Keep secrets out of the image; Render injects env vars at build/runtime.
+.env
+.env.local
+.env.*.local
+agora-voice-demo/.env
+agora-voice-demo/.env.local
+agora-voice-demo/.env.*.local

@@ -1,27 +1,61 @@
 # talkalong /tutor — production container for a PERSISTENT Node host
-# (Render / Railway / Fly / any VM). This is the right target: the app is a
-# stateful, long-running orchestrator (a single narration session can run for
-# minutes, holds an in-memory session registry, and writes generated images to
-# public/lesson-cache at runtime) — none of which fit Vercel serverless.
+# (Render / Railway / Fly / any VM). This image now includes BOTH projects:
+#   - repo root: Remotion illustration-to-video renderer (npm + React 18)
+#   - agora-voice-demo/: Next tutor app (pnpm + React 19)
 #
-# Scope = the Next app only (this directory). Video rendering (Remotion, which
-# lives in the repo ROOT and needs Chromium) is intentionally NOT included — the
-# UI falls back to the still illustration, which is what most scenes show. See
-# DEPLOY.md for the full-video upgrade path.
+# Render builds this Dockerfile with dockerContext=./ from the repo root. At
+# runtime `next start` runs from /app/agora-voice-demo, and video-gen resolves
+# the Remotion parent project at /app.
 #
 # The host injects $PORT; `next start` binds it automatically (0.0.0.0).
 
 FROM node:22-slim
+
+# Runtime libs required by Chromium/Remotion on Debian slim. Remotion provides
+# the browser binary; these are the shared libraries it needs to launch.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  fonts-liberation \
+  libasound2 \
+  libatk-bridge2.0-0 \
+  libatk1.0-0 \
+  libcairo2 \
+  libcups2 \
+  libdbus-1-3 \
+  libdrm2 \
+  libgbm1 \
+  libglib2.0-0 \
+  libgtk-3-0 \
+  libnss3 \
+  libpango-1.0-0 \
+  libx11-6 \
+  libxcb1 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxext6 \
+  libxfixes3 \
+  libxkbcommon0 \
+  libxrandr2 \
+  xdg-utils \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 WORKDIR /app
 
-# Install deps first (cached unless the lockfile changes). package.json pins
-# pnpm 9 via "packageManager" (corepack honors it), which runs native postinstall
-# scripts without pnpm 10+'s approval gate.
-COPY package.json pnpm-lock.yaml ./
+# Install the root Remotion renderer dependencies first. package-lock.json pins
+# Remotion/Chromium-related transitive deps and keeps Docker layer caching tight.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Install Next app deps second. package.json pins pnpm 9 via "packageManager"
+# (corepack honors it), which runs native postinstall scripts without pnpm 10+'s
+# approval gate.
+WORKDIR /app/agora-voice-demo
+COPY agora-voice-demo/package.json agora-voice-demo/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Build.
+WORKDIR /app
 COPY . .
 
 # NEXT_PUBLIC_* env vars are INLINED into the bundle at BUILD time (webpack
@@ -36,6 +70,7 @@ ARG NEXT_PUBLIC_AGENT_UID
 ENV NEXT_PUBLIC_AGORA_APP_ID=${NEXT_PUBLIC_AGORA_APP_ID}
 ENV NEXT_PUBLIC_AGENT_UID=${NEXT_PUBLIC_AGENT_UID}
 
+WORKDIR /app/agora-voice-demo
 RUN pnpm build
 
 ENV NODE_ENV=production
