@@ -29,6 +29,7 @@
     "test:e2e:lang": "node scripts/qa-bench/audio-barge-in/tutor-lang-switch-e2e.mjs",
     "test:stepfun:stream": "node --import tsx scripts/stepfun/verify-stream.ts",
     "test:stepfun:barge": "node scripts/stepfun/stepfun-barge-in-e2e.mjs",
+    "test:stepfun:multi-barge": "node scripts/stepfun/stepfun-multi-barge-e2e.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },
   "dependencies": {
