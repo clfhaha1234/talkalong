@@ -14,7 +14,7 @@ services:
     branch: main
     dockerfilePath: ./agora-voice-demo/Dockerfile
     dockerContext: ./
-    plan: starter # 0.5 CPU / 512MB — bump if Remotion rendering is too tight
+    plan: standard # 1 CPU / 2GB — needed for in-process Remotion rendering
     healthCheckPath: /tutor
     autoDeploy: true
     envVars:
@@ -30,7 +30,7 @@ services:
       # PaaS; keep the console sink only. Flip to "1" if you want the files.
       - key: TUTOR_SESSION_LOG
         value: "0"
-      # Remotion is packaged into the image, but headless Chromium can OOM the
-      # 512MB Starter web instance. Enable only on a larger instance or worker.
+      # Remotion is packaged into the image. Keep the process-wide single-flight
+      # guard in video-gen so one web instance never launches multiple renders.
       - key: LESSON_VIDEO_RENDERING
-        value: "0"
+        value: "1"

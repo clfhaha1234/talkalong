@@ -157,13 +157,13 @@ env vars via `fly secrets set`.
 set, else `public/lesson-cache`, served from disk), the full narration →
 barge-in → QA → Chinese-resume loop, typed questions.
 
-**Video rendering is packaged but opt-in on Render.** The Docker context is the
-repo root, so the image contains both the Remotion project (`/app`) and the
-Next app (`/app/agora-voice-demo`). `video-gen` can preprocess generated
-illustrations with the root Remotion pipeline and serve clips through
-`/api/lesson-video/<hash>`, but `LESSON_VIDEO_RENDERING=0` by default because
-headless Chromium can OOM the 512MB Starter web instance. Enable it only after
-moving video rendering to a larger instance or a dedicated worker.
+**Video rendering is enabled on the 2GB Render service.** The Docker context is
+the repo root, so the image contains both the Remotion project (`/app`) and the
+Next app (`/app/agora-voice-demo`). `video-gen` preprocesses generated
+illustrations with the root Remotion pipeline and serves clips through
+`/api/lesson-video/<hash>`. The web process keeps a single-flight guard so one
+instance never launches multiple headless Chromium renders at once; extra
+sessions keep static images until the renderer is free.
 
 ---
 
