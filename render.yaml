@@ -30,3 +30,7 @@ services:
       # PaaS; keep the console sink only. Flip to "1" if you want the files.
       - key: TUTOR_SESSION_LOG
         value: "0"
+      # Remotion is packaged into the image, but headless Chromium can OOM the
+      # 512MB Starter web instance. Enable only on a larger instance or worker.
+      - key: LESSON_VIDEO_RENDERING
+        value: "0"

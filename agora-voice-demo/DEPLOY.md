@@ -154,16 +154,16 @@ env vars via `fly secrets set`.
 ## What works in the Render container
 
 **Works:** lesson generation, scene **images** (Gemini → `LESSON_CACHE_DIR` if
-set, else `public/lesson-cache`, served from disk), Remotion scene video clips,
-the full narration → barge-in → QA → Chinese-resume loop, typed questions.
+set, else `public/lesson-cache`, served from disk), the full narration →
+barge-in → QA → Chinese-resume loop, typed questions.
 
-**Video rendering is enabled on Render.** The Docker context is the repo root,
-so the image contains both the Remotion project (`/app`) and the Next app
-(`/app/agora-voice-demo`). `video-gen` preprocesses generated illustrations with
-the root Remotion pipeline and serves clips through `/api/lesson-video/<hash>`.
-This is a heavier image than the old still-image-only container; if Render's
-Starter plan proves too tight, bump CPU/RAM or split video rendering into a
-worker.
+**Video rendering is packaged but opt-in on Render.** The Docker context is the
+repo root, so the image contains both the Remotion project (`/app`) and the
+Next app (`/app/agora-voice-demo`). `video-gen` can preprocess generated
+illustrations with the root Remotion pipeline and serve clips through
+`/api/lesson-video/<hash>`, but `LESSON_VIDEO_RENDERING=0` by default because
+headless Chromium can OOM the 512MB Starter web instance. Enable it only after
+moving video rendering to a larger instance or a dedicated worker.
 
 ---
 

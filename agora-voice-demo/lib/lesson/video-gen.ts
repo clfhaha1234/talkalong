@@ -113,6 +113,12 @@ export async function generateSceneVideo(
     return { hash, url, file_path: outMp4, cached: true, latency_ms: 0 };
   }
 
+  if (process.env.LESSON_VIDEO_RENDERING !== '1') {
+    return {
+      error: 'video rendering disabled; set LESSON_VIDEO_RENDERING=1 on a larger instance or worker',
+    };
+  }
+
   const srcImage = imageFilePath(appRoot, imageUrl, hash);
   if (!existsSync(srcImage)) {
     return { error: `source image not found: ${srcImage}` };
