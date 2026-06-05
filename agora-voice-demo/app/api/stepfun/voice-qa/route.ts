@@ -6,6 +6,7 @@
 // multipart body: file=<audio blob>, storySoFar=<string>
 import { NextRequest, NextResponse } from 'next/server';
 import { stepASR, stepChat, stepTTS } from '@/lib/stepfun/client';
+import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage } from '@/lib/stepfun/persona';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -30,17 +31,10 @@ export async function POST(req: NextRequest) {
     // 2) LLM — answer in character, grounded on the story so far.
     const answer = await stepChat(
       [
-        {
-          role: 'system',
-          content:
-            "You are the warm storyteller. Answer the child's question in ONE short sentence, in character. If it is a fact already in the story so far, answer it directly. If the story hasn't introduced it yet, never invent it — say warmly that it's coming up. Do not narrate further, do not bridge back.",
-        },
-        {
-          role: 'user',
-          content: `Story so far: "${storySoFar.slice(0, 2000)}"\n\nThe child asked: ${question.trim()}`,
-        },
+        { role: 'system', content: STEPFUN_QA_SYSTEM },
+        { role: 'user', content: stepfunQaUserMessage(question, storySoFar) },
       ],
-      { reasoningEffort: 'low', maxTokens: 1024 },
+      { reasoningEffort: 'low', maxTokens: 2048 },
     );
 
     // 3) TTS — speak the answer.
