@@ -6,7 +6,7 @@
 // multipart body: file=<audio blob>, storySoFar=<string>
 import { NextRequest, NextResponse } from 'next/server';
 import { stepASR, stepChat, stepTTS } from '@/lib/stepfun/client';
-import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage } from '@/lib/stepfun/persona';
+import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage, looksLikeNarrationEcho } from '@/lib/stepfun/persona';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
     if (!question || question.trim().length < 2) {
       // Likely a false barge-in (a cough, "uh") — tell the client to just resume.
       return NextResponse.json({ question, answer: '', audioDataUrl: '', backChannel: true });
+    }
+    // Echo guard: the mic only caught the narration playing back, not a question.
+    if (looksLikeNarrationEcho(question, storySoFar)) {
+      return NextResponse.json({ question, answer: '', audioDataUrl: '', backChannel: true, echo: true });
     }
 
     // 2) LLM — answer in character, grounded on the story so far.

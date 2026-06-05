@@ -22,3 +22,32 @@ export const STEPFUN_QA_SYSTEM = `You are the warm, gentle voice of a storybook 
 export function stepfunQaUserMessage(question: string, storySoFar: string): string {
   return `The story so far (everything the listener has heard — do NOT use anything beyond this):\n"${storySoFar.slice(0, 2000)}"\n\nThe child asks: ${question.trim()}`;
 }
+
+function normalizeForEcho(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9一-鿿 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Echo / false-barge guard. When narration plays through speakers, the mic can
+ * catch it; the ASR transcript is then a CHUNK OF THE STORY, not a question. A
+ * real question almost never reproduces a contiguous stretch of the narration.
+ * If the transcript is (mostly) contained in what's been narrated, treat it as a
+ * false barge-in and resume — don't "answer" the story back to the listener.
+ * (Server-side backstop to client-side AEC; not a question-vs-statement judge.)
+ */
+export function looksLikeNarrationEcho(transcript: string, storySoFar: string): boolean {
+  const t = normalizeForEcho(transcript);
+  const story = normalizeForEcho(storySoFar);
+  if (t.length < 12 || story.length < 12) return false;
+  if (story.includes(t)) return true; // verbatim echo
+  // partial/noisy echo: how many of the transcript's words appear in the story?
+  const words = t.split(' ').filter(Boolean);
+  if (words.length < 4) return false;
+  const storyWords = new Set(story.split(' '));
+  const overlap = words.filter((w) => storyWords.has(w)).length / words.length;
+  return overlap >= 0.85;
+}
