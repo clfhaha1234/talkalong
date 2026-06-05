@@ -130,13 +130,11 @@ export async function POST(req: NextRequest) {
         send({ type: 'all_images_ready' });
 
         // Phase 2.5: animate the still illustrations into clips via the parent
-        // Remotion project (subprocess). Per the locked design we render ONLY
-        // scene 1 synchronously here — it gates entry to the story — then fire
-        // scenes 2..N as a detached background loop. Each ~8s render lands a
-        // `video_ready` the browser hot-swaps in. Rendering 2..N sequentially
-        // (not parallel) avoids spawning several headless-chrome renderers at
-        // once; 4 renders (~32s) still finish well before narration (~64s of
-        // playback for those scenes) reaches them.
+        // Remotion project (subprocess). This must be best-effort for the web
+        // process: Render Starter can take ~60s for the first Chromium render,
+        // so never block the user at all_images_ready waiting for video. The
+        // browser starts with static images and hot-swaps each clip when a
+        // `video_ready` arrives.
         const renderSceneVideo = async (scene: Scene): Promise<void> => {
           if (!scene.image_url) {
             send({ type: 'video_failed', scene_id: scene.id, error: 'no image_url' });
@@ -144,10 +142,14 @@ export async function POST(req: NextRequest) {
           }
           const result = await generateSceneVideo(scene.image_url);
           if ('error' in result) {
+            console.warn(`[lesson/start] video_failed scene_id=${scene.id}: ${result.error}`);
             send({ type: 'video_failed', scene_id: scene.id, error: result.error });
             return;
           }
           scene.video_url = result.url;
+          console.log(
+            `[lesson/start] video_ready scene_id=${scene.id} cached=${result.cached} latency_ms=${result.latency_ms}`,
+          );
           send({
             type: 'video_ready',
             scene_id: scene.id,
@@ -157,23 +159,20 @@ export async function POST(req: NextRequest) {
           });
         };
 
-        const [firstScene, ...restScenes] = lesson.scenes;
-        if (firstScene) {
-          // Block on scene 1 so the very first page animates from the start.
-          await renderSceneVideo(firstScene);
-        }
-        // Background loop for the rest — deliberately NOT awaited so the
-        // session starts immediately. Errors are swallowed into video_failed.
+        // Detached sequential loop — deliberately NOT awaited so the session
+        // starts immediately. Rendering one-at-a-time avoids multiple headless
+        // Chromium processes competing with Agora in the same web container.
         void (async () => {
-          for (const scene of restScenes) {
+          for (const scene of lesson.scenes) {
             await renderSceneVideo(scene);
           }
           send({ type: 'all_videos_ready' });
         })();
 
         // Phase 3: kick off the Agora narration session. We start this AFTER
-        // emitting all_images_ready (and scene-1 video) so the browser has a
-        // clear cue to transition from LoadingScreen → StoryScreen.
+        // emitting all_images_ready so the browser has a clear cue to
+        // transition from LoadingScreen → StoryScreen; video is a progressive
+        // enhancement and must never gate narration.
         handle = await startTutorSessionFromScenes({
           scenes: lesson.scenes,
           config: {

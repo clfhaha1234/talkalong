@@ -129,6 +129,7 @@ export async function generateSceneVideo(
 
   try {
     // 1. preprocess → parent/public/lesson-cache/render/{hash}/{lines.svg,color.png,meta.json}
+    console.log(`[video-gen] preprocess start hash=${hash}`);
     await execFileAsync(
       'npx',
       ['tsx', 'src/preprocess.ts', absSrcImage, '--out-dir', `public/${renderSubrel}`],
@@ -143,17 +144,30 @@ export async function generateSceneVideo(
       seed: seedFromHash(hash),
       bgColor: '',
     });
+    console.log(`[video-gen] render start hash=${hash} out=${outMp4}`);
     await execFileAsync(
       'npx',
-      ['remotion', 'render', 'src/index.ts', 'BookPage', outMp4, `--props=${props}`],
+      [
+        'remotion',
+        'render',
+        'src/index.ts',
+        'BookPage',
+        outMp4,
+        `--props=${props}`,
+        '--concurrency=1',
+        '--codec=h264',
+        '--crf=28',
+      ],
       { cwd: parentDir, timeout: budgetMs, maxBuffer: 16 * 1024 * 1024 },
     );
 
     if (!existsSync(outMp4)) {
       return { error: 'render reported success but no mp4 was written' };
     }
+    console.log(`[video-gen] render done hash=${hash} latency_ms=${Date.now() - t0}`);
     return { hash, url, file_path: outMp4, cached: false, latency_ms: Date.now() - t0 };
   } catch (err) {
+    console.warn(`[video-gen] render failed hash=${hash}: ${(err as Error).message}`);
     return { error: `video render failed: ${(err as Error).message.slice(0, 300)}` };
   }
 }
