@@ -49,6 +49,11 @@ export interface VideoGenOptions {
 
 const DEFAULT_BUDGET_MS = 120_000;
 
+// Remotion rendering is heavy enough to OOM a 512MB Render Starter web
+// instance if two lesson sessions launch Chromium at the same time. Keep this
+// process-wide and fail soft under load; the lesson keeps the static image.
+let activeRenderHash: string | null = null;
+
 function cacheRoot(appRoot: string): string {
   return process.env.LESSON_CACHE_DIR ?? join(appRoot, 'public', 'lesson-cache');
 }
@@ -120,6 +125,11 @@ export async function generateSceneVideo(
     };
   }
 
+  if (activeRenderHash) {
+    return { error: `video renderer busy rendering ${activeRenderHash}; keeping static image` };
+  }
+  activeRenderHash = hash;
+
   mkdirSync(videosDir, { recursive: true });
 
   // Preprocess + render scratch lives under the PARENT project's public/ so
@@ -169,5 +179,7 @@ export async function generateSceneVideo(
   } catch (err) {
     console.warn(`[video-gen] render failed hash=${hash}: ${(err as Error).message}`);
     return { error: `video render failed: ${(err as Error).message.slice(0, 300)}` };
+  } finally {
+    activeRenderHash = null;
   }
 }
