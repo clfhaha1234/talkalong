@@ -10,7 +10,8 @@
 //     this is local + sub-frame, no round-trip.
 //   - We record the utterance until the VAD hears ~0.9s of silence, then POST
 //     the clip to /api/stepfun/voice-qa (ASR → LLM → TTS) and play the answer.
-//   - Then narration resumes where it left off.
+//   - After the answer finishes, we leave a short follow-up window before the
+//     narration resumes where it left off.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { streamAnswer } from './streamAnswer';
@@ -29,6 +30,7 @@ const SILENCE_RMS = 0.02; // below this = quiet
 const SPEECH_MS = 180; // sustained voice to count as a real barge-in
 const SILENCE_MS = 900; // sustained quiet = end of the question
 const MIN_UTTERANCE_MS = 400; // ignore blips shorter than this
+const FOLLOW_UP_WINDOW_MS = 4000; // mirrors /tutor's after-answer grace
 
 export default function VoiceBargeIn({
   scenes,
@@ -70,6 +72,7 @@ export default function VoiceBargeIn({
   const silenceStartRef = useRef<number>(0);
   const recStartRef = useRef<number>(0);
   const interruptedNarrationRef = useRef<{ idx: number; currentTime: number } | null>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
@@ -97,6 +100,10 @@ export default function VoiceBargeIn({
   }, [scenes]);
 
   const resumeNarration = useCallback(() => {
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
     const interrupted = interruptedNarrationRef.current;
     interruptedNarrationRef.current = null;
     if (interrupted) {
@@ -106,15 +113,22 @@ export default function VoiceBargeIn({
     }
   }, [playNarration]);
 
-  const holdForFollowUp = useCallback(() => {
+  const scheduleFollowUpResume = useCallback((delayMs = FOLLOW_UP_WINDOW_MS) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     speechStartRef.current = 0;
     silenceStartRef.current = 0;
     setPhase('listening');
     setStatus('listening…');
-  }, []);
+    resumeTimerRef.current = setTimeout(() => {
+      resumeTimerRef.current = null;
+      if (phaseRef.current !== 'listening' || recRef.current) return;
+      resumeNarration();
+    }, delayMs);
+  }, [resumeNarration]);
 
   // The spoken-QA turn: stream the answer audio (plays the first words ~1.5s
-  // sooner than waiting for the whole mp3), then resume narration when it ends.
+  // sooner than waiting for the whole mp3), then leave a brief follow-up window
+  // before resuming narration.
   const handleUtterance = useCallback(async (blob: Blob) => {
     setPhase('thinking');
     setStatus('thinking…');
@@ -124,7 +138,6 @@ export default function VoiceBargeIn({
       .join(' ');
     if (!answerRef.current) answerRef.current = new Audio();
     try {
-      let holdTurn = false;
       const r = await streamAnswer(blob, storySoFar, answerRef.current, {
         onQuestion: (q) => {
           const question = q || '(…)';
@@ -140,20 +153,22 @@ export default function VoiceBargeIn({
         }),
         onBackChannel: () => { setStatus('…go on'); resumeNarration(); },
         onPlaybackStart: () => { setPhase('answering'); setStatus('answering…'); },
-        onHold: () => { holdTurn = true; },
-        onEnded: () => { if (holdTurn) holdForFollowUp(); else resumeNarration(); },
+        onEnded: () => scheduleFollowUpResume(),
       });
       // Nothing played (back-channel handled above, or empty) → make sure we resume.
-      if (r.hold && !r.played) holdForFollowUp();
-      else if (!r.backChannel && !r.played) resumeNarration();
+      if (!r.backChannel && !r.played) scheduleFollowUpResume();
     } catch (e) {
       setStatus(`(qa error: ${e instanceof Error ? e.message : 'failed'})`);
       resumeNarration();
     }
-  }, [scenes, holdForFollowUp, resumeNarration]);
+  }, [scenes, resumeNarration, scheduleFollowUpResume]);
 
   const startRecording = useCallback(() => {
     if (!streamRef.current) return;
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
     chunksRef.current = [];
     const mimeType = pickMime();
     const rec = mimeType
@@ -249,6 +264,10 @@ export default function VoiceBargeIn({
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (resumeTimerRef.current) {
+      clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
     narrationRef.current?.pause();
     answerRef.current?.pause();
     stopRecording();
