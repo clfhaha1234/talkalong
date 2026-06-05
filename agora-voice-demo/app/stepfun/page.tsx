@@ -19,6 +19,7 @@ interface StepFunScene {
   narration: string;
   imageUrl: string;
   audioDataUrl: string;
+  videoUrl?: string;
 }
 
 interface QaTurn {
@@ -49,6 +50,7 @@ function toTutorScene(scene: StepFunScene, index: number): TutorScene {
     narration_text: scene.narration,
     image_prompt: '',
     image_url: scene.imageUrl,
+    video_url: scene.videoUrl,
   };
 }
 
@@ -80,6 +82,30 @@ export default function StepFunPage() {
   const typedAudioRef = useRef<HTMLAudioElement | null>(null);
   const interruptedTypedAudioRef = useRef<{ src: string; currentTime: number } | null>(null);
   const pendingVoiceQuestionRef = useRef<{ scene: number; q: string } | null>(null);
+  // Bumped per lesson so a new story cancels the previous video-render loop.
+  const videoRunRef = useRef(0);
+
+  // Lazily animate each plate: after the story is on screen, render scene videos
+  // one at a time (single-concurrency in video-gen) and swap them in as they
+  // finish — exactly like /tutor. The still image shows until its video lands.
+  const generateVideos = useCallback(async (lessonScenes: StepFunScene[], runId: number) => {
+    for (const sc of lessonScenes) {
+      if (videoRunRef.current !== runId) return; // a newer lesson started
+      if (!sc.imageUrl.startsWith('/api/lesson-image/')) continue; // image not cached → no video
+      try {
+        const res = await fetch('/api/stepfun/scene-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: sc.imageUrl }),
+        });
+        const data = await res.json();
+        if (videoRunRef.current !== runId) return;
+        if (data.videoUrl) {
+          setScenes((prev) => prev.map((s) => (s.id === sc.id ? { ...s, videoUrl: data.videoUrl } : s)));
+        }
+      } catch { /* keep the still image for this scene */ }
+    }
+  }, []);
 
   const tutorScenes = useMemo(() => scenes.map(toTutorScene), [scenes]);
   const voiceScenes: VoiceScene[] = useMemo(
@@ -155,18 +181,22 @@ export default function StepFunPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setScenes(data.scenes ?? []);
+      const lessonScenes: StepFunScene[] = data.scenes ?? [];
+      setScenes(lessonScenes);
       setActive(0);
       setStage('story');
       // Match tutor's intended posture: voice-first, always listening. If the
       // browser denies mic access, VoiceBargeIn reports it and the composer
       // shows the retry affordance.
       setVoiceEnabled(true);
+      // Kick off background video rendering (swaps plates img→video as ready).
+      const runId = ++videoRunRef.current;
+      void generateVideos(lessonScenes, runId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed');
       setStage('input');
     }
-  }, [stopTypedAudio, topic]);
+  }, [generateVideos, stopTypedAudio, topic]);
 
   const appendQa = useCallback((sceneIndex: number, q: string, a = '') => {
     setQaHistoryByScene((prev) => {
@@ -175,6 +205,36 @@ export default function StepFunPage() {
       return next;
     });
   }, []);
+
+  // After a QA, ask the rescript route whether the child's request should change
+  // the REST of the story (language/tone/pace). If so, swap in the rewritten
+  // narration + audio for the not-yet-played scenes so the next plate follows
+  // the request — the /stepfun analogue of /tutor's live narration adapting.
+  const rescriptRunRef = useRef(0);
+  const maybeRescript = useCallback(async (question: string, answer: string, currentIndex: number) => {
+    const remaining = scenes
+      .slice(currentIndex + 1)
+      .map((s) => ({ id: s.id, narration: s.narration }));
+    if (!question.trim() || remaining.length === 0) return;
+    const runId = ++rescriptRunRef.current;
+    try {
+      const res = await fetch('/api/stepfun/rescript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, answer, scenes: remaining }),
+      });
+      const data = await res.json();
+      if (rescriptRunRef.current !== runId || !data.changed || !Array.isArray(data.scenes)) return;
+      setScenes((prev) =>
+        prev.map((s) => {
+          const upd = data.scenes.find((x: { id: string }) => x.id === s.id);
+          return upd
+            ? { ...s, narration: upd.narration, audioDataUrl: upd.audioDataUrl || s.audioDataUrl }
+            : s;
+        }),
+      );
+    } catch { /* keep the original upcoming scenes */ }
+  }, [scenes]);
 
   const fillLatestAnswer = useCallback((sceneIndex: number, answer: string) => {
     setQaHistoryByScene((prev) => {
@@ -218,6 +278,7 @@ export default function StepFunPage() {
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       const answer = data.answer || 'Let me think about that one.';
       fillLatestAnswer(sceneIndex, answer);
+      void maybeRescript(q, answer, sceneIndex);
       if (data.audioDataUrl) {
         if (!typedAudioRef.current) typedAudioRef.current = new Audio();
         const a = typedAudioRef.current;
@@ -233,7 +294,7 @@ export default function StepFunPage() {
     } finally {
       setTypedAsking(false);
     }
-  }, [active, appendQa, fillLatestAnswer, interruptTypedAudio, resumeTypedAudio, scenes, typedAsking]);
+  }, [active, appendQa, fillLatestAnswer, interruptTypedAudio, maybeRescript, resumeTypedAudio, scenes, typedAsking]);
 
   const handleVoiceQuestion = useCallback((question: string) => {
     const sceneIndex = active;
@@ -245,9 +306,11 @@ export default function StepFunPage() {
   const handleVoiceAnswer = useCallback((answer: string) => {
     const pending = pendingVoiceQuestionRef.current;
     const sceneIndex = pending?.scene ?? active;
+    const question = pending?.q ?? '';
     pendingVoiceQuestionRef.current = null;
     fillLatestAnswer(sceneIndex, answer);
-  }, [active, fillLatestAnswer]);
+    void maybeRescript(question, answer, sceneIndex);
+  }, [active, fillLatestAnswer, maybeRescript]);
 
   if (stage === 'input') {
     return (

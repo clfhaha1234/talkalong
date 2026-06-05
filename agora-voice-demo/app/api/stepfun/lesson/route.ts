@@ -6,6 +6,7 @@
 // realtime barge-in voice loop is layered on separately.
 import { NextRequest, NextResponse } from 'next/server';
 import { stepChat, stepImage, stepTTS } from '@/lib/stepfun/client';
+import { cacheImageToDisk } from '@/lib/stepfun/imageCache';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -55,17 +56,20 @@ export async function POST(req: NextRequest) {
     // 2) Per scene: image + narration audio, in parallel across scenes.
     const scenes = await Promise.all(
       drafts.map(async (d, i) => {
-        const [imageUrl, mp3] = await Promise.all([
+        const [remoteImageUrl, mp3] = await Promise.all([
           stepImage(
             `Cozy watercolor storybook illustration, warm soft colors, no text: ${d.image_prompt}`,
             { size: '1360x768', responseFormat: 'url' },
           ).catch(() => ''),
           stepTTS(d.narration, { voice: 'lively-girl' }).catch(() => Buffer.alloc(0)),
         ]);
+        // Pull the illustration onto disk (content-addressed) so the Remotion
+        // video pipeline can render it; the local URL also survives `next start`.
+        const cached = await cacheImageToDisk(remoteImageUrl);
         return {
           id: `s${i + 1}`,
           narration: d.narration,
-          imageUrl,
+          imageUrl: cached.url,
           audioDataUrl: mp3.length ? `data:audio/mp3;base64,${mp3.toString('base64')}` : '',
         };
       }),
