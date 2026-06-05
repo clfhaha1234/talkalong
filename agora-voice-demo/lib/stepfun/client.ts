@@ -129,3 +129,36 @@ export async function stepTTS(input: string, opts: TtsOptions = {}): Promise<Buf
   }
   return Buffer.from(await res.arrayBuffer());
 }
+
+export interface AsrOptions {
+  model?: string;
+  signal?: AbortSignal;
+}
+
+/** Speech-to-text. Accepts recorded audio (Buffer or Blob) → transcript text.
+ *  Verified live 2026-06-05: model 'stepaudio-2.5-asr', /v1/audio/transcriptions
+ *  (multipart), round-tripped a TTS mp3 cleanly. */
+export async function stepASR(
+  audio: Buffer | Blob,
+  filename = 'audio.webm',
+  opts: AsrOptions = {},
+): Promise<string> {
+  const fd = new FormData();
+  const blob =
+    audio instanceof Blob ? audio : new Blob([new Uint8Array(audio)], { type: 'application/octet-stream' });
+  fd.append('file', blob, filename);
+  fd.append('model', opts.model ?? 'stepaudio-2.5-asr');
+  fd.append('response_format', 'json');
+  // NOTE: do NOT set Content-Type — fetch derives the multipart boundary.
+  const res = await fetch(`${BASE}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey()}` },
+    body: fd,
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    throw new Error(`stepASR ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { text?: string };
+  return (data.text ?? '').trim();
+}

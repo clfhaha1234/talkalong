@@ -6,6 +6,7 @@
 // of this (next phase). No Agora — entirely StepFun.
 
 import { useRef, useState } from 'react';
+import VoiceBargeIn from './VoiceBargeIn';
 
 interface Scene {
   id: string;
@@ -157,6 +158,9 @@ export default function StepFunPage() {
               </div>
             ))}
           </div>
+
+          {/* Realtime voice mode: narration + speak-to-interrupt (barge-in). */}
+          <VoiceBargeIn scenes={scenes} storySoFar={storySoFar} />
         </div>
       )}
     </main>
