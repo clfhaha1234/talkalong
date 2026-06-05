@@ -2,8 +2,8 @@ import React from 'react';
 import { Composition, staticFile } from 'remotion';
 import { BookPage } from './BookPage';
 
-const FPS = 30;
-const DURATION_SEC = 10;
+const FPS = 18;
+const DURATION_SEC = 5;
 
 // Captured once at module load. Each `remotion render` invocation gets a fresh seed,
 // but the same seed is propagated to every frame of that render — keeping output
