@@ -1,106 +1,181 @@
 'use client';
 
-// StepFun storybook tutor — standalone /stepfun. Proves the full StepFun stack:
-// story (step-3.7-flash) → scene images (step-image-edit-2) → narration audio
-// (step-tts-2), plus typed Q&A. The realtime barge-in voice loop is added on top
-// of this (next phase). No Agora — entirely StepFun.
+// StepFun storybook tutor — same UI shell as /tutor, but a hybrid backend:
+// StepFun generates images + narration audio and provides ASR/TTS; Gemini lite
+// answers QA by default because StepFun chat's reasoning latency is too high
+// for barge-in turns. Set STEPFUN_QA_LLM=stepfun to force the old all-StepFun
+// brain path for comparison.
 
-import { useRef, useState } from 'react';
-import VoiceBargeIn from './VoiceBargeIn';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { InputScreen } from '@/components/tutor/InputScreen';
+import { ScalingStage } from '@/components/tutor/ScalingStage';
+import { StoryScreen } from '@/components/tutor/StoryScreen';
+import { T, F_HEAD, F_BODY, type Scene as TutorScene } from '@/components/tutor/theme';
+import VoiceBargeIn, { type VoiceScene } from './VoiceBargeIn';
 
-interface Scene {
+interface StepFunScene {
   id: string;
   narration: string;
   imageUrl: string;
   audioDataUrl: string;
 }
+
 interface QaTurn {
   q: string;
   a: string;
 }
 
+type Stage = 'input' | 'loading' | 'story';
+type VoicePhase = 'off' | 'narrating' | 'listening' | 'thinking' | 'answering' | 'paused';
+
+const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi'];
+
+function toTutorScene(scene: StepFunScene, index: number): TutorScene {
+  return {
+    id: scene.id,
+    chapter: `Scene ${index + 1}`,
+    sceneNum: ROMAN[index] ?? String(index + 1),
+    headline: [`Plate`, ROMAN[index] ?? String(index + 1)],
+    narration_text: scene.narration,
+    image_prompt: '',
+    image_url: scene.imageUrl,
+  };
+}
+
+function agentStateFromVoice(phase: VoicePhase, typedAsking: boolean) {
+  if (typedAsking) return 'thinking';
+  if (phase === 'thinking') return 'thinking';
+  if (phase === 'listening') return 'listening';
+  if (phase === 'answering' || phase === 'narrating') return 'speaking';
+  if (phase === 'off') return 'speaking';
+  return 'idle';
+}
+
 export default function StepFunPage() {
+  const [stage, setStage] = useState<Stage>('input');
   const [topic, setTopic] = useState(
     'Tell a short 3-scene bedtime story about a library cat named Pemberley.',
   );
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [scenes, setScenes] = useState<StepFunScene[]>([]);
   const [active, setActive] = useState(0);
-  const [question, setQuestion] = useState('');
-  const [qa, setQa] = useState<QaTurn[]>([]);
-  const [asking, setAsking] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const interruptedAudioRef = useRef<{ src: string; currentTime: number } | null>(null);
+  const [qaHistoryByScene, setQaHistoryByScene] = useState<Record<number, QaTurn[]>>({});
+  const [typedAsking, setTypedAsking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>('off');
+  const [micError, setMicError] = useState<string | null>(null);
+  const [liveUserText, setLiveUserText] = useState<string | null>(null);
 
-  const play = (src: string) => {
-    if (!src) return;
-    if (!audioRef.current) audioRef.current = new Audio();
-    audioRef.current.onended = null;
-    audioRef.current.src = src;
-    void audioRef.current.play().catch(() => {});
-  };
+  const typedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const interruptedTypedAudioRef = useRef<{ src: string; currentTime: number } | null>(null);
+  const pendingVoiceQuestionRef = useRef<{ scene: number; q: string } | null>(null);
 
-  const stopCurrentAudio = () => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current.currentTime = 0;
-    interruptedAudioRef.current = null;
-  };
+  const tutorScenes = useMemo(() => scenes.map(toTutorScene), [scenes]);
+  const voiceScenes: VoiceScene[] = useMemo(
+    () => scenes.map((s) => ({ id: s.id, narration: s.narration, audioDataUrl: s.audioDataUrl })),
+    [scenes],
+  );
 
-  const interruptCurrentAudio = () => {
-    const a = audioRef.current;
+  const stopTypedAudio = useCallback(() => {
+    const a = typedAudioRef.current;
+    if (!a) return;
+    a.pause();
+    a.currentTime = 0;
+    interruptedTypedAudioRef.current = null;
+  }, []);
+
+  const interruptTypedAudio = useCallback(() => {
+    const a = typedAudioRef.current;
     if (!a || a.paused || !a.src) {
-      interruptedAudioRef.current = null;
+      interruptedTypedAudioRef.current = null;
       return;
     }
-    interruptedAudioRef.current = { src: a.src, currentTime: a.currentTime };
+    interruptedTypedAudioRef.current = { src: a.src, currentTime: a.currentTime };
     a.pause();
-  };
+  }, []);
 
-  const resumeInterruptedAudio = () => {
-    const interrupted = interruptedAudioRef.current;
-    interruptedAudioRef.current = null;
-    if (!interrupted || !audioRef.current) return;
-    const a = audioRef.current;
+  const resumeTypedAudio = useCallback(() => {
+    const interrupted = interruptedTypedAudioRef.current;
+    interruptedTypedAudioRef.current = null;
+    if (!interrupted || !typedAudioRef.current) return;
+    const a = typedAudioRef.current;
     a.src = interrupted.src;
     a.currentTime = interrupted.currentTime;
     void a.play().catch(() => {});
-  };
+  }, []);
 
-  const generate = async () => {
-    setLoading(true);
+  const generate = useCallback(async (input: string) => {
+    const payload = input.trim() || topic;
+    setTopic(payload);
+    setStage('loading');
     setError(null);
     setScenes([]);
-    setQa([]);
-    stopCurrentAudio();
+    setQaHistoryByScene({});
+    setLiveUserText(null);
+    setMicError(null);
+    setVoiceEnabled(false);
+    setVoicePhase('off');
+    stopTypedAudio();
     try {
       const res = await fetch('/api/stepfun/lesson', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic: payload }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setScenes(data.scenes);
+      setScenes(data.scenes ?? []);
       setActive(0);
-      if (data.scenes[0]?.audioDataUrl) play(data.scenes[0].audioDataUrl);
+      setStage('story');
+      // Match tutor's intended posture: voice-first, always listening. If the
+      // browser denies mic access, VoiceBargeIn reports it and the composer
+      // shows the retry affordance.
+      setVoiceEnabled(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed');
-    } finally {
-      setLoading(false);
+      setStage('input');
     }
-  };
+  }, [stopTypedAudio, topic]);
 
-  const ask = async () => {
-    const q = question.trim();
-    if (!q) return;
-    setAsking(true);
-    setQuestion('');
-    interruptCurrentAudio();
+  const appendQa = useCallback((sceneIndex: number, q: string, a = '') => {
+    setQaHistoryByScene((prev) => {
+      const next = { ...prev };
+      next[sceneIndex] = [...(next[sceneIndex] ?? []), { q, a }];
+      return next;
+    });
+  }, []);
+
+  const fillLatestAnswer = useCallback((sceneIndex: number, answer: string) => {
+    setQaHistoryByScene((prev) => {
+      const next = { ...prev };
+      const turns = [...(next[sceneIndex] ?? [])];
+      for (let i = turns.length - 1; i >= 0; i--) {
+        if (!turns[i].a) {
+          turns[i] = { ...turns[i], a: answer };
+          next[sceneIndex] = turns;
+          return next;
+        }
+      }
+      next[sceneIndex] = [...turns, { q: '', a: answer }];
+      return next;
+    });
+  }, []);
+
+  const askText = useCallback(async (text: string) => {
+    const q = text.trim();
+    if (!q || typedAsking) return;
+    const sceneIndex = active;
+    setTypedAsking(true);
+    setLiveUserText(null);
+    appendQa(sceneIndex, q);
+    // Text-mode QA uses the typed audio element. If the user is in voice mode,
+    // pause the hidden voice loop first; they can tap the mic back on after the
+    // answer. This keeps resume semantics simple and avoids dueling audio.
+    setVoiceEnabled(false);
+    interruptTypedAudio();
     try {
       const visibleStorySoFar = scenes
-        .slice(0, active + 1)
+        .slice(0, sceneIndex + 1)
         .map((s) => s.narration)
         .join(' ');
       const res = await fetch('/api/stepfun/qa', {
@@ -110,101 +185,124 @@ export default function StepFunPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setQa((prev) => [...prev, { q, a: data.answer }]);
+      const answer = data.answer || 'Let me think about that one.';
+      fillLatestAnswer(sceneIndex, answer);
       if (data.audioDataUrl) {
-        if (!audioRef.current) audioRef.current = new Audio();
-        const a = audioRef.current;
+        if (!typedAudioRef.current) typedAudioRef.current = new Audio();
+        const a = typedAudioRef.current;
         a.src = data.audioDataUrl;
-        a.onended = resumeInterruptedAudio;
+        a.onended = resumeTypedAudio;
         void a.play().catch(() => {});
       } else {
-        resumeInterruptedAudio();
+        resumeTypedAudio();
       }
     } catch (e) {
-      setQa((prev) => [...prev, { q, a: `(error: ${e instanceof Error ? e.message : 'failed'})` }]);
-      resumeInterruptedAudio();
+      fillLatestAnswer(sceneIndex, `(error: ${e instanceof Error ? e.message : 'failed'})`);
+      resumeTypedAudio();
     } finally {
-      setAsking(false);
+      setTypedAsking(false);
     }
-  };
+  }, [active, appendQa, fillLatestAnswer, interruptTypedAudio, resumeTypedAudio, scenes, typedAsking]);
 
-  const scene = scenes[active];
+  const handleVoiceQuestion = useCallback((question: string) => {
+    const sceneIndex = active;
+    pendingVoiceQuestionRef.current = { scene: sceneIndex, q: question };
+    setLiveUserText(null);
+    appendQa(sceneIndex, question);
+  }, [active, appendQa]);
+
+  const handleVoiceAnswer = useCallback((answer: string) => {
+    const pending = pendingVoiceQuestionRef.current;
+    const sceneIndex = pending?.scene ?? active;
+    pendingVoiceQuestionRef.current = null;
+    fillLatestAnswer(sceneIndex, answer);
+  }, [active, fillLatestAnswer]);
+
+  if (stage === 'input') {
+    return (
+      <>
+        <InputScreen onBegin={generate} initialText={topic} />
+        {error && (
+          <div
+            style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: 28,
+              transform: 'translateX(-50%)',
+              maxWidth: 640,
+              background: T.paperHi,
+              border: `1px solid ${T.rose}`,
+              color: T.ink,
+              padding: '12px 16px',
+              fontFamily: F_BODY,
+              borderRadius: 4,
+            }}
+          >
+            {error}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (stage === 'loading') {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          background: T.paper,
+          color: T.ink,
+          fontFamily: F_HEAD,
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: 54, fontStyle: 'italic', fontWeight: 500, margin: 0 }}>Preparing tonight's lesson</h1>
+          <p style={{ color: T.inkSoft, fontSize: 20, fontStyle: 'italic' }}>Drafting, sketching, and warming up the voice...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main style={{ maxWidth: 900, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#3a2f28' }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>StepFun Storybook</h1>
-      <p style={{ fontSize: 13, color: '#8a7d72', marginTop: 0 }}>
-        story + image + narration + Q&amp;A — all on StepFun (阶跃星辰). No Agora.
-      </p>
-
-      <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
-        <input
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="A topic for a 3-scene story…"
-          style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #d8cfc4', fontSize: 14 }}
-        />
-        <button
-          onClick={generate}
-          disabled={loading}
-          style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#4a3f36', color: '#fff', cursor: 'pointer' }}
-        >
-          {loading ? 'Generating…' : 'Begin'}
-        </button>
-      </div>
-
-      {error && <p style={{ color: '#b00020' }}>⚠ {error}</p>}
-
-      {scene && (
-        <div>
-          {scene.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={scene.imageUrl} alt={scene.id} style={{ width: '100%', borderRadius: 12, display: 'block' }} />
-          ) : (
-            <div style={{ padding: 40, textAlign: 'center', background: '#f3ece3', borderRadius: 12 }}>(no image)</div>
-          )}
-          <p style={{ fontSize: 17, lineHeight: 1.6, marginTop: 14 }}>{scene.narration}</p>
-
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '8px 0 20px' }}>
-            {scenes.map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => { setActive(i); play(s.audioDataUrl); }}
-                style={{ width: 28, height: 28, borderRadius: 14, border: '1px solid #d8cfc4', background: i === active ? '#4a3f36' : '#fff', color: i === active ? '#fff' : '#4a3f36', cursor: 'pointer' }}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button onClick={() => play(scene.audioDataUrl)} style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, border: '1px solid #d8cfc4', background: '#fff', cursor: 'pointer' }}>
-              ▶ replay narration
-            </button>
-          </div>
-
-          <div style={{ borderTop: '1px solid #ece4d9', paddingTop: 16 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') ask(); }}
-                placeholder="Ask the storyteller a question…"
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #d8cfc4', fontSize: 14 }}
-              />
-              <button onClick={ask} disabled={asking} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: '#6a5a4c', color: '#fff', cursor: 'pointer' }}>
-                {asking ? '…' : 'Ask'}
-              </button>
-            </div>
-            {qa.map((t, i) => (
-              <div key={i} style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 14, color: '#8a7d72' }}>You: {t.q}</div>
-                <div style={{ fontSize: 15 }}>📖 {t.a}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Realtime voice mode: narration + speak-to-interrupt (barge-in). */}
-          <VoiceBargeIn scenes={scenes} />
-        </div>
-      )}
-    </main>
+    <ScalingStage>
+      <StoryScreen
+        scenes={tutorScenes}
+        activeSceneIndex={Math.min(active, Math.max(0, tutorScenes.length - 1))}
+        inBranch={typedAsking || voicePhase === 'listening' || voicePhase === 'thinking' || voicePhase === 'answering'}
+        finished={voicePhase === 'paused' && active >= scenes.length}
+        liveNarrationText={tutorScenes[active]?.narration_text ?? null}
+        liveUserText={liveUserText}
+        qaHistoryByScene={qaHistoryByScene}
+        micDenied={!!micError}
+        micMuted={!voiceEnabled}
+        micLevel={voicePhase === 'listening' ? 0.55 : 0}
+        agentState={agentStateFromVoice(voicePhase, typedAsking)}
+        onToggleMic={() => {
+          setMicError(null);
+          setVoiceEnabled((v) => !v);
+        }}
+        onTextQuestion={askText}
+        onExit={() => {
+          setVoiceEnabled(false);
+          stopTypedAudio();
+          setStage('input');
+        }}
+      />
+      <VoiceBargeIn
+        scenes={voiceScenes}
+        enabled={voiceEnabled && scenes.length > 0}
+        hideControls
+        onPhaseChange={(phase) => setVoicePhase(phase)}
+        onSceneChange={setActive}
+        onQuestion={handleVoiceQuestion}
+        onAnswer={handleVoiceAnswer}
+        onMicError={(msg) => {
+          setMicError(msg);
+          if (msg) setVoiceEnabled(false);
+        }}
+      />
+    </ScalingStage>
   );
 }

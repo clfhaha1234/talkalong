@@ -14,6 +14,7 @@ import { NextRequest } from 'next/server';
 import { stepASR, stepChatStream } from '@/lib/stepfun/client';
 import { openTtsStream, type TtsStream } from '@/lib/stepfun/wsTts';
 import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage, looksLikeNarrationEcho } from '@/lib/stepfun/persona';
+import { shouldUseGeminiQaBrain, streamQa } from '@/lib/stepfun/qaBrain';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -84,18 +85,19 @@ export async function POST(req: NextRequest) {
 
         // 3) LLM stream → pipe each delta straight into TTS.
         let answer = '';
+        const messages = [
+          { role: 'system' as const, content: STEPFUN_QA_SYSTEM },
+          { role: 'user' as const, content: stepfunQaUserMessage(question, storySoFar) },
+        ];
         try {
-          for await (const delta of stepChatStream(
-            [
-              { role: 'system', content: STEPFUN_QA_SYSTEM },
-              { role: 'user', content: stepfunQaUserMessage(question, storySoFar) },
-            ],
-            // 2048, NOT 512: step-3.7-flash is a reasoning model and returns
-            // EMPTY content ~50% of the time at maxTokens 512 (measured). The
-            // cap doesn't affect latency (effort:'low' generates ~110 tokens
-            // regardless) — it only bounds the worst case, so keep it generous.
-            { reasoningEffort: 'low', maxTokens: 2048, temperature: 0 },
-          )) {
+          const llmStream = shouldUseGeminiQaBrain()
+            ? streamQa(messages)
+            : stepChatStream(
+                messages,
+                // Fallback only: step-3.7-flash is a reasoning model and can be slow.
+                { reasoningEffort: 'low', maxTokens: 2048, temperature: 0 },
+              );
+          for await (const delta of llmStream) {
             if (closed) return; // client disconnected mid-answer
             answer += delta;
             tts.pushText(delta);

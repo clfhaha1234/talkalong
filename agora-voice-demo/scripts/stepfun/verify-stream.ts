@@ -1,6 +1,11 @@
 // Verify /api/stepfun/voice-qa-stream end-to-end against the dev server.
-// Synthesizes a spoken question, POSTs it, parses the SSE, and measures
-// time-to-first-audio vs. total — compared to the ~4.5s non-streaming baseline.
+// Synthesizes spoken questions, POSTs them, parses the SSE, and asserts the
+// tutor-critical contract:
+//   - real question: ASR meta -> answer text -> streamed audio chunks -> done
+//   - narration echo: backChannel -> done, no answer/audio
+//
+// This intentionally mirrors the tutor barge-in benchmark posture: printing
+// latencies is not enough; regressions must fail the process.
 //   node --import tsx scripts/stepfun/verify-stream.ts
 import { readFileSync } from 'node:fs';
 import { stepTTS } from '@/lib/stepfun/client';
@@ -13,7 +18,27 @@ const BASE = process.env.PROBE_BASE ?? 'http://localhost:3001';
 const STORY =
   'When the moon rose over the library, Pemberley the cat began her quiet nightly patrol between the tall shelves, her green eyes catching every shadow.';
 
-async function run(label: string, questionText: string, story: string) {
+interface StreamProbeResult {
+  label: string;
+  question: string;
+  answer: string;
+  backChannel: boolean;
+  echo: boolean;
+  errors: string[];
+  done: boolean;
+  metaAt: number | null;
+  answerAt: number | null;
+  firstAudioAt: number | null;
+  totalAt: number;
+  chunks: number;
+  audioBytes: number;
+}
+
+function fail(label: string, message: string): never {
+  throw new Error(`${label}: ${message}`);
+}
+
+async function run(label: string, questionText: string, story: string): Promise<StreamProbeResult> {
   // 1) make a spoken-question clip (what the mic would capture)
   const qAudio = await stepTTS(questionText, { voice: 'lively-girl' });
   const fd = new FormData();
@@ -23,15 +48,23 @@ async function run(label: string, questionText: string, story: string) {
   const t0 = performance.now();
   const res = await fetch(`${BASE}/api/stepfun/voice-qa-stream`, { method: 'POST', body: fd });
   const ms = () => Math.round(performance.now() - t0);
-  if (!res.ok || !res.body) { console.log(`${label}: HTTP ${res.status} ${await res.text()}`); return; }
+  if (!res.ok || !res.body) fail(label, `HTTP ${res.status} ${await res.text()}`);
 
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = '';
-  let firstAudio: number | null = null;
+  let firstAudioAt: number | null = null;
   let metaAt: number | null = null;
   let answerAt: number | null = null;
-  let audioBytes = 0, chunks = 0, question = '', answer = '', backChannel = false;
+  let totalAt = 0;
+  let audioBytes = 0;
+  let chunks = 0;
+  let question = '';
+  let answer = '';
+  let backChannel = false;
+  let echo = false;
+  let doneEvent = false;
+  const errors: string[] = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -44,22 +77,72 @@ async function run(label: string, questionText: string, story: string) {
       if (!line) continue;
       const ev = JSON.parse(line.slice(5).trim());
       if (ev.t === 'meta') { metaAt = ms(); question = ev.question; }
-      else if (ev.t === 'backChannel') { backChannel = true; console.log(`${label}: backChannel echo=${!!ev.echo} @${ms()}ms`); }
+      else if (ev.t === 'backChannel') { backChannel = true; echo = !!ev.echo; }
       else if (ev.t === 'answer') { answerAt = ms(); answer = ev.answer; }
-      else if (ev.t === 'audio') { if (firstAudio === null) firstAudio = ms(); chunks++; audioBytes += Buffer.from(ev.audio, 'base64').length; }
-      else if (ev.t === 'error') console.log(`${label}: ERROR ${ev.message} @${ms()}ms`);
+      else if (ev.t === 'audio') { if (firstAudioAt === null) firstAudioAt = ms(); chunks++; audioBytes += Buffer.from(ev.audio, 'base64').length; }
+      else if (ev.t === 'error') errors.push(String(ev.message ?? 'stream error'));
+      else if (ev.t === 'done') { doneEvent = true; totalAt = ms(); }
     }
   }
-  if (backChannel) return;
-  console.log(`${label}:`);
-  console.log(`  meta(question)@ ${metaAt}ms  "${question}"`);
-  console.log(`  FIRST AUDIO  @ ${firstAudio}ms   <-- time-to-first-sound`);
-  console.log(`  answer       @ ${answerAt}ms  "${answer}"`);
-  console.log(`  total stream @ ${ms()}ms  (${chunks} chunks, ${audioBytes}B)`);
+  if (!totalAt) totalAt = ms();
+  return {
+    label,
+    question,
+    answer,
+    backChannel,
+    echo,
+    errors,
+    done: doneEvent,
+    metaAt,
+    answerAt,
+    firstAudioAt,
+    totalAt,
+    chunks,
+    audioBytes,
+  };
+}
+
+function assertRealQuestion(r: StreamProbeResult) {
+  if (r.errors.length) fail(r.label, `unexpected error events: ${r.errors.join('; ')}`);
+  if (!r.done) fail(r.label, 'missing done event');
+  if (r.backChannel) fail(r.label, 'real question was misclassified as backChannel');
+  if (!r.metaAt || !r.question) fail(r.label, 'missing ASR meta question');
+  if (!/cat|name/i.test(r.question)) fail(r.label, `ASR question looks wrong: "${r.question}"`);
+  if (!r.answerAt || !r.answer) fail(r.label, 'missing answer text');
+  if (!/pemberley/i.test(r.answer)) fail(r.label, `answer did not name Pemberley: "${r.answer}"`);
+  if (!r.firstAudioAt || r.chunks < 1 || r.audioBytes < 1000) fail(r.label, 'missing streamed audio chunks');
+
+  const maxFirstAudioMs = Number(process.env.STEPFUN_MAX_FIRST_AUDIO_MS ?? 12000);
+  const maxTotalMs = Number(process.env.STEPFUN_MAX_TOTAL_STREAM_MS ?? 25000);
+  if (r.firstAudioAt > maxFirstAudioMs) fail(r.label, `first audio too slow: ${r.firstAudioAt}ms > ${maxFirstAudioMs}ms`);
+  if (r.totalAt > maxTotalMs) fail(r.label, `stream too slow: ${r.totalAt}ms > ${maxTotalMs}ms`);
+}
+
+function assertEchoBackChannel(r: StreamProbeResult) {
+  if (r.errors.length) fail(r.label, `unexpected error events: ${r.errors.join('; ')}`);
+  if (!r.done) fail(r.label, 'missing done event');
+  if (!r.backChannel || !r.echo) fail(r.label, 'narration echo was not classified as echo backChannel');
+  if (r.answer || r.chunks || r.audioBytes) fail(r.label, 'echo path should not answer or stream audio');
+}
+
+function printResult(r: StreamProbeResult) {
+  console.log(`${r.label}:`);
+  if (r.backChannel) {
+    console.log(`  backChannel echo=${r.echo} total=${r.totalAt}ms`);
+    return;
+  }
+  console.log(`  meta(question)@ ${r.metaAt}ms  "${r.question}"`);
+  console.log(`  FIRST AUDIO  @ ${r.firstAudioAt}ms   <-- time-to-first-sound`);
+  console.log(`  answer       @ ${r.answerAt}ms  "${r.answer}"`);
+  console.log(`  total stream @ ${r.totalAt}ms  (${r.chunks} chunks, ${r.audioBytes}B)`);
 }
 
 (async () => {
-  await run('Q-real (cat name)', 'What is the name of the cat?', STORY);
+  const real = await run('Q-real (cat name)', 'What is the name of the cat?', STORY);
+  printResult(real);
+  assertRealQuestion(real);
   console.log('');
-  await run('Q-echo (narration)', 'Pemberley the cat began her quiet nightly patrol', STORY);
+  const echo = await run('Q-echo (narration)', 'Pemberley the cat began her quiet nightly patrol', STORY);
+  printResult(echo);
+  assertEchoBackChannel(echo);
 })().catch((e) => { console.error(e); process.exit(1); });

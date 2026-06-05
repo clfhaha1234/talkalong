@@ -27,6 +27,8 @@
     "test:e2e:live": "node scripts/qa-bench/audio-barge-in/tutor-barge-in-e2e.mjs",
     "test:e2e:suite": "node scripts/qa-bench/audio-barge-in/tutor-eval-suite.mjs",
     "test:e2e:lang": "node scripts/qa-bench/audio-barge-in/tutor-lang-switch-e2e.mjs",
+    "test:stepfun:stream": "node --import tsx scripts/stepfun/verify-stream.ts",
+    "test:stepfun:barge": "node scripts/stepfun/stepfun-barge-in-e2e.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },
   "dependencies": {
@@ -50,7 +52,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

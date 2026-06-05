@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stepASR, stepChat, stepTTS } from '@/lib/stepfun/client';
 import { STEPFUN_QA_SYSTEM, stepfunQaUserMessage, looksLikeNarrationEcho } from '@/lib/stepfun/persona';
+import { completeQa } from '@/lib/stepfun/qaBrain';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -33,14 +34,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) LLM — answer in character, grounded on the story so far.
-    const answer = await stepChat(
-      [
-        { role: 'system', content: STEPFUN_QA_SYSTEM },
-        { role: 'user', content: stepfunQaUserMessage(question, storySoFar) },
-      ],
-      // 2048, NOT 512: step-3.7-flash (reasoning model) returns EMPTY content
-      // ~50% of the time at 512 (measured) with no latency upside — effort:'low'
-      // generates ~110 tokens regardless, so the cap only bounds the worst case.
+    const messages = [
+      { role: 'system' as const, content: STEPFUN_QA_SYSTEM },
+      { role: 'user' as const, content: stepfunQaUserMessage(question, storySoFar) },
+    ];
+    const answer = (await completeQa(messages)) ?? await stepChat(
+      messages,
+      // Fallback only: step-3.7-flash is a reasoning model and can be slow.
       { reasoningEffort: 'low', maxTokens: 2048, temperature: 0 },
     );
 

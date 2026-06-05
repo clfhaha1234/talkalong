@@ -33,7 +33,7 @@ export default defineConfig({
         test: {
           name: 'jsdom',
           environment: 'jsdom',
-          include: ['components/**/*.render.test.tsx'],
+          include: ['components/**/*.render.test.tsx', 'app/**/*.render.test.ts', 'app/**/*.render.test.tsx'],
           setupFiles: ['./vitest.setup.jsdom.ts'],
           globals: false,
         },

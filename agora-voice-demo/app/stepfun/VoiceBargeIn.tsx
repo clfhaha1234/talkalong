@@ -32,8 +32,22 @@ const MIN_UTTERANCE_MS = 400; // ignore blips shorter than this
 
 export default function VoiceBargeIn({
   scenes,
+  enabled,
+  hideControls = false,
+  onPhaseChange,
+  onSceneChange,
+  onQuestion,
+  onAnswer,
+  onMicError,
 }: {
   scenes: VoiceScene[];
+  enabled?: boolean;
+  hideControls?: boolean;
+  onPhaseChange?: (phase: Phase, status: string) => void;
+  onSceneChange?: (index: number) => void;
+  onQuestion?: (question: string) => void;
+  onAnswer?: (answer: string) => void;
+  onMicError?: (message: string | null) => void;
 }) {
   const [phase, setPhase] = useState<Phase>('off');
   const [sceneIdx, setSceneIdx] = useState(0);
@@ -59,6 +73,9 @@ export default function VoiceBargeIn({
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
+  useEffect(() => { onPhaseChange?.(phase, status); }, [onPhaseChange, phase, status]);
+  useEffect(() => { onSceneChange?.(sceneIdx); }, [onSceneChange, sceneIdx]);
+  useEffect(() => { onMicError?.(micError); }, [onMicError, micError]);
 
   const playNarration = useCallback((idx: number, resumeAt?: number) => {
     const sc = scenes[idx];
@@ -101,8 +118,13 @@ export default function VoiceBargeIn({
     if (!answerRef.current) answerRef.current = new Audio();
     try {
       const r = await streamAnswer(blob, storySoFar, answerRef.current, {
-        onQuestion: (q) => setTranscript((t) => [...t, { q: q || '(…)', a: '' }]),
+        onQuestion: (q) => {
+          const question = q || '(…)';
+          onQuestion?.(question);
+          setTranscript((t) => [...t, { q: question, a: '' }]);
+        },
         onAnswer: (a) => setTranscript((t) => {
+          onAnswer?.(a);
           // fill the answer into the last (matching) question row
           const next = [...t];
           for (let i = next.length - 1; i >= 0; i--) { if (!next[i].a) { next[i] = { ...next[i], a }; break; } }
@@ -227,6 +249,17 @@ export default function VoiceBargeIn({
   }, [stopRecording]);
 
   useEffect(() => () => stop(), [stop]);
+
+  useEffect(() => {
+    if (enabled === undefined) return;
+    if (enabled && phaseRef.current === 'off') {
+      void start();
+    } else if (!enabled && phaseRef.current !== 'off') {
+      stop();
+    }
+  }, [enabled, start, stop]);
+
+  if (hideControls) return null;
 
   return (
     <div style={{ marginTop: 18, borderTop: '1px solid #ece4d9', paddingTop: 14 }}>
