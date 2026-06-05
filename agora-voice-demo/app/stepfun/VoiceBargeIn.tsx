@@ -13,6 +13,7 @@
 //   - Then narration resumes where it left off.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { streamAnswer } from './streamAnswer';
 
 export interface VoiceScene {
   id: string;
@@ -31,10 +32,8 @@ const MIN_UTTERANCE_MS = 400; // ignore blips shorter than this
 
 export default function VoiceBargeIn({
   scenes,
-  storySoFar,
 }: {
   scenes: VoiceScene[];
-  storySoFar: string;
 }) {
   const [phase, setPhase] = useState<Phase>('off');
   const [sceneIdx, setSceneIdx] = useState(0);
@@ -56,17 +55,21 @@ export default function VoiceBargeIn({
   const speechStartRef = useRef<number>(0);
   const silenceStartRef = useRef<number>(0);
   const recStartRef = useRef<number>(0);
+  const interruptedNarrationRef = useRef<{ idx: number; currentTime: number } | null>(null);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { sceneIdxRef.current = sceneIdx; }, [sceneIdx]);
 
-  const playNarration = useCallback((idx: number) => {
+  const playNarration = useCallback((idx: number, resumeAt?: number) => {
     const sc = scenes[idx];
     if (!sc) { setPhase('paused'); setStatus('— the end —'); return; }
     setSceneIdx(idx);
     if (!narrationRef.current) narrationRef.current = new Audio();
     const a = narrationRef.current;
     a.src = sc.audioDataUrl;
+    if (resumeAt != null && Number.isFinite(resumeAt)) {
+      a.currentTime = Math.max(0, resumeAt);
+    }
     a.onended = () => {
       // advance to the next scene when this one finishes (unless we're mid-QA)
       if (phaseRef.current === 'narrating') playNarration(idx + 1);
@@ -76,55 +79,65 @@ export default function VoiceBargeIn({
     void a.play().catch(() => {});
   }, [scenes]);
 
-  // The spoken-QA turn: send the recorded clip, play the answer, then resume.
+  const resumeNarration = useCallback(() => {
+    const interrupted = interruptedNarrationRef.current;
+    interruptedNarrationRef.current = null;
+    if (interrupted) {
+      playNarration(interrupted.idx, interrupted.currentTime);
+    } else {
+      playNarration(sceneIdxRef.current);
+    }
+  }, [playNarration]);
+
+  // The spoken-QA turn: stream the answer audio (plays the first words ~1.5s
+  // sooner than waiting for the whole mp3), then resume narration when it ends.
   const handleUtterance = useCallback(async (blob: Blob) => {
     setPhase('thinking');
     setStatus('thinking…');
+    const storySoFar = scenes
+      .slice(0, sceneIdxRef.current + 1)
+      .map((s) => s.narration)
+      .join(' ');
+    if (!answerRef.current) answerRef.current = new Audio();
     try {
-      const fd = new FormData();
-      fd.append('file', blob, 'q.webm');
-      fd.append('storySoFar', storySoFar);
-      const res = await fetch('/api/stepfun/voice-qa', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (data.backChannel || (!data.answer && !data.question)) {
-        // false barge-in (cough / no words) — just resume.
-        setStatus('…go on');
-        playNarration(sceneIdxRef.current);
-        return;
-      }
-      setTranscript((t) => [...t, { q: data.question || '(…)', a: data.answer || '' }]);
-      if (data.audioDataUrl) {
-        setPhase('answering');
-        setStatus('answering…');
-        if (!answerRef.current) answerRef.current = new Audio();
-        const a = answerRef.current;
-        a.src = data.audioDataUrl;
-        a.onended = () => playNarration(sceneIdxRef.current); // resume same scene
-        await a.play().catch(() => {});
-      } else {
-        playNarration(sceneIdxRef.current);
-      }
+      const r = await streamAnswer(blob, storySoFar, answerRef.current, {
+        onQuestion: (q) => setTranscript((t) => [...t, { q: q || '(…)', a: '' }]),
+        onAnswer: (a) => setTranscript((t) => {
+          // fill the answer into the last (matching) question row
+          const next = [...t];
+          for (let i = next.length - 1; i >= 0; i--) { if (!next[i].a) { next[i] = { ...next[i], a }; break; } }
+          return next;
+        }),
+        onBackChannel: () => { setStatus('…go on'); resumeNarration(); },
+        onPlaybackStart: () => { setPhase('answering'); setStatus('answering…'); },
+        onEnded: resumeNarration,
+      });
+      // Nothing played (back-channel handled above, or empty) → make sure we resume.
+      if (!r.backChannel && !r.played) resumeNarration();
     } catch (e) {
       setStatus(`(qa error: ${e instanceof Error ? e.message : 'failed'})`);
-      playNarration(sceneIdxRef.current);
+      resumeNarration();
     }
-  }, [storySoFar, playNarration]);
+  }, [scenes, resumeNarration]);
 
   const startRecording = useCallback(() => {
     if (!streamRef.current) return;
     chunksRef.current = [];
-    const rec = new MediaRecorder(streamRef.current, { mimeType: pickMime() });
+    const mimeType = pickMime();
+    const rec = mimeType
+      ? new MediaRecorder(streamRef.current, { mimeType })
+      : new MediaRecorder(streamRef.current);
     rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     rec.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: rec.mimeType });
       const dur = Date.now() - recStartRef.current;
       if (dur >= MIN_UTTERANCE_MS && blob.size > 800) void handleUtterance(blob);
-      else { setStatus('…go on'); playNarration(sceneIdxRef.current); } // too short → ignore
+      else { setStatus('…go on'); resumeNarration(); } // too short → ignore
     };
     recStartRef.current = Date.now();
     rec.start();
     recRef.current = rec;
-  }, [handleUtterance, playNarration]);
+  }, [handleUtterance, resumeNarration]);
 
   const stopRecording = useCallback(() => {
     if (recRef.current && recRef.current.state !== 'inactive') recRef.current.stop();
@@ -149,7 +162,13 @@ export default function VoiceBargeIn({
         if (!speechStartRef.current) speechStartRef.current = now;
         if (now - speechStartRef.current >= SPEECH_MS) {
           // BARGE-IN — pause narration/answer INSTANTLY and start recording.
-          narrationRef.current?.pause();
+          if (narrationRef.current && !narrationRef.current.paused) {
+            interruptedNarrationRef.current = {
+              idx: sceneIdxRef.current,
+              currentTime: narrationRef.current.currentTime,
+            };
+            narrationRef.current.pause();
+          }
           answerRef.current?.pause();
           speechStartRef.current = 0;
           silenceStartRef.current = 0;

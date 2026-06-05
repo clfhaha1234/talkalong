@@ -26,18 +26,46 @@ export default function StepFunPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
-  const [storySoFar, setStorySoFar] = useState('');
   const [active, setActive] = useState(0);
   const [question, setQuestion] = useState('');
   const [qa, setQa] = useState<QaTurn[]>([]);
   const [asking, setAsking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const interruptedAudioRef = useRef<{ src: string; currentTime: number } | null>(null);
 
   const play = (src: string) => {
     if (!src) return;
     if (!audioRef.current) audioRef.current = new Audio();
+    audioRef.current.onended = null;
     audioRef.current.src = src;
     void audioRef.current.play().catch(() => {});
+  };
+
+  const stopCurrentAudio = () => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    interruptedAudioRef.current = null;
+  };
+
+  const interruptCurrentAudio = () => {
+    const a = audioRef.current;
+    if (!a || a.paused || !a.src) {
+      interruptedAudioRef.current = null;
+      return;
+    }
+    interruptedAudioRef.current = { src: a.src, currentTime: a.currentTime };
+    a.pause();
+  };
+
+  const resumeInterruptedAudio = () => {
+    const interrupted = interruptedAudioRef.current;
+    interruptedAudioRef.current = null;
+    if (!interrupted || !audioRef.current) return;
+    const a = audioRef.current;
+    a.src = interrupted.src;
+    a.currentTime = interrupted.currentTime;
+    void a.play().catch(() => {});
   };
 
   const generate = async () => {
@@ -45,6 +73,7 @@ export default function StepFunPage() {
     setError(null);
     setScenes([]);
     setQa([]);
+    stopCurrentAudio();
     try {
       const res = await fetch('/api/stepfun/lesson', {
         method: 'POST',
@@ -54,7 +83,6 @@ export default function StepFunPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setScenes(data.scenes);
-      setStorySoFar(data.storySoFar);
       setActive(0);
       if (data.scenes[0]?.audioDataUrl) play(data.scenes[0].audioDataUrl);
     } catch (e) {
@@ -69,18 +97,32 @@ export default function StepFunPage() {
     if (!q) return;
     setAsking(true);
     setQuestion('');
+    interruptCurrentAudio();
     try {
+      const visibleStorySoFar = scenes
+        .slice(0, active + 1)
+        .map((s) => s.narration)
+        .join(' ');
       const res = await fetch('/api/stepfun/qa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, storySoFar }),
+        body: JSON.stringify({ question: q, storySoFar: visibleStorySoFar }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setQa((prev) => [...prev, { q, a: data.answer }]);
-      if (data.audioDataUrl) play(data.audioDataUrl);
+      if (data.audioDataUrl) {
+        if (!audioRef.current) audioRef.current = new Audio();
+        const a = audioRef.current;
+        a.src = data.audioDataUrl;
+        a.onended = resumeInterruptedAudio;
+        void a.play().catch(() => {});
+      } else {
+        resumeInterruptedAudio();
+      }
     } catch (e) {
       setQa((prev) => [...prev, { q, a: `(error: ${e instanceof Error ? e.message : 'failed'})` }]);
+      resumeInterruptedAudio();
     } finally {
       setAsking(false);
     }
@@ -160,7 +202,7 @@ export default function StepFunPage() {
           </div>
 
           {/* Realtime voice mode: narration + speak-to-interrupt (barge-in). */}
-          <VoiceBargeIn scenes={scenes} storySoFar={storySoFar} />
+          <VoiceBargeIn scenes={scenes} />
         </div>
       )}
     </main>
