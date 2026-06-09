@@ -75,9 +75,15 @@ Current cases:
 ## What StepFun Should Teach Tutor
 
 1. Local preemption is valuable.
-   StepFun pauses local narration immediately on VAD. Tutor's local hush mirrors
-   this idea and should stay treated as a first-class requirement, not just a UI
-   polish detail.
+   StepFun ducks local narration on the FIRST voiced frame and starts a
+   tentative recording immediately, then commits the barge-in (full pause) only
+   after sustained speech — so the response feels instant, blips never pause
+   playback, and the head of the question is never clipped from the ASR clip.
+   Barge-in is allowed in every phase, including `thinking` (aborts the pending
+   QA turn, with a higher commit threshold) and `answering` (a false barge
+   resumes the answer audio, not the narration). Resume rewinds ~1s and fades
+   in. Tutor's local hush mirrors the same idea and should stay treated as a
+   first-class requirement, not just a UI polish detail.
 
 2. QA audio should be guarded as a resource.
    StepFun now prevents narration resume while QA audio is still playing. Tutor's
