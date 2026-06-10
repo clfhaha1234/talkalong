@@ -31,6 +31,7 @@
     "test:stepfun:barge": "node scripts/stepfun/stepfun-barge-in-e2e.mjs",
     "test:stepfun:followup": "node scripts/stepfun/stepfun-followup-window-e2e.mjs",
     "test:stepfun:multi-barge": "node scripts/stepfun/stepfun-multi-barge-e2e.mjs",
+    "test:stepfun:rapid-barge": "node scripts/stepfun/stepfun-rapid-multi-barge-e2e.mjs",
     "test:voice:cross": "node scripts/cross-stack/voice-regression-suite.mjs",
     "verify": "pnpm run doctor && pnpm run lint && pnpm run typecheck && pnpm run verify:api && pnpm run build"
   },

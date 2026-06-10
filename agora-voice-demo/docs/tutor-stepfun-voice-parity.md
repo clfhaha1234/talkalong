@@ -48,6 +48,9 @@ Current cases:
 - `stepfun:followup-window`: QA answer must not be preempted by narration
   resume.
 - `stepfun:multi-barge`: multiple same-session spoken interruptions.
+- `stepfun:rapid-multi-barge`: the second spoken question lands while the first
+  answer is still playing; exercises barge-in during `answering`/`thinking` and
+  asserts narration resumes after back-to-back interrupts.
 
 ## What Tutor Should Teach StepFun
 
@@ -124,15 +127,11 @@ These should become the benchmark vocabulary for both stacks:
    Mirror tutor's language-switch e2e: ask to continue in Chinese, assert the
    next displayed narration is Chinese and old English audio is not reused.
 
-2. `stepfun:rapid-multi-barge`.
-   Same as `multi-barge`, but the second fake question lands during the answer
-   follow-up window or before a resumed narration segment.
-
-3. `tutor:followup-window`.
+2. `tutor:followup-window`.
    Tutor has resume seam checks, but a DOM-level no-mainline-resume guard would
    make it comparable to StepFun's current test.
 
-4. Unified JSON output.
+3. Unified JSON output.
    The cross runner currently prints each child script's native output. Add
    optional `VOICE_BENCH_JSON=/path/result.json` once the metrics stabilize.
 

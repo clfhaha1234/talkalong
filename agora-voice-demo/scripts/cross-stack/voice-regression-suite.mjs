@@ -63,6 +63,15 @@ const ALL_CASES = [
       STEPFUN_URL: process.env.STEPFUN_URL ?? process.env.BARGE_BASE_URL ?? 'http://localhost:3001/stepfun',
     }),
   },
+  {
+    id: 'stepfun:rapid-multi-barge',
+    stack: 'stepfun',
+    note: 'second question lands mid-answer; resume must survive back-to-back interrupts',
+    cmd: ['node', 'scripts/stepfun/stepfun-rapid-multi-barge-e2e.mjs'],
+    env: () => ({
+      STEPFUN_URL: process.env.STEPFUN_URL ?? process.env.BARGE_BASE_URL ?? 'http://localhost:3001/stepfun',
+    }),
+  },
 ];
 
 function stepfunBaseWithoutPath() {
